@@ -1,0 +1,9 @@
+[package]
+name = "ctf_trace_reader_crust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bt2-sys = { path = "bt2-sys" }
+chrono = "0.4.38"
+derivative = "2.2.0"
