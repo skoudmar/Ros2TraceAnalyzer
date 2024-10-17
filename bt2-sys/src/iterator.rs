@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    error::{BtError, IntoResult},
+    error::{BtError, BtResult, IntoResult},
     message::{BtMessageArrayConst, BtMessageConst},
     raw_bindings::{
         bt_graph_simple_sink_component_consume_func_status,
@@ -36,6 +36,8 @@ impl BatchMessageIterator {
     ) -> bt_graph_simple_sink_component_consume_func_status {
         const STATUS_OK: bt_graph_simple_sink_component_consume_func_status =
             bt_graph_simple_sink_component_consume_func_status::BT_GRAPH_SIMPLE_SINK_COMPONENT_CONSUME_FUNC_STATUS_OK;
+        const STATUS_END: bt_graph_simple_sink_component_consume_func_status =
+            bt_graph_simple_sink_component_consume_func_status::BT_GRAPH_SIMPLE_SINK_COMPONENT_CONSUME_FUNC_STATUS_END;
         const STATUS_ERROR: bt_graph_simple_sink_component_consume_func_status =
             bt_graph_simple_sink_component_consume_func_status::BT_GRAPH_SIMPLE_SINK_COMPONENT_CONSUME_FUNC_STATUS_ERROR;
 
@@ -59,13 +61,16 @@ impl BatchMessageIterator {
         loop {
             let result = iterator.next();
             match result {
-                Err(BtError::Again) => {
-                    continue;
-                }
                 Ok(messages) => {
                     *internal = Some(messages);
 
                     return STATUS_OK;
+                }
+                Err(BtError::Again) => {
+                    continue;
+                }
+                Err(BtError::End) => {
+                    return STATUS_END;
                 }
                 Err(e) => {
                     rethrow_error!(e, "Failed to get next batch of messages");
@@ -98,7 +103,7 @@ impl BatchMessageIterator {
         }
     }
 
-    fn next_batch(&mut self) -> Result<MessageIteratorState, BtError> {
+    fn next_batch(&mut self) -> BtResult<MessageIteratorState> {
         let mut internal = self.internal.0.borrow_mut();
         let taken = internal.take();
         drop(taken);
