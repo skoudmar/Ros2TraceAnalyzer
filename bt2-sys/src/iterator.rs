@@ -42,7 +42,7 @@ impl BatchMessageIterator {
             bt_graph_simple_sink_component_consume_func_status::BT_GRAPH_SIMPLE_SINK_COMPONENT_CONSUME_FUNC_STATUS_ERROR;
 
         let Some(this_ptr) = NonNull::new(user_data as *mut BatchMessageIteratorInner) else {
-            eprintln!("Failed to get MessageIterator from user_data");
+            throw_error!("Failed to get MessageIterator from user_data");
             return STATUS_ERROR;
         };
         let this = this_ptr.as_ref();
