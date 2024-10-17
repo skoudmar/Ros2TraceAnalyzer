@@ -1,11 +1,8 @@
 use std::ops::Deref;
 
-use crate::{
-    error::OutOfMemoryError,
-    raw_bindings::{
+use crate::raw_bindings::{
         bt_field, bt_field_array_borrow_element_field_by_index_const, bt_field_array_get_length, bt_field_borrow_class_const, bt_field_class, bt_field_class_structure_borrow_member_by_index_const, bt_field_class_structure_borrow_member_by_name_const, bt_field_class_structure_get_member_count, bt_field_class_structure_member, bt_field_class_structure_member_borrow_field_class_const, bt_field_class_structure_member_get_name, bt_field_class_type_BT_FIELD_CLASS_TYPE_BOOL, bt_field_class_type_BT_FIELD_CLASS_TYPE_DYNAMIC_ARRAY_WITHOUT_LENGTH_FIELD, bt_field_class_type_BT_FIELD_CLASS_TYPE_DYNAMIC_ARRAY_WITH_LENGTH_FIELD, bt_field_class_type_BT_FIELD_CLASS_TYPE_SIGNED_INTEGER, bt_field_class_type_BT_FIELD_CLASS_TYPE_STATIC_ARRAY, bt_field_class_type_BT_FIELD_CLASS_TYPE_STRING, bt_field_class_type_BT_FIELD_CLASS_TYPE_STRUCTURE, bt_field_class_type_BT_FIELD_CLASS_TYPE_UNSIGNED_INTEGER, bt_field_get_class_type, bt_field_integer_unsigned_get_value, bt_field_string_get_length, bt_field_string_get_value, bt_field_structure_borrow_member_field_by_name_const
-    },
-};
+    };
 
 #[repr(transparent)]
 pub struct BtFieldConst(*const bt_field);

@@ -1,4 +1,4 @@
-use crate::{field::BtFieldConst, raw_bindings::{bt_packet, bt_packet_borrow_context_field_const, bt_stream, bt_stream_borrow_class_const, bt_stream_borrow_trace_const, bt_stream_class, bt_stream_class_supports_packets, BT_TRUE}, trace::BtTraceConst};
+use crate::{field::BtFieldConst, raw_bindings::{bt_packet, bt_packet_borrow_context_field_const, bt_stream, bt_stream_borrow_class_const, bt_stream_borrow_trace_const, bt_stream_class, bt_stream_class_supports_packets}, trace::BtTraceConst};
 
 #[repr(transparent)]
 pub struct BtStreamConst(*const bt_stream);
