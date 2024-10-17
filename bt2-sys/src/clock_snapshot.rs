@@ -8,19 +8,19 @@ impl BtClockSnapshotConst {
         Self(ptr)
    }
 
-    pub(crate) fn get_ptr(&self) -> *const bt_clock_snapshot {
+    pub(crate) fn as_ptr(&self) -> *const bt_clock_snapshot {
         self.0
     }
 
     pub fn get_value(&self) -> u64 {
-        unsafe { bt_clock_snapshot_get_value(self.0) }
+        unsafe { bt_clock_snapshot_get_value(self.as_ptr()) }
     }
 
     /// Returns the value of the clock snapshot from the origin of the clock or None if an overflow error occurred.
     pub fn get_value_from_origin(&self) -> Option<i64> {
         let mut ret_val = 0;
         let status = unsafe { 
-            bt_clock_snapshot_get_ns_from_origin(self.0, &mut ret_val)
+            bt_clock_snapshot_get_ns_from_origin(self.as_ptr(), &mut ret_val)
         };
 
         match status {
