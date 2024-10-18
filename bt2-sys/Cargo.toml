@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+derive_more = { version = "1.0.0", features = ["deref"] }
 thiserror = "1.0.64"
 
 [build-dependencies]
