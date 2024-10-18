@@ -1,13 +1,55 @@
 use std::sync::{Arc, Mutex, Weak};
 
-use crate::utils::Known;
+use chrono::{Local, TimeZone};
 
-#[derive(Debug, Default)]
+use crate::{raw_events, utils::{DisplayArcMutex, DisplayDebug, DisplayWeakMutex, Known}};
+
+const GID_SIZE: usize = 16;
+const GID_SUFFIX_SIZE: usize = 8;
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Time {
+    /// Nanoseconds since the UNIX epoch (1970-01-01 00:00:00 UTC)
+    timestamp: i64,
+}
+
+impl Time {
+    pub fn from_nanos(nanos: i64) -> Self {
+        Self { timestamp: nanos }
+    }
+
+    pub fn timestamp_nanos(self) -> i64 {
+        self.timestamp
+    }
+
+    pub fn as_datetime(self) -> chrono::DateTime<chrono::Local> {
+        Local.timestamp_nanos(self.timestamp)
+    }
+}
+
+impl std::fmt::Debug for Time {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Time").field(&self.as_datetime()).finish()
+    }
+}
+
+impl std::fmt::Display for Time {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_datetime())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Name {
+    full_name: String,
+    namespace_len: usize,
+}
+
+#[derive(Debug)]
 pub struct Node {
     rcl_handle: u64,
     rmw_handle: Known<u64>,
-    name: Known<String>,
-    namespace: Known<String>,
+    full_name: Known<Name>,
 
     subscribers: Vec<Arc<Mutex<Subscriber>>>,
     publishers: Vec<Arc<Mutex<Publisher>>>,
@@ -23,15 +65,14 @@ pub struct Subscriber {
     rcl_handle: Known<u64>,
     rclcpp_handle: Known<u64>,
 
-    dds_gid: Known<Gid>,
     rmw_gid: Known<RmwGid>,
 
     topic_name: Known<String>,
     topic_name_dds: Known<String>,
     node: Known<Weak<Mutex<Node>>>,
-    queue_depth: Known<u64>,
+    queue_depth: Known<usize>,
 
-    callback: Arc<Callback>,
+    callback: Known<Arc<Mutex<Callback>>>,
 }
 
 #[derive(Debug, Default)]
@@ -41,16 +82,15 @@ pub struct Publisher {
     rcl_handle: Known<u64>,
     rclcpp_handle: Known<u64>,
 
-    dds_gid: Known<Gid>,
     rmw_gid: Known<RmwGid>,
 
     topic_name: Known<String>,
     topic_name_dds: Known<String>,
     node: Known<Weak<Mutex<Node>>>,
-    queue_depth: Known<u64>,
+    queue_depth: Known<usize>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Service {
     rmw_handle: Known<u64>,
     rcl_handle: u64,
@@ -58,18 +98,23 @@ pub struct Service {
 
     name: Known<String>,
     node: Known<Weak<Mutex<Node>>>,
-    callback: Arc<Mutex<Callback>>,
+    callback: Known<Arc<Mutex<Callback>>>,
 }
 
 #[derive(Debug, Default)]
-pub struct Client {}
+pub struct Client {
+    rcl_handle: u64,
+    rmw_handle: Known<u64>,
+    node: Known<Weak<Mutex<Node>>>,
+    service_name: Known<String>,
+}
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Timer {
     rcl_handle: u64,
-    period: Known<u64>,
+    period: Known<i64>,
 
-    callback: Arc<Mutex<Callback>>,
+    callback: Known<Arc<Mutex<Callback>>>,
     node: Known<Weak<Mutex<Node>>>,
 }
 
@@ -80,11 +125,12 @@ pub enum CallbackCaller {
     Timer(Weak<Mutex<Timer>>),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Callback {
-    handle: Known<u64>,
+    handle: u64,
     caller: Known<CallbackCaller>,
     name: Known<String>,
+    start_time: Option<Time>,
 }
 
 pub enum Gid {
@@ -93,19 +139,129 @@ pub enum Gid {
 }
 
 pub struct DdsGid {
-    gid: [u8; 16],
+    gid: [u8; GID_SIZE],
 }
 
 pub struct RmwGid {
     gid: DdsGid,
-    gid_suffix: [u8; 8],
+    gid_suffix: [u8; GID_SUFFIX_SIZE],
+}
+
+#[derive(Debug)]
+pub struct PublicationMessage {
+    ptr: u64,
+    publisher: Known<Arc<Mutex<Publisher>>>,
+    sender_timestamp: Known<Time>,
+}
+
+#[derive(Debug, Default)]
+pub enum PartiallyKnown<T, U> {
+    Fully(T),
+    Partially(U),
+    #[default]
+    Unknown,
+}
+#[derive(Debug)]
+pub struct SubscriptionMessage {
+    ptr: u64,
+    message: PartiallyKnown<Arc<Mutex<PublicationMessage>>, Time>,
+    subscriber: Known<Arc<Mutex<Subscriber>>>,
+}
+
+impl PublicationMessage {
+    pub(crate) fn new(message: u64) -> Self {
+        Self {
+            ptr: message,
+            publisher: Known::Unknown,
+            sender_timestamp: Known::Unknown,
+        }
+    }
+
+    pub(crate) fn set_publisher(&mut self, publisher: Arc<Mutex<Publisher>>) {
+        assert!(
+            self.publisher.is_unknown(),
+            "PublicationMessage publisher already set. {self:#?}"
+        );
+        self.publisher = Known::new(publisher);
+    }
+
+    pub(crate) fn set_sender_timestamp(&mut self, timestamp: i64) {
+        assert!(
+            self.sender_timestamp.is_unknown(),
+            "PublicationMessage sender_timestamp already set. {self:#?}"
+        );
+        self.sender_timestamp = Known::new(Time::from_nanos(timestamp));
+    }
+}
+
+impl SubscriptionMessage {
+    pub fn new(ptr: u64) -> Self {
+        Self {
+            ptr,
+            message: PartiallyKnown::Unknown,
+            subscriber: Known::Unknown,
+        }
+    }
+
+    pub fn rmw_take_matched(
+        &mut self,
+        subscriber: Arc<Mutex<Subscriber>>,
+        published_message: Arc<Mutex<PublicationMessage>>,
+    ) {
+        assert!(
+            self.subscriber.is_unknown(),
+            "SubscriptionMessage subscriber already set. {self:#?}"
+        );
+        self.subscriber = Known::new(subscriber);
+        self.message = PartiallyKnown::Fully(published_message);
+    }
+
+    pub fn rmw_take_unmatched(
+        &mut self,
+        subscriber: Arc<Mutex<Subscriber>>,
+        publication_time: i64,
+    ) {
+        assert!(
+            self.subscriber.is_unknown(),
+            "SubscriptionMessage subscriber already set. {self:#?}"
+        );
+        self.subscriber = Known::new(subscriber);
+        self.message = PartiallyKnown::Partially(Time::from_nanos(publication_time));
+    }
+}
+
+impl Name {
+    pub fn new(namespace: &str, name: &str) -> Self {
+        Self {
+            full_name: format!("{namespace}{name}"),
+            namespace_len: namespace.len(),
+        }
+    }
+
+    pub fn get_full_name(&self) -> &str {
+        &self.full_name
+    }
+
+    pub fn get_namespace(&self) -> &str {
+        &self.full_name[..self.namespace_len]
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.full_name[self.namespace_len..]
+    }
 }
 
 impl Node {
     pub fn new(rcl_handle: u64) -> Self {
         Self {
             rcl_handle,
-            ..Default::default()
+            rmw_handle: Known::Unknown,
+            full_name: Known::Unknown,
+            subscribers: Vec::new(),
+            publishers: Vec::new(),
+            services: Vec::new(),
+            clients: Vec::new(),
+            timers: Vec::new(),
         }
     }
 
@@ -127,6 +283,404 @@ impl Node {
 
     pub fn add_timer(&mut self, timer: Arc<Mutex<Timer>>) {
         self.timers.push(timer);
+    }
+
+    pub fn rcl_init(&mut self, rmw_handle: u64, name: &str, namespace: &str) {
+        assert!(
+            self.rmw_handle.is_unknown() && self.full_name.is_unknown(),
+            "Node already initialized with rcl_init_node. {self:#?}"
+        );
+
+        self.rmw_handle = Known::new(rmw_handle);
+        self.full_name = Known::new(Name::new(namespace, name));
+    }
+
+    pub fn get_full_name(&self) -> Known<&str> {
+        self.full_name.as_ref().map(Name::get_full_name)
+    }
+
+    pub fn get_namespace(&self) -> Known<&str> {
+        self.full_name.as_ref().map(Name::get_namespace)
+    }
+
+    pub fn get_name(&self) -> Known<&str> {
+        self.full_name.as_ref().map(Name::get_name)
+    }
+}
+
+impl std::fmt::Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = self.get_full_name().map(DisplayDebug);
+        write!(
+            f,
+            "(name={name}, handles={{rmw={:x}, rcl={:x}}})",
+            self.rmw_handle, self.rcl_handle
+        )
+    }
+}
+
+impl Publisher {
+    pub fn rmw_init(&mut self, rmw_handle: u64, gid: [u8; raw_events::ros2::GID_SIZE]) {
+        assert!(
+            (self.rmw_handle.is_unknown() || self.rmw_handle.eq_inner(&rmw_handle))
+                && self.rmw_gid.is_unknown(),
+            "Publisher already initialized with rmw_init_publisher. {self:#?}"
+        );
+        self.rmw_handle = Known::new(rmw_handle);
+        self.rmw_gid = Known::new(RmwGid::new(gid));
+    }
+
+    pub fn rcl_init(
+        &mut self,
+        rcl_handle: u64,
+        topic_name: String,
+        queue_depth: usize,
+        node: Weak<Mutex<Node>>,
+    ) {
+        assert!(
+            self.rcl_handle.is_unknown(),
+            "Publisher already initialized with rcl_publisher_init. {self:#?}"
+        );
+        self.rcl_handle = Known::new(rcl_handle);
+        self.topic_name = Known::new(topic_name);
+        self.queue_depth = Known::new(queue_depth);
+        self.node = Known::new(node);
+    }
+
+    pub(crate) fn set_rmw_handle(&mut self, rmw_publisher_handle: u64) {
+        assert!(
+            self.rmw_handle.is_unknown(),
+            "Publisher rmw_handle already set. {self:#?}"
+        );
+        self.rmw_handle = Known::new(rmw_publisher_handle);
+    }
+
+    pub fn set_rcl_handle(&mut self, rcl_publisher_handle: u64) {
+        assert!(
+            self.rcl_handle.is_unknown(),
+            "Publisher rcl_handle already set. {self:#?}"
+        );
+        self.rcl_handle = Known::new(rcl_publisher_handle);
+    }
+}
+
+impl std::fmt::Display for Publisher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let node = self
+            .node
+            .as_ref()
+            .map(|node| DisplayWeakMutex::new(node, f.alternate()));
+
+        write!(f, "(topic={}, handles={{dds={:x}, rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node})",
+        self.topic_name.as_ref().map(DisplayDebug), self.dds_handle, self.rmw_handle, self.rcl_handle, self.rclcpp_handle, self.queue_depth)
+    }
+}
+
+impl Subscriber {
+    pub fn rmw_init(&mut self, rmw_handle: u64, gid: [u8; raw_events::ros2::GID_SIZE]) {
+        assert!(
+            (self.rmw_handle.is_unknown() || self.rmw_handle.eq_inner(&rmw_handle))
+                && self.rmw_gid.is_unknown(),
+            "Subscriber already initialized with rmw_init_subscription. {self:#?}"
+        );
+        self.rmw_handle = Known::new(rmw_handle);
+        self.rmw_gid = Known::new(RmwGid::new(gid));
+    }
+
+    pub fn rcl_init(
+        &mut self,
+        rcl_handle: u64,
+        topic_name: String,
+        queue_depth: usize,
+        node: Weak<Mutex<Node>>,
+    ) {
+        assert!(
+            self.rcl_handle.is_unknown(),
+            "Subscriber already initialized with rcl_subscription_init. {self:#?}"
+        );
+        self.rcl_handle = Known::new(rcl_handle);
+        self.topic_name = Known::new(topic_name);
+        self.queue_depth = Known::new(queue_depth);
+        self.node = Known::new(node);
+    }
+
+    pub fn rclcpp_init(&mut self, rclcpp_handle: u64) {
+        assert!(
+            self.rclcpp_handle.is_unknown(),
+            "Subscriber already initialized with rclcpp_subscription_init. {self:#?}"
+        );
+        self.rclcpp_handle = Known::new(rclcpp_handle);
+    }
+
+    pub(crate) fn set_rmw_handle(&mut self, rmw_subscription_handle: u64) {
+        assert!(
+            self.rmw_handle.is_unknown(),
+            "Subscriber rmw_handle already set. {self:#?}"
+        );
+        self.rmw_handle = Known::new(rmw_subscription_handle);
+    }
+
+    pub fn set_callback(&mut self, callback: Arc<Mutex<Callback>>) {
+        assert!(
+            self.callback.is_unknown(),
+            "Subscriber callback already set. {self:#?}"
+        );
+
+        self.callback = Known::new(callback);
+    }
+}
+
+impl std::fmt::Display for Subscriber {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let node = self
+            .node
+            .as_ref()
+            .map(|node| DisplayWeakMutex::new(node, false));
+        let callback = self.callback.as_ref().map(|callback|DisplayArcMutex::new(callback, f.alternate()));
+
+        write!(f, "(topic={}, handles={{dds={:x}, rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node} callback={callback:#})",
+            self.topic_name.as_ref().map(DisplayDebug), self.dds_handle, self.rmw_handle, self.rcl_handle, self.rclcpp_handle, self.queue_depth,
+        )
+    }
+}
+
+impl Service {
+    pub fn new(rcl_handle: u64) -> Self {
+        Self {
+            rmw_handle: Known::Unknown,
+            rcl_handle,
+            rclcpp_handle: Known::Unknown,
+            name: Known::Unknown,
+            node: Known::Unknown,
+            callback: Known::Unknown,
+        }
+    }
+
+    pub fn rcl_init(&mut self, rmw_handle: u64, name: String, node: &Arc<Mutex<Node>>) {
+        assert!(
+            self.name.is_unknown() && self.node.is_unknown(),
+            "Service already initialized with rcl_service_init. {self:#?}"
+        );
+        self.rmw_handle = Known::new(rmw_handle);
+        self.name = Known::new(name);
+        self.node = Known::new(Arc::downgrade(node));
+    }
+
+    pub fn set_callback(&mut self, callback: Arc<Mutex<Callback>>) {
+        assert!(
+            self.callback.is_unknown(),
+            "Service callback already set. {self:#?}"
+        );
+
+        self.callback = Known::new(callback);
+    }
+}
+
+impl std::fmt::Display for Service {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let node = self
+            .node
+            .as_ref()
+            .map(|node| DisplayWeakMutex::new(node, false));
+        let callback = self.callback.as_ref().map(|callback| DisplayArcMutex::new(callback, f.alternate()));
+
+        write!(f, "(service={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, node={node} callback={callback:#})",
+            self.name.as_ref().map(DisplayDebug), self.rmw_handle, self.rcl_handle, self.rclcpp_handle,
+        )
+    }
+}
+
+impl Client {
+    pub fn new(id: u64) -> Self {
+        Self {
+            rcl_handle: id,
+            rmw_handle: Known::Unknown,
+            node: Known::Unknown,
+            service_name: Known::Unknown,
+        }
+    }
+
+    pub fn rcl_init(&mut self, rmw_handle: u64, service_name: String, node: &Arc<Mutex<Node>>) {
+        assert!(
+            self.rmw_handle.is_unknown()
+                && self.node.is_unknown()
+                && self.service_name.is_unknown(),
+            "Client already initialized with rcl_client_init. {self:#?}"
+        );
+        self.rmw_handle = Known::new(rmw_handle);
+        self.node = Known::new(Arc::downgrade(node));
+        self.service_name = Known::new(service_name);
+    }
+}
+
+impl std::fmt::Display for Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let node = self
+            .node
+            .as_ref()
+            .map(|node| DisplayWeakMutex::new(node, f.alternate()));
+
+        write!(f, "(service={}, handles={{rmw={:x}, rcl={:x}}}, node={node})",
+            self.service_name.as_ref().map(DisplayDebug), self.rmw_handle, self.rcl_handle)
+    }
+}
+
+impl Timer {
+    pub fn new(id: u64) -> Self {
+        Self {
+            rcl_handle: id,
+            period: Known::Unknown,
+            callback: Known::Unknown,
+            node: Known::Unknown,
+        }
+    }
+
+    pub fn rcl_init(&mut self, period: i64) {
+        assert!(
+            self.period.is_unknown(),
+            "Timer already initialized with rcl_timer_init. {self:#?}"
+        );
+        self.period = Known::new(period);
+    }
+
+    pub fn set_callback(&mut self, callback: Arc<Mutex<Callback>>) {
+        assert!(
+            self.callback.is_unknown(),
+            "Timer callback already set. {self:#?}"
+        );
+
+        self.callback = Known::new(callback);
+    }
+
+    pub fn link_node(&mut self, node: &Arc<Mutex<Node>>) {
+        assert!(self.node.is_unknown(), "Timer node already set. {self:#?}");
+
+        self.node = Known::new(Arc::downgrade(node));
+    }
+}
+
+impl std::fmt::Display for Timer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let node = self
+            .node
+            .as_ref()
+            .map(|node| DisplayWeakMutex::new(node, false));
+        let callback = self.callback.as_ref().map(|callback| DisplayArcMutex::new(callback, f.alternate()));
+
+        write!(f, "(period={}, rcl_handle={}, node={node} callback={callback:#})",
+            self.period, self.rcl_handle,
+        )
+    }
+    
+}
+
+impl Callback {
+    pub fn new_subscription(handle: u64, caller: &Arc<Mutex<Subscriber>>) -> Arc<Mutex<Self>> {
+        let caller = Known::new(CallbackCaller::Subscription(Arc::downgrade(caller)));
+        Arc::new(Mutex::new(Self {
+            handle,
+            caller,
+            name: Known::Unknown,
+            start_time: None,
+        }))
+    }
+
+    pub fn new_service(handle: u64, caller: &Arc<Mutex<Service>>) -> Arc<Mutex<Self>> {
+        let caller = Known::new(CallbackCaller::Service(Arc::downgrade(caller)));
+        Arc::new(Mutex::new(Self {
+            handle,
+            caller,
+            name: Known::Unknown,
+            start_time: None,
+        }))
+    }
+
+    pub fn new_timer(handle: u64, caller: &Arc<Mutex<Timer>>) -> Arc<Mutex<Self>> {
+        let caller = Known::new(CallbackCaller::Timer(Arc::downgrade(caller)));
+        Arc::new(Mutex::new(Self {
+            handle,
+            caller,
+            name: Known::Unknown,
+            start_time: None,
+        }))
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        assert!(
+            self.name.is_unknown(),
+            "Callback name already set. {self:#?}"
+        );
+
+        self.name = Known::new(name);
+    }
+
+    pub fn start(&mut self, time: Time) {
+        assert!(
+            self.start_time.is_none(),
+            "Callback start_time already set. {self:#?}"
+        );
+
+        self.start_time = Some(time);
+    }
+
+    pub fn end(&mut self) -> Time {
+        self.start_time.take().expect("Callback start_time not set")
+    }
+}
+
+impl std::fmt::Display for Callback {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            write!(f, "(handle={:x}, name={})", self.handle, self.name.as_ref().map(DisplayDebug))
+        } else {
+            match &self.caller {
+                Known::Known(CallbackCaller::Subscription(subscriber)) => {
+                    write!(
+                        f,
+                        "(handle={:x}, caller=Subscriber{}, name={})",
+                        self.handle,
+                        DisplayWeakMutex::new(subscriber, false),
+                        self.name.as_ref().map(DisplayDebug)
+                    )
+                }
+                Known::Known(CallbackCaller::Service(service)) => {
+                    write!(
+                        f,
+                        "(handle={:x}, caller=Service{}, name={})",
+                        self.handle,
+                        DisplayWeakMutex::new(service, false),
+                        self.name.as_ref().map(DisplayDebug)
+                    )
+                }
+                Known::Known(CallbackCaller::Timer(timer)) => {
+                    write!(
+                        f,
+                        "(handle={:x}, caller=Timer{}, name={})",
+                        self.handle,
+                        DisplayWeakMutex::new(timer, false),
+                        self.name.as_ref().map(DisplayDebug)
+                    )
+                }
+                Known::Unknown => {
+                    write!(
+                        f,
+                        "(handle={:x}, caller=Unknown, name={})",
+                        self.handle, self.name.as_ref().map(DisplayDebug)
+                    )
+                }
+            }
+        }
+    }
+}
+
+impl RmwGid {
+    pub fn new(gid: [u8; raw_events::ros2::GID_SIZE]) -> Self {
+        let gid_main = gid[..GID_SIZE].try_into().unwrap();
+        let gid_suffix = gid[GID_SIZE..].try_into().unwrap();
+        Self {
+            gid: DdsGid { gid: gid_main },
+            gid_suffix,
+        }
     }
 }
 
@@ -184,6 +738,37 @@ impl std::fmt::Debug for Gid {
         match self {
             Gid::DdsGid(gid) => std::fmt::Debug::fmt(gid, f),
             Gid::RmwGid(gid) => std::fmt::Debug::fmt(gid, f),
+        }
+    }
+}
+
+impl std::fmt::Display for PublicationMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let publisher = self
+            .publisher
+            .as_ref()
+            .map(|publisher| publisher.lock().unwrap());
+        write!(f, "(ptr={:x}, sender_timestamp={}, publisher={publisher})", self.ptr, self.sender_timestamp)
+    }
+}
+
+impl std::fmt::Display for SubscriptionMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let subscriber = self
+            .subscriber
+            .as_ref()
+            .map(|subscriber| subscriber.lock().unwrap());
+        match &self.message {
+            PartiallyKnown::Fully(message) => {
+                let message = message.lock().unwrap();
+                write!(f, "(ptr={:x}, message={message}, subscriber={subscriber})", self.ptr)
+            }
+            PartiallyKnown::Partially(timestamp) => {
+                write!(f, "(ptr={:x}, message=(sender_timestamp={timestamp}), subscriber={subscriber})", self.ptr)
+            }
+            PartiallyKnown::Unknown => {
+                write!(f, "(ptr={:x}, message=Unknown, subscriber={subscriber})", self.ptr)
+            }
         }
     }
 }

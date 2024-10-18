@@ -1,7 +1,9 @@
+mod events_common;
 mod model;
+mod processed_events;
+mod processor;
 mod raw_events;
 mod utils;
-mod processor;
 
 use std::env;
 
@@ -11,6 +13,8 @@ fn main() {
     let trace_path = env::args()
         .nth(1)
         .expect("Expected trace path as first argument");
+
+    let mut processor = processor::Processor::new();
 
     for message in MessageIterator::new(&trace_path).take(1_000_000) {
         if message.get_type() != BtMessageType::Event {
@@ -22,6 +26,14 @@ fn main() {
         let Some(event) = raw_events::get_full_event(&message) else {
             continue;
         };
-        println!("{event:?}");
+        match processor.process_raw_event(event) 
+        {
+            Ok(processed_event) => {
+                println!("{processed_event}");
+            }
+            Err(e) => {
+                println!("unprocessed event: {e:?}");
+            }
+        }
     }
 }

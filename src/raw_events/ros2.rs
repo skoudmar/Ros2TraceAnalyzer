@@ -1,8 +1,10 @@
 use bt2_sys::event::BtEventConst;
 
+use crate::impl_from_for_enum;
+
 use super::FromBtEvent;
 
-pub const TRACETOOLS_GID_SIZE: usize = 24;
+pub const GID_SIZE: usize = 24;
 
 #[derive(Debug)]
 pub struct RclInit {
@@ -21,7 +23,7 @@ pub struct RclNodeInit {
 #[derive(Debug)]
 pub struct RmwPublisherInit {
     pub rmw_publisher_handle: u64,
-    pub gid: [u8; TRACETOOLS_GID_SIZE],
+    pub gid: [u8; GID_SIZE],
 }
 
 #[derive(Debug)]
@@ -60,7 +62,7 @@ pub struct RmwPublish {
 #[derive(Debug)]
 pub struct RmwSubscriptionInit {
     pub rmw_subscription_handle: u64,
-    pub gid: [u8; TRACETOOLS_GID_SIZE],
+    pub gid: [u8; GID_SIZE],
 }
 
 #[derive(Debug)]
@@ -98,7 +100,7 @@ pub struct RclTake {
 }
 
 #[derive(Debug)]
-pub struct RclCppTake {
+pub struct RclcppTake {
     pub message: u64,
 }
 
@@ -111,7 +113,7 @@ pub struct RclServiceInit {
 }
 
 #[derive(Debug)]
-pub struct RclCppServiceCallbackAdded {
+pub struct RclcppServiceCallbackAdded {
     pub service_handle: u64,
     pub callback: u64,
 }
@@ -131,19 +133,19 @@ pub struct RclTimerInit {
 }
 
 #[derive(Debug)]
-pub struct RclCppTimerCallbackAdded {
+pub struct RclcppTimerCallbackAdded {
     pub timer_handle: u64,
     pub callback: u64,
 }
 
 #[derive(Debug)]
-pub struct RclCppTimerLinkNode {
+pub struct RclcppTimerLinkNode {
     pub timer_handle: u64,
     pub node_handle: u64,
 }
 
 #[derive(Debug)]
-pub struct RclCppCallbackRegister {
+pub struct RclcppCallbackRegister {
     pub callback: u64,
     pub symbol: String,
 }
@@ -223,6 +225,7 @@ pub struct RclCppRingBufferClear {
     pub buffer: u64,
 }
 
+impl_from_for_enum! {
 #[derive(Debug)]
 pub enum Event {
     RclInit(RclInit),
@@ -239,27 +242,28 @@ pub enum Event {
     RclcppSubscriptionCallbackAdded(RclcppSubscriptionCallbackAdded),
     RmwTake(RmwTake),
     RclTake(RclTake),
-    RclCppTake(RclCppTake),
+    RclcppTake(RclcppTake),
     RclServiceInit(RclServiceInit),
-    RclCppServiceCallbackAdded(RclCppServiceCallbackAdded),
+    RclcppServiceCallbackAdded(RclcppServiceCallbackAdded),
     RclClientInit(RclClientInit),
     RclTimerInit(RclTimerInit),
-    RclCppTimerCallbackAdded(RclCppTimerCallbackAdded),
-    RclCppTimerLinkNode(RclCppTimerLinkNode),
-    RclCppCallbackRegister(RclCppCallbackRegister),
+    RclcppTimerCallbackAdded(RclcppTimerCallbackAdded),
+    RclcppTimerLinkNode(RclcppTimerLinkNode),
+    RclcppCallbackRegister(RclcppCallbackRegister),
     CallbackStart(CallbackStart),
     CallbackEnd(CallbackEnd),
     RclLifecycleStateMachineInit(RclLifecycleStateMachineInit),
     RclLifecycleTransition(RclLifecycleTransition),
-    RclCppExecutorGetNextReady(RclCppExecutorGetNextReady),
-    RclCppExecutorWaitForWork(RclCppExecutorWaitForWork),
-    RclCppExecutorExecute(RclCppExecutorExecute),
-    RclCppIpbToSubscription(RclCppIpbToSubscription),
-    RclCppBufferToIpb(RclCppBufferToIpb),
-    RclCppConstructRingBuffer(RclCppConstructRingBuffer),
-    RclCppRingBufferEnqueue(RclCppRingBufferEnqueue),
-    RclCppRingBufferDequeue(RclCppRingBufferDequeue),
-    RclCppRingBufferClear(RclCppRingBufferClear),
+    RclcppExecutorGetNextReady(RclCppExecutorGetNextReady),
+    RclcppExecutorWaitForWork(RclCppExecutorWaitForWork),
+    RclcppExecutorExecute(RclCppExecutorExecute),
+    RclcppIpbToSubscription(RclCppIpbToSubscription),
+    RclcppBufferToIpb(RclCppBufferToIpb),
+    RclcppConstructRingBuffer(RclCppConstructRingBuffer),
+    RclcppRingBufferEnqueue(RclCppRingBufferEnqueue),
+    RclcppRingBufferDequeue(RclCppRingBufferDequeue),
+    RclcppRingBufferClear(RclCppRingBufferClear),
+}
 }
 
 impl FromBtEvent for RclInit {
@@ -658,7 +662,7 @@ impl FromBtEvent for RclTake {
     }
 }
 
-impl FromBtEvent for RclCppTake {
+impl FromBtEvent for RclcppTake {
     fn from_event(event: &BtEventConst) -> Option<Self> {
         let message = event
             .get_payload()?
@@ -711,7 +715,7 @@ impl FromBtEvent for RclServiceInit {
     }
 }
 
-impl FromBtEvent for RclCppServiceCallbackAdded {
+impl FromBtEvent for RclcppServiceCallbackAdded {
     fn from_event(event: &BtEventConst) -> Option<Self> {
         let service_handle = event
             .get_payload()?
@@ -797,7 +801,7 @@ impl FromBtEvent for RclTimerInit {
     }
 }
 
-impl FromBtEvent for RclCppTimerCallbackAdded {
+impl FromBtEvent for RclcppTimerCallbackAdded {
     fn from_event(event: &BtEventConst) -> Option<Self> {
         let timer_handle = event
             .get_payload()?
@@ -820,7 +824,7 @@ impl FromBtEvent for RclCppTimerCallbackAdded {
     }
 }
 
-impl FromBtEvent for RclCppTimerLinkNode {
+impl FromBtEvent for RclcppTimerLinkNode {
     fn from_event(event: &BtEventConst) -> Option<Self> {
         let timer_handle = event
             .get_payload()?
@@ -843,7 +847,7 @@ impl FromBtEvent for RclCppTimerLinkNode {
     }
 }
 
-impl FromBtEvent for RclCppCallbackRegister {
+impl FromBtEvent for RclcppCallbackRegister {
     fn from_event(event: &BtEventConst) -> Option<Self> {
         let callback = event
             .get_payload()?
@@ -1171,21 +1175,21 @@ impl FromBtEvent for Event {
             }
             "rmw_take" => RmwTake::from_event(event).map(Event::RmwTake),
             "rcl_take" => RclTake::from_event(event).map(Event::RclTake),
-            "rclcpp_take" => RclCppTake::from_event(event).map(Event::RclCppTake),
+            "rclcpp_take" => RclcppTake::from_event(event).map(Event::RclcppTake),
             "rcl_service_init" => RclServiceInit::from_event(event).map(Event::RclServiceInit),
             "rclcpp_service_callback_added" => {
-                RclCppServiceCallbackAdded::from_event(event).map(Event::RclCppServiceCallbackAdded)
+                RclcppServiceCallbackAdded::from_event(event).map(Event::RclcppServiceCallbackAdded)
             }
             "rcl_client_init" => RclClientInit::from_event(event).map(Event::RclClientInit),
             "rcl_timer_init" => RclTimerInit::from_event(event).map(Event::RclTimerInit),
             "rclcpp_timer_callback_added" => {
-                RclCppTimerCallbackAdded::from_event(event).map(Event::RclCppTimerCallbackAdded)
+                RclcppTimerCallbackAdded::from_event(event).map(Event::RclcppTimerCallbackAdded)
             }
             "rclcpp_timer_link_node" => {
-                RclCppTimerLinkNode::from_event(event).map(Event::RclCppTimerLinkNode)
+                RclcppTimerLinkNode::from_event(event).map(Event::RclcppTimerLinkNode)
             }
             "rclcpp_callback_register" => {
-                RclCppCallbackRegister::from_event(event).map(Event::RclCppCallbackRegister)
+                RclcppCallbackRegister::from_event(event).map(Event::RclcppCallbackRegister)
             }
             "callback_start" => CallbackStart::from_event(event).map(Event::CallbackStart),
             "callback_end" => CallbackEnd::from_event(event).map(Event::CallbackEnd),
@@ -1195,31 +1199,31 @@ impl FromBtEvent for Event {
                 RclLifecycleTransition::from_event(event).map(Event::RclLifecycleTransition)
             }
             "rclcpp_executor_get_next_ready" => {
-                RclCppExecutorGetNextReady::from_event(event).map(Event::RclCppExecutorGetNextReady)
+                RclCppExecutorGetNextReady::from_event(event).map(Event::RclcppExecutorGetNextReady)
             }
             "rclcpp_executor_wait_for_work" => {
-                RclCppExecutorWaitForWork::from_event(event).map(Event::RclCppExecutorWaitForWork)
+                RclCppExecutorWaitForWork::from_event(event).map(Event::RclcppExecutorWaitForWork)
             }
             "rclcpp_executor_execute" => {
-                RclCppExecutorExecute::from_event(event).map(Event::RclCppExecutorExecute)
+                RclCppExecutorExecute::from_event(event).map(Event::RclcppExecutorExecute)
             }
             "rcl_ipb_to_subscription" => {
-                RclCppIpbToSubscription::from_event(event).map(Event::RclCppIpbToSubscription)
+                RclCppIpbToSubscription::from_event(event).map(Event::RclcppIpbToSubscription)
             }
             "rclcpp_buffer_to_ipb" => {
-                RclCppBufferToIpb::from_event(event).map(Event::RclCppBufferToIpb)
+                RclCppBufferToIpb::from_event(event).map(Event::RclcppBufferToIpb)
             }
             "rclcpp_construct_ring_buffer" => {
-                RclCppConstructRingBuffer::from_event(event).map(Event::RclCppConstructRingBuffer)
+                RclCppConstructRingBuffer::from_event(event).map(Event::RclcppConstructRingBuffer)
             }
             "rclcpp_ring_buffer_enqueue" => {
-                RclCppRingBufferEnqueue::from_event(event).map(Event::RclCppRingBufferEnqueue)
+                RclCppRingBufferEnqueue::from_event(event).map(Event::RclcppRingBufferEnqueue)
             }
             "rclcpp_ring_buffer_dequeue" => {
-                RclCppRingBufferDequeue::from_event(event).map(Event::RclCppRingBufferDequeue)
+                RclCppRingBufferDequeue::from_event(event).map(Event::RclcppRingBufferDequeue)
             }
             "rclcpp_ring_buffer_clear" => {
-                RclCppRingBufferClear::from_event(event).map(Event::RclCppRingBufferClear)
+                RclCppRingBufferClear::from_event(event).map(Event::RclcppRingBufferClear)
             }
             _ => {
                 eprintln!("Unknown event: {full_event_name}");
