@@ -53,6 +53,7 @@ pub struct BtValueRealConst(BtValueConst);
 pub struct BtValueStringConst(BtValueConst);
 
 impl BtValueType {
+    #[must_use]
     pub fn from_raw(raw: bt_value_type) -> Option<Self> {
         match raw {
             #![allow(non_upper_case_globals)]

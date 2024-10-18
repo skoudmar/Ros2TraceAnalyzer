@@ -1,8 +1,23 @@
 use std::ops::Deref;
 
 use crate::raw_bindings::{
-        bt_field, bt_field_array_borrow_element_field_by_index_const, bt_field_array_get_length, bt_field_borrow_class_const, bt_field_class, bt_field_class_structure_borrow_member_by_index_const, bt_field_class_structure_borrow_member_by_name_const, bt_field_class_structure_get_member_count, bt_field_class_structure_member, bt_field_class_structure_member_borrow_field_class_const, bt_field_class_structure_member_get_name, bt_field_class_type_BT_FIELD_CLASS_TYPE_BOOL, bt_field_class_type_BT_FIELD_CLASS_TYPE_DYNAMIC_ARRAY_WITHOUT_LENGTH_FIELD, bt_field_class_type_BT_FIELD_CLASS_TYPE_DYNAMIC_ARRAY_WITH_LENGTH_FIELD, bt_field_class_type_BT_FIELD_CLASS_TYPE_SIGNED_INTEGER, bt_field_class_type_BT_FIELD_CLASS_TYPE_STATIC_ARRAY, bt_field_class_type_BT_FIELD_CLASS_TYPE_STRING, bt_field_class_type_BT_FIELD_CLASS_TYPE_STRUCTURE, bt_field_class_type_BT_FIELD_CLASS_TYPE_UNSIGNED_INTEGER, bt_field_get_class_type, bt_field_integer_unsigned_get_value, bt_field_string_get_length, bt_field_string_get_value, bt_field_structure_borrow_member_field_by_name_const
-    };
+    bt_field, bt_field_array_borrow_element_field_by_index_const, bt_field_array_get_length,
+    bt_field_borrow_class_const, bt_field_class,
+    bt_field_class_structure_borrow_member_by_index_const,
+    bt_field_class_structure_borrow_member_by_name_const,
+    bt_field_class_structure_get_member_count, bt_field_class_structure_member,
+    bt_field_class_structure_member_borrow_field_class_const,
+    bt_field_class_structure_member_get_name, bt_field_class_type_BT_FIELD_CLASS_TYPE_BOOL,
+    bt_field_class_type_BT_FIELD_CLASS_TYPE_DYNAMIC_ARRAY_WITHOUT_LENGTH_FIELD,
+    bt_field_class_type_BT_FIELD_CLASS_TYPE_DYNAMIC_ARRAY_WITH_LENGTH_FIELD,
+    bt_field_class_type_BT_FIELD_CLASS_TYPE_SIGNED_INTEGER,
+    bt_field_class_type_BT_FIELD_CLASS_TYPE_STATIC_ARRAY,
+    bt_field_class_type_BT_FIELD_CLASS_TYPE_STRING,
+    bt_field_class_type_BT_FIELD_CLASS_TYPE_STRUCTURE,
+    bt_field_class_type_BT_FIELD_CLASS_TYPE_UNSIGNED_INTEGER, bt_field_get_class_type,
+    bt_field_integer_unsigned_get_value, bt_field_string_get_length, bt_field_string_get_value,
+    bt_field_structure_borrow_member_field_by_name_const,
+};
 
 #[repr(transparent)]
 pub struct BtFieldConst(*const bt_field);
@@ -56,6 +71,7 @@ impl BtFieldConst {
         unsafe { BtFieldClassConst::new_unchecked(bt_field_borrow_class_const(self.as_ptr())) }
     }
 
+    #[must_use]
     pub fn get_class_type(&self) -> Option<BtFieldClassType> {
         let class = unsafe { bt_field_get_class_type(self.as_ptr()) };
         BtFieldClassType::from_u64(class)
@@ -81,6 +97,7 @@ impl BtFieldConst {
         })
     }
 
+    #[must_use]
     pub fn into_uint(self) -> BtFieldUnsignedIntegerConst {
         match self.cast() {
             Ok(BtFieldType::UnsignedInteger(inner)) => inner,
@@ -89,6 +106,7 @@ impl BtFieldConst {
         }
     }
 
+    #[must_use]
     pub fn into_int(self) -> BtFieldSignedIntegerConst {
         match self.cast() {
             Ok(BtFieldType::SignedInteger(inner)) => inner,
@@ -97,6 +115,7 @@ impl BtFieldConst {
         }
     }
 
+    #[must_use]
     pub fn into_string(self) -> BtFieldStringConst {
         match self.cast() {
             Ok(BtFieldType::String(inner)) => inner,
@@ -105,6 +124,7 @@ impl BtFieldConst {
         }
     }
 
+    #[must_use]
     pub fn into_struct(self) -> BtFieldStructureConst {
         match self.cast() {
             Ok(BtFieldType::Structure(inner)) => inner,
@@ -113,6 +133,7 @@ impl BtFieldConst {
         }
     }
 
+    #[must_use]
     pub fn into_array(self) -> BtFieldArrayConst {
         match self.cast() {
             Ok(BtFieldType::Array(inner)) => inner,
@@ -153,7 +174,7 @@ impl std::fmt::Display for BtFieldConst {
         let casted = match unsafe { self.clone_unchecked() }.cast() {
             Ok(casted) => casted,
             Err((_, class)) => {
-                return write!(f, "Unknown field class: {}", class);
+                return write!(f, "Unknown field class: {class}");
             }
         };
 
@@ -230,11 +251,12 @@ impl_deref_for_field!(BtFieldSignedIntegerConst);
 impl_debug_and_display_for_scalar_field!(BtFieldSignedIntegerConst);
 
 impl BtFieldStringConst {
+    #[must_use]
     pub fn get_value(&self) -> &str {
         unsafe {
             let length = bt_field_string_get_length(self.as_ptr());
             let ptr = bt_field_string_get_value(self.as_ptr());
-            let bytes = std::slice::from_raw_parts(ptr as *const u8, length as usize);
+            let bytes = std::slice::from_raw_parts(ptr.cast::<u8>(), length as usize);
             std::str::from_utf8(bytes)
                 .expect("BtFieldStringConst::get_value(): Failed to convert bytes to str")
         }
@@ -245,10 +267,12 @@ impl_deref_for_field!(BtFieldStringConst);
 impl_debug_and_display_for_scalar_field!(BtFieldStringConst);
 
 impl BtFieldArrayConst {
+    #[must_use]
     pub fn get_length(&self) -> u64 {
         unsafe { bt_field_array_get_length(self.as_ptr()) }
     }
 
+    #[must_use]
     pub fn get_value(&self, index: u64) -> BtFieldConst {
         assert!(index < self.get_length());
 
@@ -260,6 +284,7 @@ impl BtFieldArrayConst {
         }
     }
 
+    #[must_use]
     pub fn read_byte_array<const N: usize>(&self) -> [u8; N] {
         assert!(N == self.get_length().try_into().unwrap());
         let mut array = [0; N];
@@ -301,10 +326,12 @@ impl std::fmt::Display for BtFieldArrayConst {
 }
 
 impl BtFieldStructureConst {
+    #[must_use]
     pub fn get_class(&self) -> BtFieldStructClassConst {
         BtFieldStructClassConst(self.0.get_class())
     }
 
+    #[must_use]
     pub fn get_field_by_name(&self, name: &str) -> Option<BtFieldConst> {
         let name = std::ffi::CString::new(name).expect(
             "BtFieldStructureConst::get_field_by_name(): Failed to convert name to CString",
@@ -321,8 +348,14 @@ impl BtFieldStructureConst {
         }
     }
 
+    #[must_use]
     pub fn get_field_by_index(&self, index: u64) -> BtFieldConst {
-        unsafe { BtFieldConst::new_unchecked(bt_field_array_borrow_element_field_by_index_const(self.as_ptr(), index)) }
+        unsafe {
+            BtFieldConst::new_unchecked(bt_field_array_borrow_element_field_by_index_const(
+                self.as_ptr(),
+                index,
+            ))
+        }
     }
 }
 
@@ -363,7 +396,8 @@ impl std::fmt::Display for BtFieldStructureConst {
 }
 
 impl BtFieldClassType {
-    pub fn from_u64(class: u64) -> Option<Self> {
+    #[must_use]
+    pub(crate) fn from_u64(class: u64) -> Option<Self> {
         Some(
             match class {
                 #![allow(non_upper_case_globals)]
@@ -411,10 +445,12 @@ pub struct BtFieldStructClassConst(BtFieldClassConst);
 pub struct BtFieldStructMemberClassConst(*const bt_field_class_structure_member);
 
 impl BtFieldStructClassConst {
+    #[must_use]
     pub fn get_member_count(&self) -> u64 {
         unsafe { bt_field_class_structure_get_member_count(self.as_ptr()) }
     }
 
+    #[must_use]
     pub fn get_member_by_name(&self, name: &str) -> Option<BtFieldStructMemberClassConst> {
         let name = std::ffi::CString::new(name).expect(
             "BtFieldStructClassConst::get_field_by_name(): Failed to convert &str to CString",
@@ -431,6 +467,7 @@ impl BtFieldStructClassConst {
         }
     }
 
+    #[must_use]
     pub fn get_member_by_index(&self, index: u64) -> BtFieldStructMemberClassConst {
         unsafe {
             BtFieldStructMemberClassConst::new_unchecked(
@@ -455,6 +492,7 @@ impl BtFieldStructMemberClassConst {
         BtFieldStructMemberClassConst(field_class)
     }
 
+    #[must_use]
     pub fn get_name(&self) -> &str {
         unsafe {
             let name = bt_field_class_structure_member_get_name(self.0);
@@ -464,6 +502,7 @@ impl BtFieldStructMemberClassConst {
         }
     }
 
+    #[must_use]
     pub fn get_class(&self) -> BtFieldClassConst {
         unsafe {
             BtFieldClassConst::new_unchecked(

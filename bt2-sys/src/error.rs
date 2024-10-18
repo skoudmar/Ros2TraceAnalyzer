@@ -12,16 +12,16 @@ use crate::{iterator::MessageIteratorState, raw_bindings::{
 pub type BtResult<T> = Result<T, BtError>;
 
 #[macro_export]
-macro_rules! throw_error {
+macro_rules! throw {
     ($message:expr) => {
-        BtError::throw_new($message, file!(), line!() as u64);
+        $crate::error::BtError::__throw_new($message, file!(), line!());
     };
 }
 
 #[macro_export]
-macro_rules! rethrow_error {
+macro_rules! rethrow {
     ($error:expr, $message:expr) => {
-        $error.rethrow($message, file!(), line!() as u64);
+        $crate::error::BtError::__rethrow($error, $message, file!(), line!());
     };
 }
 
@@ -44,47 +44,47 @@ pub enum BtError {
 }
 
 impl BtError {
+    const MODULE: &CStr = c"Rust Error";
+
     fn get_error() -> Option<BtError> {
         Some(Self::Error(BtErrorWrapper::get()?))
     }
 
-    pub(crate) fn throw_new(message: &str, file: &str, line: u64) {
-        eprintln!("[{}:{}] {}", file, line, message);
+    #[doc(hidden)]
+    pub fn __throw_new(message: &str, file: &str, line: u32) {
+        eprintln!("[{file}:{line}] {message}");
+        Self::throw_common(None, message, file, line);
+    }
 
-        const MODULE: &CStr = unsafe { CStr::from_bytes_with_nul_unchecked(b"Rust Error\0") };
-        let message = CString::new(message).unwrap();
-        let file = CString::new(file).unwrap();
-        unsafe {
-            bt_current_thread_error_append_cause_from_unknown(
-                MODULE.as_ptr(),
-                file.as_ptr(),
-                line,
-                message.as_ptr(),
-            );
+    #[doc(hidden)]
+    pub fn __rethrow(this: Self, message: &str, file: &str, line: u32) {
+        eprintln!("[{}:{}] {}: {}", file, line, message, &this);
+        match this {
+            Self::Error(error) => {
+                Self::throw_common(Some(error), message, file, line);
+            }
+            _ => {
+                Self::throw_common(None, message, file, line);
+            }
         }
     }
 
-    pub(crate) fn rethrow(self, message: &str, file: &str, line: u64) {
-        eprintln!("[{}:{}] {}: {}", file, line, message, &self);
-        match self {
-            Self::Error(error) => {
-                const MODULE: &CStr =
-                    unsafe { CStr::from_bytes_with_nul_unchecked(b"Rust Error\0") };
-                let message = CString::new(message).unwrap();
-                let file = CString::new(file).unwrap();
-                unsafe {
-                    bt_current_thread_move_error(error.0);
-                    bt_current_thread_error_append_cause_from_unknown(
-                        MODULE.as_ptr(),
-                        file.as_ptr(),
-                        line,
-                        message.as_ptr(),
-                    );
-                }
+    fn throw_common(cause: Option<BtErrorWrapper>, message: &str, file: &str, line: u32) {
+        let message = CString::new(message).unwrap();
+        let file = CString::new(file).unwrap();
+
+        unsafe {
+            if let Some(cause) = cause {
+                // Return taken error back to library
+                bt_current_thread_move_error(cause.as_ptr());
             }
-            _ => {
-                Self::throw_new(message, file, line);
-            }
+
+            bt_current_thread_error_append_cause_from_unknown(
+                Self::MODULE.as_ptr(),
+                file.as_ptr(),
+                line.into(),
+                message.as_ptr(),
+            );
         }
     }
 }
@@ -103,23 +103,23 @@ impl BtErrorWrapper {
             Some(Self(error))
         }
     }
+
+    #[inline]
+    pub(crate) fn as_ptr(&self) -> *const bt_error {
+        self.0
+    }
 }
 
 impl Display for BtErrorWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         unsafe {
-            let cause_count = bt_error_get_cause_count(self.0);
+            let cause_count = bt_error_get_cause_count(self.as_ptr());
             for cause_idx in 0..cause_count {
-                let cause = bt_error_borrow_cause_by_index(self.0, cause_idx);
+                let cause = bt_error_borrow_cause_by_index(self.as_ptr(), cause_idx);
                 let message = bt_error_cause_get_message(cause);
                 let message_cstr = CStr::from_ptr(message);
 
-                let Ok(message_str) = message_cstr.to_str() else {
-                    eprintln!("failed to convert error message");
-                    return Err(Error);
-                };
-                f.write_str(message_str)?;
-                f.write_char('\n')?;
+                writeln!(f, "{}", message_cstr.to_string_lossy())?;
             }
         }
 

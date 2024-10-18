@@ -13,16 +13,16 @@ impl<'a> BtEventConst<'a> {
         BtEventConst(event, PhantomData)
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) fn get_ptr(&self) -> *const bt_event {
         self.0
     }
 
-    pub fn get_class(&self) -> BtEventClassConst {
+    #[must_use] pub fn get_class(&self) -> BtEventClassConst {
         unsafe { BtEventClassConst::new_unchecked(bt_event_borrow_class_const(self.get_ptr())) }
     }
 
-    pub fn get_payload(&self) -> Option<BtFieldConst> {
+    #[must_use] pub fn get_payload(&self) -> Option<BtFieldConst> {
         let payload = unsafe { bt_event_borrow_payload_field_const(self.get_ptr()) };
         if payload.is_null() {
             return None;
@@ -31,7 +31,7 @@ impl<'a> BtEventConst<'a> {
         Some(unsafe { BtFieldConst::new_unchecked(payload) })
     }
 
-    pub fn get_common_context_field(&self) -> Option<BtFieldConst> {
+    #[must_use] pub fn get_common_context_field(&self) -> Option<BtFieldConst> {
         let common_context = unsafe { bt_event_borrow_common_context_field_const(self.get_ptr()) };
         if common_context.is_null() {
             return None;
@@ -40,7 +40,7 @@ impl<'a> BtEventConst<'a> {
         Some(unsafe { BtFieldConst::new_unchecked(common_context) })
     }
 
-    pub fn get_specific_context_field(&self) -> Option<BtFieldConst> {
+    #[must_use] pub fn get_specific_context_field(&self) -> Option<BtFieldConst> {
         let specific_context = unsafe { bt_event_borrow_specific_context_field_const(self.get_ptr()) };
         if specific_context.is_null() {
             return None;
@@ -49,13 +49,13 @@ impl<'a> BtEventConst<'a> {
         Some(unsafe { BtFieldConst::new_unchecked(specific_context) })
     }
 
-    pub fn get_stream(&self) -> BtStreamConst {
+    #[must_use] pub fn get_stream(&self) -> BtStreamConst {
         unsafe {
             BtStreamConst::new_unchecked(bt_event_borrow_stream_const(self.get_ptr()))
         }
     }
 
-    pub fn get_packet(&self) -> BtPacketConst {
+    #[must_use] pub fn get_packet(&self) -> BtPacketConst {
         assert!(self.get_stream().get_class().supports_packets(), "Event stream must support packets!");
 
         unsafe {BtPacketConst::new_unchecked(bt_event_borrow_packet_const(self.get_ptr()))}

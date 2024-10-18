@@ -19,7 +19,7 @@ impl BtTraceConst {
         self.0
     }
 
-    pub fn get_environment_entry_by_name(&self, name: &str) -> Option<BtEnvironmentEntry> {
+    #[must_use] pub fn get_environment_entry_by_name(&self, name: &str) -> Option<BtEnvironmentEntry> {
         let name = CString::new(name).unwrap();
         let value = unsafe { bt_trace_borrow_environment_entry_value_by_name_const(self.get_ptr(), name.as_ptr()) };
         if value.is_null() {

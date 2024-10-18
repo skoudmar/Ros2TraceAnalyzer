@@ -1,18 +1,18 @@
 use std::{
     cell::RefCell,
     ffi::{c_void, CString},
-    ptr::NonNull, rc::Rc,
+    ptr::NonNull,
+    rc::Rc,
 };
 
 use crate::{
     error::{BtError, BtResult, IntoResult},
     message::{BtMessageArrayConst, BtMessageConst},
     raw_bindings::{
-        bt_graph_simple_sink_component_consume_func_status,
-        bt_message_iterator, init_trace, next_events, sink,
-        trace_context,
+        bt_graph_simple_sink_component_consume_func_status, bt_message_iterator, init_trace,
+        next_events, sink, trace_context, destroy_trace_context,
     },
-    rethrow_error, throw_error,
+    rethrow, throw,
     wrappers::BtMessageIterator,
 };
 
@@ -24,7 +24,7 @@ pub(crate) enum MessageIteratorState {
 #[derive(Default)]
 struct BatchMessageIteratorInner(RefCell<Option<BtMessageArrayConst>>);
 
-pub struct BatchMessageIterator {
+pub(crate) struct BatchMessageIterator {
     trace_context: *mut trace_context,
     internal: Rc<BatchMessageIteratorInner>,
 }
@@ -41,8 +41,8 @@ impl BatchMessageIterator {
         const STATUS_ERROR: bt_graph_simple_sink_component_consume_func_status =
             bt_graph_simple_sink_component_consume_func_status::BT_GRAPH_SIMPLE_SINK_COMPONENT_CONSUME_FUNC_STATUS_ERROR;
 
-        let Some(this_ptr) = NonNull::new(user_data as *mut BatchMessageIteratorInner) else {
-            throw_error!("Failed to get MessageIterator from user_data");
+        let Some(this_ptr) = NonNull::new(user_data.cast::<BatchMessageIteratorInner>()) else {
+            throw!("Failed to get MessageIterator from user_data");
             return STATUS_ERROR;
         };
         let this = this_ptr.as_ref();
@@ -50,11 +50,11 @@ impl BatchMessageIterator {
         let mut iterator: BtMessageIterator = iterator.into();
 
         let Ok(mut internal) = this.0.try_borrow_mut() else {
-            throw_error!("Failed to borrow internal state");
+            throw!("Failed to borrow internal state");
             return STATUS_ERROR;
         };
         if internal.is_some() {
-            throw_error!("Internal state is not None");
+            throw!("Internal state is not None");
             return STATUS_ERROR;
         }
 
@@ -73,7 +73,7 @@ impl BatchMessageIterator {
                     return STATUS_END;
                 }
                 Err(e) => {
-                    rethrow_error!(e, "Failed to get next batch of messages");
+                    rethrow!(e, "Failed to get next batch of messages");
                     return STATUS_ERROR;
                 }
             }
@@ -95,7 +95,7 @@ impl BatchMessageIterator {
         let trace_path = CString::new(trace_path).unwrap();
 
         let trace_context = unsafe { init_trace(trace_path.as_ptr(), &sink) };
-        assert!(!trace_context.is_null());
+        debug_assert!(!trace_context.is_null());
 
         Self {
             trace_context,
@@ -113,6 +113,16 @@ impl BatchMessageIterator {
     }
 }
 
+impl Drop for BatchMessageIterator {
+    fn drop(&mut self) {
+        let _ = self.internal.0.borrow_mut().take();
+
+        unsafe {
+            destroy_trace_context(self.trace_context);
+        }
+    }
+}
+
 impl Iterator for BatchMessageIterator {
     type Item = BtMessageArrayConst;
 
@@ -126,19 +136,20 @@ impl Iterator for BatchMessageIterator {
             }
             Ok(MessageIteratorState::Ended) => None,
             Err(e) => {
-                panic!("Failed to get next batch of messages: {}", e);
+                panic!("Failed to get next batch of messages: {e}");
             }
         }
     }
 }
 
-pub struct MessageIterator{
+pub struct MessageIterator {
     batch_iterator: BatchMessageIterator,
     current_batch: Option<BtMessageArrayConst>,
     current_index: usize,
 }
 
 impl MessageIterator {
+    #[must_use]
     pub fn new(trace_path: &str) -> Self {
         Self {
             batch_iterator: BatchMessageIterator::new(trace_path),
@@ -152,26 +163,24 @@ impl Iterator for MessageIterator {
     type Item = BtMessageConst;
 
     fn next(&mut self) -> Option<Self::Item> {
-            while self.current_batch.is_none() || self.current_index >= self.current_batch.as_ref().unwrap().len() {
-                let _ = self.current_batch.take();
-                match self.batch_iterator.next() {
-                    Some(batch) => {
-                        self.current_batch = Some(batch);
-                        self.current_index = 0;
-                    }
-                    None => {
-                        return None;
-                    }
+        while self.current_batch.is_none()
+            || self.current_index >= self.current_batch.as_ref().unwrap().len()
+        {
+            let _ = self.current_batch.take();
+            match self.batch_iterator.next() {
+                Some(batch) => {
+                    self.current_batch = Some(batch);
+                    self.current_index = 0;
+                }
+                None => {
+                    return None;
                 }
             }
+        }
 
-            let message = self.current_batch.as_ref().unwrap()[self.current_index].clone();
-            self.current_index += 1;
+        let message = self.current_batch.as_ref().unwrap()[self.current_index].clone();
+        self.current_index += 1;
 
-            return Some(message);
+        Some(message)
     }
 }
-
-
-
-
