@@ -22,8 +22,10 @@ fn generate_bindings() {
     let bindings = bindgen::Builder::default()
         .header("src/bindings.h")
         .header("src-c/graph.h")
-        .rustified_enum(".*_status")
-        .rustified_enum("bt_value_type")
+        .default_enum_style(bindgen::EnumVariation::NewType {
+            is_bitfield: false,
+            is_global: false,
+        })
         .generate()
         .expect("Unable to generate bindings");
 

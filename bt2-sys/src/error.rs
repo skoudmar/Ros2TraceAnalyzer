@@ -139,8 +139,11 @@ impl IntoResult<()> for bt_message_iterator_next_status {
             Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_OK => Ok(()),
             Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_END => Err(BtError::End),
             Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_AGAIN => Err(BtError::Again),
-            Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_MEMORY_ERROR => Err(BtError::MemoryError(OutOfMemoryError::OutOfMemory)),
+            Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_MEMORY_ERROR => {
+                Err(BtError::MemoryError(OutOfMemory))
+            }
             Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_ERROR => Err(BtError::get_error().unwrap()),
+            status => unreachable!("Bug: unknown bt_message_iterator_next_status = {}", status.0),
         }
     }
 }
@@ -151,8 +154,9 @@ impl IntoResult<MessageIteratorState> for bt_graph_run_once_status {
             Self::BT_GRAPH_RUN_ONCE_STATUS_OK => Ok(MessageIteratorState::Running),
             Self::BT_GRAPH_RUN_ONCE_STATUS_END => Ok(MessageIteratorState::Ended),
             Self::BT_GRAPH_RUN_ONCE_STATUS_AGAIN => Err(BtError::Again),
-            Self::BT_GRAPH_RUN_ONCE_STATUS_MEMORY_ERROR => Err(BtError::MemoryError(OutOfMemoryError::OutOfMemory)),
+            Self::BT_GRAPH_RUN_ONCE_STATUS_MEMORY_ERROR => Err(BtError::MemoryError(OutOfMemory)),
             Self::BT_GRAPH_RUN_ONCE_STATUS_ERROR => Err(BtError::get_error().unwrap()),
+            status => unreachable!("Bug: unknown bt_graph_run_once_status = {}", status.0),
         }
     }
 }

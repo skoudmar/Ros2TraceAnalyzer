@@ -74,12 +74,12 @@ impl BtFieldConst {
     #[must_use]
     pub fn get_class_type(&self) -> Option<BtFieldClassType> {
         let class = unsafe { bt_field_get_class_type(self.as_ptr()) };
-        BtFieldClassType::from_u64(class)
+        BtFieldClassType::from_field_class_type(class)
     }
 
-    pub fn cast(self) -> Result<BtFieldType, (Self, u64)> {
+    pub fn cast(self) -> Result<BtFieldType, (Self, bt_field_class_type)> {
         let class = unsafe { bt_field_get_class_type(self.as_ptr()) };
-        let Some(matched) = BtFieldClassType::from_u64(class) else {
+        let Some(matched) = BtFieldClassType::from_field_class_type(class) else {
             return Err((self, class));
         };
 
@@ -174,7 +174,7 @@ impl std::fmt::Display for BtFieldConst {
         let casted = match unsafe { self.clone_unchecked() }.cast() {
             Ok(casted) => casted,
             Err((_, class)) => {
-                return write!(f, "Unknown field class: {class}");
+                return write!(f, "Unknown field class: {}", class.0);
             }
         };
 
@@ -397,31 +397,28 @@ impl std::fmt::Display for BtFieldStructureConst {
 
 impl BtFieldClassType {
     #[must_use]
-    pub(crate) fn from_u64(class: u64) -> Option<Self> {
-        Some(
-            match class {
-                #![allow(non_upper_case_globals)]
-                bt_field_class_type_BT_FIELD_CLASS_TYPE_BOOL => Self::Bool,
-                bt_field_class_type_BT_FIELD_CLASS_TYPE_UNSIGNED_INTEGER => Self::UnsignedInteger,
-                bt_field_class_type_BT_FIELD_CLASS_TYPE_SIGNED_INTEGER => Self::SignedInteger,
-                bt_field_class_type_BT_FIELD_CLASS_TYPE_STRING => Self::String,
-                bt_field_class_type_BT_FIELD_CLASS_TYPE_STRUCTURE => Self::Structure,
-                bt_field_class_type_BT_FIELD_CLASS_TYPE_STATIC_ARRAY
-                | bt_field_class_type_BT_FIELD_CLASS_TYPE_DYNAMIC_ARRAY_WITHOUT_LENGTH_FIELD
-                | bt_field_class_type_BT_FIELD_CLASS_TYPE_DYNAMIC_ARRAY_WITH_LENGTH_FIELD => {
-                    Self::Array
-                }
-                _ => {
-                    // TODO: Bool
-                    // TODO: Float
-                    // TODO: Enum
-                    // TODO: Bit array
-                    // TODO: Option
-                    // TODO: Variant
-                    return None;
-                }
-            },
-        )
+    pub(crate) fn from_field_class_type(class: bt_field_class_type) -> Option<Self> {
+        Some(match class {
+            bt_field_class_type::BT_FIELD_CLASS_TYPE_BOOL => Self::Bool,
+            bt_field_class_type::BT_FIELD_CLASS_TYPE_UNSIGNED_INTEGER => Self::UnsignedInteger,
+            bt_field_class_type::BT_FIELD_CLASS_TYPE_SIGNED_INTEGER => Self::SignedInteger,
+            bt_field_class_type::BT_FIELD_CLASS_TYPE_STRING => Self::String,
+            bt_field_class_type::BT_FIELD_CLASS_TYPE_STRUCTURE => Self::Structure,
+            bt_field_class_type::BT_FIELD_CLASS_TYPE_STATIC_ARRAY
+            | bt_field_class_type::BT_FIELD_CLASS_TYPE_DYNAMIC_ARRAY_WITHOUT_LENGTH_FIELD
+            | bt_field_class_type::BT_FIELD_CLASS_TYPE_DYNAMIC_ARRAY_WITH_LENGTH_FIELD => {
+                Self::Array
+            }
+            _ => {
+                // TODO: Bool
+                // TODO: Float
+                // TODO: Enum
+                // TODO: Bit array
+                // TODO: Option
+                // TODO: Variant
+                return None;
+            }
+        })
     }
 }
 

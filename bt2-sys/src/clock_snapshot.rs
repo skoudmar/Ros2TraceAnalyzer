@@ -29,6 +29,7 @@ impl BtClockSnapshotConst {
         match status {
             bt_clock_snapshot_get_ns_from_origin_status::BT_CLOCK_SNAPSHOT_GET_NS_FROM_ORIGIN_STATUS_OK => Some(ret_val),
             bt_clock_snapshot_get_ns_from_origin_status::BT_CLOCK_SNAPSHOT_GET_NS_FROM_ORIGIN_STATUS_OVERFLOW_ERROR => None,
+            status => unreachable!("Bug: Unknown bt_clock_snapshot_get_ns_from_origin_status: {}", status.0),
         }
     }
 }

@@ -1,21 +1,13 @@
-use std::{
-    fmt::Debug, ops::{Deref, DerefMut}, ptr::NonNull
-};
+use std::fmt::Debug;
+use std::ops::{Deref, DerefMut};
+use std::ptr::NonNull;
 
-use crate::{
-    clock_snapshot::BtClockSnapshotConst,
-    event::BtEventConst,
-    raw_bindings::{
-        bt_message, bt_message_event_borrow_default_clock_snapshot_const,
-        bt_message_event_borrow_event_const, bt_message_get_ref, bt_message_get_type,
-        bt_message_put_ref, bt_message_type, bt_message_type_BT_MESSAGE_TYPE_DISCARDED_EVENTS,
-        bt_message_type_BT_MESSAGE_TYPE_DISCARDED_PACKETS, bt_message_type_BT_MESSAGE_TYPE_EVENT,
-        bt_message_type_BT_MESSAGE_TYPE_MESSAGE_ITERATOR_INACTIVITY,
-        bt_message_type_BT_MESSAGE_TYPE_PACKET_BEGINNING,
-        bt_message_type_BT_MESSAGE_TYPE_PACKET_END,
-        bt_message_type_BT_MESSAGE_TYPE_STREAM_BEGINNING,
-        bt_message_type_BT_MESSAGE_TYPE_STREAM_END,
-    },
+use crate::clock_snapshot::BtClockSnapshotConst;
+use crate::event::BtEventConst;
+use crate::raw_bindings::{
+    bt_message, bt_message_event_borrow_default_clock_snapshot_const,
+    bt_message_event_borrow_event_const, bt_message_get_ref, bt_message_get_type,
+    bt_message_put_ref, bt_message_type,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,25 +26,19 @@ impl TryFrom<bt_message_type> for BtMessageType {
     type Error = ();
 
     fn try_from(value: bt_message_type) -> Result<Self, Self::Error> {
-        Ok(
-            match value {
-                #![allow(non_upper_case_globals)]
-                #![allow(non_snake_case)]
-                bt_message_type_BT_MESSAGE_TYPE_STREAM_BEGINNING => BtMessageType::StreamBeginning,
-                bt_message_type_BT_MESSAGE_TYPE_EVENT => BtMessageType::Event,
-                bt_message_type_BT_MESSAGE_TYPE_STREAM_END => BtMessageType::StreamEnd,
-                bt_message_type_BT_MESSAGE_TYPE_PACKET_BEGINNING => BtMessageType::PacketBeginning,
-                bt_message_type_BT_MESSAGE_TYPE_PACKET_END => BtMessageType::PacketEnd,
-                bt_message_type_BT_MESSAGE_TYPE_DISCARDED_EVENTS => BtMessageType::DiscardedEvents,
-                bt_message_type_BT_MESSAGE_TYPE_DISCARDED_PACKETS => {
-                    BtMessageType::DiscardedPackets
-                }
-                bt_message_type_BT_MESSAGE_TYPE_MESSAGE_ITERATOR_INACTIVITY => {
-                    BtMessageType::MessageIteratorInactivity
-                }
-                _ => return Err(()),
-            },
-        )
+        Ok(match value {
+            bt_message_type::BT_MESSAGE_TYPE_STREAM_BEGINNING => BtMessageType::StreamBeginning,
+            bt_message_type::BT_MESSAGE_TYPE_EVENT => BtMessageType::Event,
+            bt_message_type::BT_MESSAGE_TYPE_STREAM_END => BtMessageType::StreamEnd,
+            bt_message_type::BT_MESSAGE_TYPE_PACKET_BEGINNING => BtMessageType::PacketBeginning,
+            bt_message_type::BT_MESSAGE_TYPE_PACKET_END => BtMessageType::PacketEnd,
+            bt_message_type::BT_MESSAGE_TYPE_DISCARDED_EVENTS => BtMessageType::DiscardedEvents,
+            bt_message_type::BT_MESSAGE_TYPE_DISCARDED_PACKETS => BtMessageType::DiscardedPackets,
+            bt_message_type::BT_MESSAGE_TYPE_MESSAGE_ITERATOR_INACTIVITY => {
+                BtMessageType::MessageIteratorInactivity
+            }
+            _ => return Err(()),
+        })
     }
 }
 
