@@ -68,19 +68,32 @@ impl Display for Event {
                 write!(f, "rclcpp_subscription_init({rclcpp_subscription_init})")
             }
             Event::RclcppSubscriptionCallbackAdded(rclcpp_subscription_callback_added) => {
-                write!(f, "rclcpp_subscription_callback_added({rclcpp_subscription_callback_added})")
+                write!(
+                    f,
+                    "rclcpp_subscription_callback_added({rclcpp_subscription_callback_added})"
+                )
             }
             Event::RmwTake(rmw_take) => write!(f, "rmw_take({rmw_take})"),
             Event::RclTake(rcl_take) => write!(f, "rcl_take({rcl_take})"),
             Event::RclCppTake(rcl_cpp_take) => write!(f, "rcl_cpp_take({rcl_cpp_take})"),
-            Event::RclServiceInit(rcl_service_init) => write!(f, "rcl_service_init({rcl_service_init})"),
-            Event::RclCppServiceCallbackAdded(rcl_cpp_service_callback_added) => {
-                write!(f, "rcl_cpp_service_callback_added({rcl_cpp_service_callback_added})")
+            Event::RclServiceInit(rcl_service_init) => {
+                write!(f, "rcl_service_init({rcl_service_init})")
             }
-            Event::RclClientInit(rcl_client_init) => write!(f, "rcl_client_init({rcl_client_init})"),
+            Event::RclCppServiceCallbackAdded(rcl_cpp_service_callback_added) => {
+                write!(
+                    f,
+                    "rcl_cpp_service_callback_added({rcl_cpp_service_callback_added})"
+                )
+            }
+            Event::RclClientInit(rcl_client_init) => {
+                write!(f, "rcl_client_init({rcl_client_init})")
+            }
             Event::RclTimerInit(rcl_timer_init) => write!(f, "rcl_timer_init({rcl_timer_init})"),
             Event::RclcppTimerCallbackAdded(rclcpp_timer_callback_added) => {
-                write!(f, "rclcpp_timer_callback_added({rclcpp_timer_callback_added})")
+                write!(
+                    f,
+                    "rclcpp_timer_callback_added({rclcpp_timer_callback_added})"
+                )
             }
             Event::RclcppTimerLinkNode(rclcpp_timer_link_node) => {
                 write!(f, "rclcpp_timer_link_node({rclcpp_timer_link_node})")
