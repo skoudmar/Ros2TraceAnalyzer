@@ -28,10 +28,8 @@ macro_rules! rethrow {
 }
 
 #[derive(Debug, Error)]
-pub enum OutOfMemoryError {
-    #[error("Out of memory")]
-    OutOfMemory,
-}
+#[error("Out of memory")]
+pub struct OutOfMemory;
 
 #[derive(Debug, Error)]
 pub enum BtError {
@@ -40,7 +38,7 @@ pub enum BtError {
     #[error("Try again")]
     Again,
     #[error("Babeltrace2 error: {}", .0)]
-    MemoryError(OutOfMemoryError),
+    MemoryError(#[from] OutOfMemory),
     #[error("Babeltrace2 error: {}", .0)]
     Error(BtErrorWrapper),
 }
@@ -91,7 +89,7 @@ impl BtError {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Error)]
 pub struct BtErrorWrapper(*const bt_error);
 
 impl BtErrorWrapper {
@@ -109,6 +107,24 @@ impl BtErrorWrapper {
     #[inline]
     pub(crate) fn as_ptr(&self) -> *const bt_error {
         self.0
+    }
+}
+
+impl std::fmt::Debug for BtErrorWrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut structure = f.debug_struct("BtErrorWrapper");
+        unsafe {
+            let cause_count = bt_error_get_cause_count(self.as_ptr());
+            for cause_idx in 0..cause_count {
+                let cause = bt_error_borrow_cause_by_index(self.as_ptr(), cause_idx);
+                let message = bt_error_cause_get_message(cause);
+                let message_cstr = CStr::from_ptr(message);
+
+                structure.field(&cause_idx.to_string(), &message_cstr);
+            }
+        }
+
+        structure.finish()
     }
 }
 
