@@ -93,21 +93,27 @@ impl Processor {
     pub fn process_raw_event(
         &mut self,
         full_event: raw_events::FullEvent,
-    ) -> Result<processed_events::Event, raw_events::Event> {
-        Ok(match full_event.event {
+    ) -> Result<processed_events::FullEvent, raw_events::Event> {
+        let event = match full_event.event {
             raw_events::Event::Ros2(event) => self
-                .process_raw_ros2_event(event, full_event.context, full_event.time)?
+                .process_raw_ros2_event(event, &full_event.context, full_event.time)?
                 .into(),
             raw_events::Event::R2r(event) => self
-                .process_raw_r2r_event(event, full_event.context, full_event.time)?
+                .process_raw_r2r_event(event, &full_event.context, full_event.time)?
                 .into(),
+        };
+
+        Ok(processed_events::FullEvent {
+            context: full_event.context,
+            time: full_event.time,
+            event,
         })
     }
 
     pub fn process_raw_ros2_event(
         &mut self,
         event: raw_events::ros2::Event,
-        context: Context,
+        context: &Context,
         time: Time,
     ) -> Result<processed_events::ros2::Event, raw_events::ros2::Event> {
         let context_id = ContextId::new(context.vpid(), self.host_to_host_id(context.hostname()));
@@ -189,7 +195,7 @@ impl Processor {
     pub fn process_raw_r2r_event(
         &mut self,
         event: raw_events::r2r::Event,
-        context: Context,
+        context: &Context,
         time: Time,
     ) -> Result<processed_events::r2r::Event, raw_events::r2r::Event> {
         Err(event)
