@@ -1,6 +1,9 @@
 use std::ffi::CString;
 
-use crate::{raw_bindings::{bt_trace, bt_trace_borrow_environment_entry_value_by_name_const}, value::{BtValueConst, BtValueSignedIntegerConst, BtValueStringConst, BtValueTypedConst}};
+use crate::raw_bindings::{bt_trace, bt_trace_borrow_environment_entry_value_by_name_const};
+use crate::value::{
+    BtValueConst, BtValueSignedIntegerConst, BtValueStringConst, BtValueTypedConst,
+};
 
 pub struct BtTraceConst(*const bt_trace);
 
@@ -19,9 +22,12 @@ impl BtTraceConst {
         self.0
     }
 
-    #[must_use] pub fn get_environment_entry_by_name(&self, name: &str) -> Option<BtEnvironmentEntry> {
+    #[must_use]
+    pub fn get_environment_entry_by_name(&self, name: &str) -> Option<BtEnvironmentEntry> {
         let name = CString::new(name).unwrap();
-        let value = unsafe { bt_trace_borrow_environment_entry_value_by_name_const(self.get_ptr(), name.as_ptr()) };
+        let value = unsafe {
+            bt_trace_borrow_environment_entry_value_by_name_const(self.get_ptr(), name.as_ptr())
+        };
         if value.is_null() {
             return None;
         }
@@ -31,7 +37,9 @@ impl BtTraceConst {
         match value.get_type() {
             BtValueTypedConst::SignedInteger(value) => Some(BtEnvironmentEntry::Int(value)),
             BtValueTypedConst::String(value) => Some(BtEnvironmentEntry::String(value)),
-            _ => unreachable!("Only signed integer and string environment entries are returned by the C API"),
+            _ => unreachable!(
+                "Only signed integer and string environment entries are returned by the C API"
+            ),
         }
     }
 }

@@ -1,20 +1,16 @@
-use std::{
-    cell::RefCell,
-    ffi::{c_void, CString},
-    ptr::NonNull,
-    rc::Rc,
-};
+use std::cell::RefCell;
+use std::ffi::{c_void, CString};
+use std::ptr::NonNull;
+use std::rc::Rc;
 
-use crate::{
-    error::{BtError, BtResult, IntoResult},
-    message::{BtMessageArrayConst, BtMessageConst},
-    raw_bindings::{
-        bt_graph_simple_sink_component_consume_func_status, bt_message_iterator, init_trace,
-        next_events, sink, trace_context, destroy_trace_context,
-    },
-    rethrow, throw,
-    wrappers::BtMessageIterator,
+use crate::error::{BtError, BtResult, IntoResult};
+use crate::message::{BtMessageArrayConst, BtMessageConst};
+use crate::raw_bindings::{
+    bt_graph_simple_sink_component_consume_func_status, bt_message_iterator, destroy_trace_context,
+    init_trace, next_events, sink, trace_context,
 };
+use crate::wrappers::BtMessageIterator;
+use crate::{rethrow, throw};
 
 pub(crate) enum MessageIteratorState {
     Running,

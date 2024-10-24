@@ -1,4 +1,5 @@
-use std::{fmt::{Debug, Display}, sync::{Arc, Mutex, Weak}};
+use std::fmt::{Debug, Display};
+use std::sync::{Arc, Mutex, Weak};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Known<T> {
@@ -46,7 +47,7 @@ impl<T> Known<T> {
             Self::Unknown => false,
         }
     }
-    
+
     #[inline]
     pub fn as_ref(&self) -> Known<&T> {
         match *self {
@@ -95,7 +96,7 @@ impl<T> From<Known<T>> for Option<T> {
 
 impl<T> std::fmt::Display for Known<T>
 where
-    T: std::fmt::Display+Debug,
+    T: std::fmt::Display + Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -134,11 +135,14 @@ macro_rules! impl_from_for_enum {
     };
 }
 
-pub(crate) struct DisplayArcMutex<'a, T>{arc: &'a Arc<Mutex<T>>, skip: bool}
+pub(crate) struct DisplayArcMutex<'a, T> {
+    arc: &'a Arc<Mutex<T>>,
+    skip: bool,
+}
 
 impl<'a, T: Display> DisplayArcMutex<'a, T> {
     pub fn new(arc: &'a Arc<Mutex<T>>, skip: bool) -> Self {
-        Self {arc, skip}
+        Self { arc, skip }
     }
 }
 
@@ -162,11 +166,14 @@ impl<'a, T: Debug> Debug for DisplayArcMutex<'a, T> {
     }
 }
 
-pub(crate) struct DisplayWeakMutex<'a, T>{weak: &'a Weak<Mutex<T>>, skip: bool}
+pub(crate) struct DisplayWeakMutex<'a, T> {
+    weak: &'a Weak<Mutex<T>>,
+    skip: bool,
+}
 
 impl<'a, T> DisplayWeakMutex<'a, T> {
     pub fn new(weak: &'a Weak<Mutex<T>>, skip: bool) -> Self {
-        Self {weak, skip}
+        Self { weak, skip }
     }
 }
 
@@ -204,4 +211,3 @@ impl<T: Debug> Display for DisplayDebug<T> {
         write!(f, "{:?}", self.0)
     }
 }
-

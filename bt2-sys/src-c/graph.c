@@ -34,13 +34,6 @@ trace_context *init_trace(const char *trace_path, const struct sink *sink_def) {
     return NULL;
   }
 
-  // Add a source component to read the trace
-  bt_value *inputs = bt_value_array_create();
-  bt_value *params = bt_value_map_create();
-
-  bt_value_array_append_string_element(inputs, trace_path);
-  bt_value_map_insert_entry(params, "inputs", inputs);
-
   const bt_plugin *ctf_plugin = NULL;
   {
     bt_plugin_find_status status =
@@ -67,13 +60,18 @@ trace_context *init_trace(const char *trace_path, const struct sink *sink_def) {
   }
 
   const bt_component_class_source *source_class =
-      bt_plugin_borrow_source_component_class_by_name_const(ctf_plugin,
-                                                            "fs");
+      bt_plugin_borrow_source_component_class_by_name_const(ctf_plugin, "fs");
 
   const bt_component_class_filter *filter_class =
       bt_plugin_borrow_filter_component_class_by_name_const(utils_plugin,
                                                             "muxer");
-                                                          
+
+  // Add a source component to read the trace
+  bt_value *inputs = bt_value_array_create();
+  bt_value *params = bt_value_map_create();
+
+  bt_value_array_append_string_element(inputs, trace_path);
+  bt_value_map_insert_entry(params, "inputs", inputs);
 
   const bt_component_source *src = NULL;
   {
@@ -117,7 +115,10 @@ trace_context *init_trace(const char *trace_path, const struct sink *sink_def) {
       bt_graph_connect_ports_status status =
           bt_graph_connect_ports(ctx->graph, src_output, muxer_input, NULL);
       if (status != BT_GRAPH_CONNECT_PORTS_STATUS_OK) {
-        fprintf(stderr, "Failed to connect source and filter components. Port index %d\n", i);
+        fprintf(
+            stderr,
+            "Failed to connect source and filter components. Port index %lu\n",
+            i);
         exit(100);
         return NULL;
       }
@@ -183,7 +184,6 @@ trace_context *init_trace(const char *trace_path, const struct sink *sink_def) {
 
   return ctx;
 }
-
 
 // Fetch the next event from the trace
 bt_graph_run_once_status next_events(trace_context *ctx) {

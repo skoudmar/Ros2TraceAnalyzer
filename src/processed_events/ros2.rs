@@ -1,14 +1,13 @@
-use std::{fmt::Display, sync::{Arc, Mutex}};
+use std::fmt::Display;
+use std::sync::{Arc, Mutex};
 
 use derive_more::derive::Display;
 
-use crate::{
-    events_common::Time,
-    impl_from_for_enum,
-    model::{
-        Callback, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
-        SubscriptionMessage, Timer,
-    },
+use crate::events_common::Time;
+use crate::impl_from_for_enum;
+use crate::model::{
+    Callback, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
+    SubscriptionMessage, Timer,
 };
 
 type RefCount<T> = Arc<Mutex<T>>;

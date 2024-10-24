@@ -2,7 +2,8 @@ use std::sync::{Arc, Mutex, Weak};
 
 use chrono::{Local, TimeZone};
 
-use crate::{raw_events, utils::{DisplayArcMutex, DisplayDebug, DisplayWeakMutex, Known}};
+use crate::raw_events;
+use crate::utils::{DisplayArcMutex, DisplayDebug, DisplayWeakMutex, Known};
 
 const GID_SIZE: usize = 16;
 const GID_SUFFIX_SIZE: usize = 8;
@@ -436,7 +437,10 @@ impl std::fmt::Display for Subscriber {
             .node
             .as_ref()
             .map(|node| DisplayWeakMutex::new(node, false));
-        let callback = self.callback.as_ref().map(|callback|DisplayArcMutex::new(callback, f.alternate()));
+        let callback = self
+            .callback
+            .as_ref()
+            .map(|callback| DisplayArcMutex::new(callback, f.alternate()));
 
         write!(f, "(topic={}, handles={{dds={:x}, rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node} callback={callback:#})",
             self.topic_name.as_ref().map(DisplayDebug), self.dds_handle, self.rmw_handle, self.rcl_handle, self.rclcpp_handle, self.queue_depth,
@@ -482,7 +486,10 @@ impl std::fmt::Display for Service {
             .node
             .as_ref()
             .map(|node| DisplayWeakMutex::new(node, false));
-        let callback = self.callback.as_ref().map(|callback| DisplayArcMutex::new(callback, f.alternate()));
+        let callback = self
+            .callback
+            .as_ref()
+            .map(|callback| DisplayArcMutex::new(callback, f.alternate()));
 
         write!(f, "(service={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, node={node} callback={callback:#})",
             self.name.as_ref().map(DisplayDebug), self.rmw_handle, self.rcl_handle, self.rclcpp_handle,
@@ -520,8 +527,13 @@ impl std::fmt::Display for Client {
             .as_ref()
             .map(|node| DisplayWeakMutex::new(node, f.alternate()));
 
-        write!(f, "(service={}, handles={{rmw={:x}, rcl={:x}}}, node={node})",
-            self.service_name.as_ref().map(DisplayDebug), self.rmw_handle, self.rcl_handle)
+        write!(
+            f,
+            "(service={}, handles={{rmw={:x}, rcl={:x}}}, node={node})",
+            self.service_name.as_ref().map(DisplayDebug),
+            self.rmw_handle,
+            self.rcl_handle
+        )
     }
 }
 
@@ -565,13 +577,17 @@ impl std::fmt::Display for Timer {
             .node
             .as_ref()
             .map(|node| DisplayWeakMutex::new(node, false));
-        let callback = self.callback.as_ref().map(|callback| DisplayArcMutex::new(callback, f.alternate()));
+        let callback = self
+            .callback
+            .as_ref()
+            .map(|callback| DisplayArcMutex::new(callback, f.alternate()));
 
-        write!(f, "(period={}, rcl_handle={}, node={node} callback={callback:#})",
+        write!(
+            f,
+            "(period={}, rcl_handle={}, node={node} callback={callback:#})",
             self.period, self.rcl_handle,
         )
     }
-    
 }
 
 impl Callback {
@@ -631,7 +647,12 @@ impl Callback {
 impl std::fmt::Display for Callback {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
-            write!(f, "(handle={:x}, name={})", self.handle, self.name.as_ref().map(DisplayDebug))
+            write!(
+                f,
+                "(handle={:x}, name={})",
+                self.handle,
+                self.name.as_ref().map(DisplayDebug)
+            )
         } else {
             match &self.caller {
                 Known::Known(CallbackCaller::Subscription(subscriber)) => {
@@ -665,7 +686,8 @@ impl std::fmt::Display for Callback {
                     write!(
                         f,
                         "(handle={:x}, caller=Unknown, name={})",
-                        self.handle, self.name.as_ref().map(DisplayDebug)
+                        self.handle,
+                        self.name.as_ref().map(DisplayDebug)
                     )
                 }
             }
@@ -748,7 +770,11 @@ impl std::fmt::Display for PublicationMessage {
             .publisher
             .as_ref()
             .map(|publisher| publisher.lock().unwrap());
-        write!(f, "(ptr={:x}, sender_timestamp={}, publisher={publisher})", self.ptr, self.sender_timestamp)
+        write!(
+            f,
+            "(ptr={:x}, sender_timestamp={}, publisher={publisher})",
+            self.ptr, self.sender_timestamp
+        )
     }
 }
 
@@ -761,13 +787,25 @@ impl std::fmt::Display for SubscriptionMessage {
         match &self.message {
             PartiallyKnown::Fully(message) => {
                 let message = message.lock().unwrap();
-                write!(f, "(ptr={:x}, message={message}, subscriber={subscriber})", self.ptr)
+                write!(
+                    f,
+                    "(ptr={:x}, message={message}, subscriber={subscriber})",
+                    self.ptr
+                )
             }
             PartiallyKnown::Partially(timestamp) => {
-                write!(f, "(ptr={:x}, message=(sender_timestamp={timestamp}), subscriber={subscriber})", self.ptr)
+                write!(
+                    f,
+                    "(ptr={:x}, message=(sender_timestamp={timestamp}), subscriber={subscriber})",
+                    self.ptr
+                )
             }
             PartiallyKnown::Unknown => {
-                write!(f, "(ptr={:x}, message=Unknown, subscriber={subscriber})", self.ptr)
+                write!(
+                    f,
+                    "(ptr={:x}, message=Unknown, subscriber={subscriber})",
+                    self.ptr
+                )
             }
         }
     }

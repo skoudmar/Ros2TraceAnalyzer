@@ -1,16 +1,14 @@
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    sync::{Arc, Mutex},
-};
+use core::time;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use crate::{
-    events_common::{Context, Time},
-    model::{
-        Callback, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
-        SubscriptionMessage, Timer,
-    },
-    processed_events, raw_events,
+use crate::events_common::{Context, Time};
+use crate::model::{
+    Callback, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
+    SubscriptionMessage, Timer,
 };
+use crate::{processed_events, raw_events};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ContextId {
@@ -81,7 +79,11 @@ impl Processor {
     }
 
     fn host_to_host_id(&mut self, hostname: &str) -> u32 {
-        let next_id = self.hostname_to_host_id.len().try_into().expect("Host ID overflow");
+        let next_id = self
+            .hostname_to_host_id
+            .len()
+            .try_into()
+            .expect("Host ID overflow");
         *self
             .hostname_to_host_id
             .entry(hostname.to_owned())
@@ -265,7 +267,8 @@ impl Processor {
             .insert(
                 event.publisher_handle.into_id(context_id),
                 publisher_arc.clone(),
-            ).is_some()
+            )
+            .is_some()
         {
             panic!("Publishers by rcl already contains key");
         }
@@ -274,7 +277,10 @@ impl Processor {
             .nodes_by_rcl
             .entry(event.node_handle.into_id(context_id))
             .or_insert_with(|| {
-                assert!(event.topic_name == "/rosout", "Node not found for publisher: {event:?}");
+                assert!(
+                    event.topic_name == "/rosout",
+                    "Node not found for publisher: {event:?}"
+                );
                 let node = Node::new(event.node_handle);
                 Arc::new(Mutex::new(node))
             });
@@ -504,10 +510,16 @@ impl Processor {
             subscriber.rclcpp_init(event.subscription);
         }
 
-        if self.subscribers_by_rclcpp
-            .insert(event.subscription.into_id(context_id), subscriber_arc.clone()).is_some() {
-                panic!("Subscriber already exists for id: {event:?}");
-            }
+        if self
+            .subscribers_by_rclcpp
+            .insert(
+                event.subscription.into_id(context_id),
+                subscriber_arc.clone(),
+            )
+            .is_some()
+        {
+            panic!("Subscriber already exists for id: {event:?}");
+        }
 
         processed_events::ros2::RclcppSubscriptionInit {
             subscription: subscriber_arc,
@@ -526,8 +538,13 @@ impl Processor {
 
         let callback_arc = Callback::new_subscription(event.callback, subscription_arc);
 
-        if self.callbacks_by_id
-            .insert(event.callback.into_id(context_id), callback_arc.clone()).is_some() { panic!("Callback already exists for id: {event:?}") }
+        if self
+            .callbacks_by_id
+            .insert(event.callback.into_id(context_id), callback_arc.clone())
+            .is_some()
+        {
+            panic!("Callback already exists for id: {event:?}")
+        }
 
         subscription_arc
             .lock()
@@ -628,11 +645,7 @@ impl Processor {
 
         {
             let mut service = service_arc.lock().unwrap();
-            service.rcl_init(
-                event.rmw_service_handle,
-                event.service_name,
-                node_arc,
-            );
+            service.rcl_init(event.rmw_service_handle, event.service_name, node_arc);
         }
         {
             let mut node = node_arc.lock().unwrap();
@@ -701,11 +714,7 @@ impl Processor {
 
         {
             let mut client = client_arc.lock().unwrap();
-            client.rcl_init(
-                event.rmw_client_handle,
-                event.service_name,
-                node_arc,
-            );
+            client.rcl_init(event.rmw_client_handle, event.service_name, node_arc);
         }
         {
             let mut node = node_arc.lock().unwrap();

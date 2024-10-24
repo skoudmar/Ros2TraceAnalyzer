@@ -1,13 +1,15 @@
-use std::{
-    ffi::{CStr, CString},
-    fmt::{Display, Error, Write},
-};
+use std::ffi::{CStr, CString};
+use std::fmt::Display;
 
 use thiserror::Error;
 
-use crate::{iterator::MessageIteratorState, raw_bindings::{
-    bt_current_thread_error_append_cause_from_unknown, bt_current_thread_move_error, bt_current_thread_take_error, bt_error, bt_error_borrow_cause_by_index, bt_error_cause_get_message, bt_error_get_cause_count, bt_graph_run_once_status, bt_message_iterator_next_status
-}};
+use crate::iterator::MessageIteratorState;
+use crate::raw_bindings::{
+    bt_current_thread_error_append_cause_from_unknown, bt_current_thread_move_error,
+    bt_current_thread_take_error, bt_error, bt_error_borrow_cause_by_index,
+    bt_error_cause_get_message, bt_error_get_cause_count, bt_graph_run_once_status,
+    bt_message_iterator_next_status,
+};
 
 pub type BtResult<T> = Result<T, BtError>;
 

@@ -1,12 +1,8 @@
 use std::ptr;
 
-use crate::{
-    error::{BtResult, IntoResult},
-    message::BtMessageArrayConst,
-    raw_bindings::{
-        bt_message_iterator, bt_message_iterator_next,
-    },
-};
+use crate::error::{BtResult, IntoResult};
+use crate::message::BtMessageArrayConst;
+use crate::raw_bindings::{bt_message_iterator, bt_message_iterator_next};
 
 #[repr(transparent)]
 pub struct BtMessageIterator(*mut bt_message_iterator);

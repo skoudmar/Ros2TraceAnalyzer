@@ -7,7 +7,8 @@ mod utils;
 
 use std::env;
 
-use bt2_sys::{iterator::MessageIterator, message::BtMessageType};
+use bt2_sys::iterator::MessageIterator;
+use bt2_sys::message::BtMessageType;
 
 fn main() {
     let trace_path = env::args()

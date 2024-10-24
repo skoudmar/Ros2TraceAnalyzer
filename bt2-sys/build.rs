@@ -8,9 +8,7 @@ fn main() {
 }
 
 fn compile_sink_plugin() {
-    cc::Build::new()
-        .file("src-c/graph.c")
-        .compile("bt2-graph");
+    cc::Build::new().file("src-c/graph.c").compile("bt2-graph");
 
     println!("cargo:rerun-if-changed=src-c/graph.h");
     println!("cargo:rerun-if-changed=src-c/graph.c");
