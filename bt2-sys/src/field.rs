@@ -1,4 +1,5 @@
-use std::ops::Deref;
+use std::ffi::CStr;
+use derive_more::derive::Deref;
 
 use crate::raw_bindings::{
     bt_field, bt_field_array_borrow_element_field_by_index_const, bt_field_array_get_length,
@@ -16,18 +17,23 @@ use crate::raw_bindings::{
 pub struct BtFieldConst(*const bt_field);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtFieldUnsignedIntegerConst(BtFieldConst);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtFieldSignedIntegerConst(BtFieldConst);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtFieldStringConst(BtFieldConst);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtFieldArrayConst(BtFieldConst);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtFieldStructureConst(BtFieldConst);
 
 #[non_exhaustive]
@@ -181,7 +187,7 @@ impl std::fmt::Display for BtFieldConst {
     }
 }
 
-impl Deref for BtFieldType {
+impl std::ops::Deref for BtFieldType {
     type Target = BtFieldConst;
 
     fn deref(&self) -> &Self::Target {
@@ -193,18 +199,6 @@ impl Deref for BtFieldType {
             BtFieldType::Structure(inner) => inner,
         }
     }
-}
-
-macro_rules! impl_deref_for_field {
-    ($type:ty) => {
-        impl Deref for $type {
-            type Target = BtFieldConst;
-
-            fn deref(&self) -> &Self::Target {
-                &self.0
-            }
-        }
-    };
 }
 
 macro_rules! impl_debug_and_display_for_scalar_field {
@@ -231,7 +225,6 @@ impl BtFieldUnsignedIntegerConst {
     }
 }
 
-impl_deref_for_field!(BtFieldUnsignedIntegerConst);
 impl_debug_and_display_for_scalar_field!(BtFieldUnsignedIntegerConst);
 
 impl BtFieldSignedIntegerConst {
@@ -240,7 +233,6 @@ impl BtFieldSignedIntegerConst {
     }
 }
 
-impl_deref_for_field!(BtFieldSignedIntegerConst);
 impl_debug_and_display_for_scalar_field!(BtFieldSignedIntegerConst);
 
 impl BtFieldStringConst {
@@ -256,7 +248,6 @@ impl BtFieldStringConst {
     }
 }
 
-impl_deref_for_field!(BtFieldStringConst);
 impl_debug_and_display_for_scalar_field!(BtFieldStringConst);
 
 impl BtFieldArrayConst {
@@ -352,8 +343,6 @@ impl BtFieldStructureConst {
     }
 }
 
-impl_deref_for_field!(BtFieldStructureConst);
-
 impl std::fmt::Debug for BtFieldStructureConst {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let class = self.get_class();
@@ -429,6 +418,7 @@ impl BtFieldClassConst {
 }
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtFieldStructClassConst(BtFieldClassConst);
 
 #[repr(transparent)]
@@ -464,14 +454,6 @@ impl BtFieldStructClassConst {
                 bt_field_class_structure_borrow_member_by_index_const(self.as_ptr(), index),
             )
         }
-    }
-}
-
-impl Deref for BtFieldStructClassConst {
-    type Target = BtFieldClassConst;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
