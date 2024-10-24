@@ -79,12 +79,10 @@ pub struct FullEvent {
     pub event: Event,
 }
 
-impl_from_for_enum! {
-#[derive(Debug)]
+#[derive(Debug, From)]
 pub enum Event {
     Ros2(ros2::Event),
     R2r(r2r::Event),
-}
 }
 
 pub fn get_full_event(message: &BtMessageConst) -> Option<FullEvent> {

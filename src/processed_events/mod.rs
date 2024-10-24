@@ -1,15 +1,15 @@
-use crate::{events_common::{Context, Time}, impl_from_for_enum};
+use derive_more::derive::From;
+
+use crate::events_common::{Context, Time};
 
 pub mod ros2;
 
 pub mod r2r;
 
-impl_from_for_enum! {
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, From)]
 pub enum Event {
     Ros2(ros2::Event),
     R2r(r2r::Event),
-}
 }
 
 impl std::fmt::Display for Event {

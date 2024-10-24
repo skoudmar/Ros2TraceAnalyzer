@@ -1,4 +1,5 @@
 use bt2_sys::event::BtEventConst;
+use derive_more::derive::From;
 
 use crate::impl_from_for_enum;
 
@@ -225,8 +226,7 @@ pub struct RclCppRingBufferClear {
     pub buffer: u64,
 }
 
-impl_from_for_enum! {
-#[derive(Debug)]
+#[derive(Debug, From)]
 pub enum Event {
     RclInit(RclInit),
     RclNodeInit(RclNodeInit),
@@ -263,7 +263,6 @@ pub enum Event {
     RclcppRingBufferEnqueue(RclCppRingBufferEnqueue),
     RclcppRingBufferDequeue(RclCppRingBufferDequeue),
     RclcppRingBufferClear(RclCppRingBufferClear),
-}
 }
 
 impl FromBtEvent for RclInit {
