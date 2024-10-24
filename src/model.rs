@@ -153,6 +153,9 @@ pub struct PublicationMessage {
     ptr: u64,
     publisher: Known<Arc<Mutex<Publisher>>>,
     sender_timestamp: Known<Time>,
+    rmw_publish_time: Known<Time>,
+    rcl_publish_time: Known<Time>,
+    rclcpp_publish_time: Known<Time>,
 }
 
 #[derive(Debug, Default)]
@@ -167,6 +170,9 @@ pub struct SubscriptionMessage {
     ptr: u64,
     message: PartiallyKnown<Arc<Mutex<PublicationMessage>>, Time>,
     subscriber: Known<Arc<Mutex<Subscriber>>>,
+    rmw_receive_time: Known<Time>,
+    rcl_receive_time: Known<Time>,
+    rclcpp_receive_time: Known<Time>,
 }
 
 impl PublicationMessage {
@@ -175,6 +181,9 @@ impl PublicationMessage {
             ptr: message,
             publisher: Known::Unknown,
             sender_timestamp: Known::Unknown,
+            rmw_publish_time: Known::Unknown,
+            rcl_publish_time: Known::Unknown,
+            rclcpp_publish_time: Known::Unknown,
         }
     }
 
@@ -186,12 +195,47 @@ impl PublicationMessage {
         self.publisher = Known::new(publisher);
     }
 
-    pub(crate) fn set_sender_timestamp(&mut self, timestamp: i64) {
+    pub(crate) fn rclcpp_publish(&mut self, time: Time) {
         assert!(
-            self.sender_timestamp.is_unknown(),
-            "PublicationMessage sender_timestamp already set. {self:#?}"
+            self.rclcpp_publish_time.is_unknown(),
+            "PublicationMessage rclcpp_publish_time already set. {self:#?}"
         );
+        self.rclcpp_publish_time = Known::new(time);
+    }
+
+    pub(crate) fn rcl_publish(&mut self, time: Time) {
+        assert!(
+            self.rcl_publish_time.is_unknown(),
+            "PublicationMessage rcl_publish_time already set. {self:#?}"
+        );
+        self.rcl_publish_time = Known::new(time);
+    }
+
+    pub(crate) fn rmw_publish(&mut self, time: Time, timestamp: i64) {
+        assert!(
+            self.rmw_publish_time.is_unknown() && self.sender_timestamp.is_unknown(),
+            "PublicationMessage rmw_publish already called on this message. {self:#?}"
+        );
+        self.rmw_publish_time = Known::new(time);
         self.sender_timestamp = Known::new(Time::from_nanos(timestamp));
+    }
+
+    pub fn get_rmw_publication_time(&self) -> Option<Time> {
+        self.rmw_publish_time.into()
+    }
+
+    pub fn get_rcl_publication_time(&self) -> Option<Time> {
+        self.rcl_publish_time.into()
+    }
+
+    pub fn get_rclcpp_publication_time(&self) -> Option<Time> {
+        self.rclcpp_publish_time.into()
+    }
+
+    pub fn get_publication_time(&self) -> Option<Time> {
+        self.get_rclcpp_publication_time()
+            .or_else(|| self.get_rcl_publication_time())
+            .or_else(|| self.get_rmw_publication_time())
     }
 }
 
@@ -201,6 +245,9 @@ impl SubscriptionMessage {
             ptr,
             message: PartiallyKnown::Unknown,
             subscriber: Known::Unknown,
+            rmw_receive_time: Known::Unknown,
+            rcl_receive_time: Known::Unknown,
+            rclcpp_receive_time: Known::Unknown,
         }
     }
 
@@ -208,6 +255,7 @@ impl SubscriptionMessage {
         &mut self,
         subscriber: Arc<Mutex<Subscriber>>,
         published_message: Arc<Mutex<PublicationMessage>>,
+        time: Time,
     ) {
         assert!(
             self.subscriber.is_unknown(),
@@ -215,12 +263,14 @@ impl SubscriptionMessage {
         );
         self.subscriber = Known::new(subscriber);
         self.message = PartiallyKnown::Fully(published_message);
+        self.rmw_receive_time = Known::new(time);
     }
 
     pub fn rmw_take_unmatched(
         &mut self,
         subscriber: Arc<Mutex<Subscriber>>,
         publication_time: i64,
+        time: Time,
     ) {
         assert!(
             self.subscriber.is_unknown(),
@@ -228,6 +278,59 @@ impl SubscriptionMessage {
         );
         self.subscriber = Known::new(subscriber);
         self.message = PartiallyKnown::Partially(Time::from_nanos(publication_time));
+        self.rmw_receive_time = Known::new(time);
+    }
+
+    pub fn rcl_take(&mut self, time: Time) {
+        assert!(
+            self.rcl_receive_time.is_unknown(),
+            "SubscriptionMessage rcl_receive_time already set. {self:#?}"
+        );
+        self.rcl_receive_time = Known::new(time);
+    }
+
+    pub fn rclcpp_take(&mut self, time: Time) {
+        assert!(
+            self.rclcpp_receive_time.is_unknown(),
+            "SubscriptionMessage rclcpp_receive_time already set. {self:#?}"
+        );
+        self.rclcpp_receive_time = Known::new(time);
+    }
+
+    pub fn get_publication_message(&self) -> Option<Arc<Mutex<PublicationMessage>>> {
+        match &self.message {
+            PartiallyKnown::Fully(message) => Some(message.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn get_sender_timestamp(&self) -> Option<Time> {
+        match &self.message {
+            PartiallyKnown::Partially(time) => Some(*time),
+            _ => None,
+        }
+    }
+
+    pub fn get_rmw_receive_time(&self) -> Option<Time> {
+        self.rmw_receive_time.into()
+    }
+
+    pub fn get_rcl_receive_time(&self) -> Option<Time> {
+        self.rcl_receive_time.into()
+    }
+
+    pub fn get_rclcpp_receive_time(&self) -> Option<Time> {
+        self.rclcpp_receive_time.into()
+    }
+
+    pub fn get_receive_time(&self) -> Option<Time> {
+        self.get_rclcpp_receive_time()
+            .or_else(|| self.get_rcl_receive_time())
+            .or_else(|| self.get_rmw_receive_time())
+    }
+
+    pub fn get_subscriber(&self) -> Option<Arc<Mutex<Subscriber>>> {
+        self.subscriber.clone().into()
     }
 }
 

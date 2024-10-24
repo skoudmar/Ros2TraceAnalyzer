@@ -123,13 +123,13 @@ impl Processor {
                 self.process_rcl_publisher_init(event, context_id).into()
             }
             raw_events::ros2::Event::RclcppPublish(event) => {
-                self.process_rclcpp_publish(event, context_id).into()
+                self.process_rclcpp_publish(event, context_id, time).into()
             }
             raw_events::ros2::Event::RclPublish(event) => {
-                self.process_rcl_publish(event, context_id).into()
+                self.process_rcl_publish(event, context_id, time).into()
             }
             raw_events::ros2::Event::RmwPublish(event) => {
-                self.process_rmw_publish(event, context_id).into()
+                self.process_rmw_publish(event, context_id, time).into()
             }
             raw_events::ros2::Event::RmwSubscriptionInit(event) => {
                 self.process_rmw_subscription_init(event, context_id).into()
@@ -144,13 +144,13 @@ impl Processor {
                 .process_rclcpp_subscription_callback_added(event, context_id)
                 .into(),
             raw_events::ros2::Event::RmwTake(event) => {
-                self.process_rmw_take(event, context_id).into()
+                self.process_rmw_take(event, context_id, time).into()
             }
             raw_events::ros2::Event::RclTake(event) => {
-                self.process_rcl_take(event, context_id).into()
+                self.process_rcl_take(event, context_id, time).into()
             }
             raw_events::ros2::Event::RclcppTake(event) => {
-                self.process_rclcpp_take(event, context_id).into()
+                self.process_rclcpp_take(event, context_id, time).into()
             }
             raw_events::ros2::Event::RclServiceInit(event) => {
                 self.process_rcl_service_init(event, context_id).into()
@@ -308,8 +308,10 @@ impl Processor {
         &mut self,
         event: raw_events::ros2::RclcppPublish,
         context_id: ContextId,
+        time: Time,
     ) -> processed_events::ros2::RclcppPublish {
-        let message = PublicationMessage::new(event.message);
+        let mut message = PublicationMessage::new(event.message);
+        message.rclcpp_publish(time);
         let message_arc = Arc::new(Mutex::new(message));
         self.published_messages_by_rclcpp
             .insert(event.message.into_id(context_id), message_arc.clone());
@@ -323,6 +325,7 @@ impl Processor {
         &mut self,
         event: raw_events::ros2::RclPublish,
         context_id: ContextId,
+        time: Time,
     ) -> processed_events::ros2::RclPublish {
         let id = event.message.into_id(context_id);
         let message_arc = self
@@ -351,6 +354,7 @@ impl Processor {
         {
             let mut message = message_arc.lock().unwrap();
             message.set_publisher(publisher);
+            message.rcl_publish(time);
         }
 
         processed_events::ros2::RclPublish {
@@ -362,6 +366,7 @@ impl Processor {
         &mut self,
         event: raw_events::ros2::RmwPublish,
         context_id: ContextId,
+        time: Time,
     ) -> processed_events::ros2::RmwPublish {
         let message_arc = self
             .published_messages_by_rcl
@@ -383,7 +388,7 @@ impl Processor {
             },
             |timestamp| {
                 let mut message = message_arc.lock().unwrap();
-                message.set_sender_timestamp(timestamp);
+                message.rmw_publish(time, timestamp);
 
                 self.published_messages
                     .insert(timestamp, message_arc.clone());
@@ -560,24 +565,21 @@ impl Processor {
         &mut self,
         event: raw_events::ros2::RmwTake,
         context_id: ContextId,
+        time: Time,
     ) -> processed_events::ros2::RmwTake {
         let subscriber = self
             .subscribers_by_rmw
             .get(&event.rmw_subscription_handle.into_id(context_id))
-            .unwrap()
-            .clone();
+            .unwrap();
 
         let mut message = SubscriptionMessage::new(event.message);
 
-        match self
-            .published_messages
-            .get(&event.source_timestamp)
-        {
+        match self.published_messages.get(&event.source_timestamp) {
             Some(published_message) => {
-                message.rmw_take_matched(subscriber, published_message.clone());
+                message.rmw_take_matched(subscriber.clone(), published_message.clone(), time);
             }
             None => {
-                message.rmw_take_unmatched(subscriber, event.source_timestamp);
+                message.rmw_take_unmatched(subscriber.clone(), event.source_timestamp, time);
             }
         }
 
@@ -596,11 +598,17 @@ impl Processor {
         &mut self,
         event: raw_events::ros2::RclTake,
         context_id: ContextId,
+        time: Time,
     ) -> processed_events::ros2::RclTake {
         let message_arc = self
             .received_messages
             .get(&event.message.into_id(context_id))
             .unwrap();
+
+        {
+            let mut message = message_arc.lock().unwrap();
+            message.rcl_take(time);
+        }
 
         processed_events::ros2::RclTake {
             message: message_arc.clone(),
@@ -611,11 +619,17 @@ impl Processor {
         &mut self,
         event: raw_events::ros2::RclcppTake,
         context_id: ContextId,
+        time: Time,
     ) -> processed_events::ros2::RclCppTake {
         let message_arc = self
             .received_messages
             .get(&event.message.into_id(context_id))
             .unwrap();
+
+        {
+            let mut message = message_arc.lock().unwrap();
+            message.rclcpp_take(time);
+        }
 
         processed_events::ros2::RclCppTake {
             message: message_arc.clone(),
