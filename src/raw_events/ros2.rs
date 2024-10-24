@@ -345,7 +345,7 @@ impl FromBtEvent for RmwPublisherInit {
             .get_field_by_name("gid")
             .expect("Missing gid")
             .into_array()
-            .read_byte_array();
+            .read_static_unsigned_array();
         Some(Self {
             rmw_publisher_handle,
             gid,
@@ -504,7 +504,7 @@ impl FromBtEvent for RmwSubscriptionInit {
             .get_field_by_name("gid")
             .expect("Missing gid")
             .into_array()
-            .read_byte_array();
+            .read_static_unsigned_array();
         Some(Self {
             rmw_subscription_handle,
             gid,
