@@ -84,6 +84,9 @@ trace_context *init_trace(const char *trace_path, const struct sink *sink_def) {
       free(ctx);
       return NULL;
     }
+
+    bt_value_put_ref(inputs);
+    bt_value_put_ref(params);
   }
 
   uint64_t src_out_port_count = bt_component_source_get_output_port_count(src);
@@ -181,6 +184,9 @@ trace_context *init_trace(const char *trace_path, const struct sink *sink_def) {
       return NULL;
     }
   }
+
+  bt_plugin_put_ref(ctf_plugin);
+  bt_plugin_put_ref(utils_plugin);
 
   return ctx;
 }

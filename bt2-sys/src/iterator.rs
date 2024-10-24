@@ -75,6 +75,15 @@ impl BatchMessageIterator {
             }
         }
     }
+
+    unsafe extern "C" fn finalize(user_data: *mut c_void) {
+        if user_data.is_null() {
+            eprintln!("User data is null in finalize function");
+            std::process::abort();
+        }
+        let this_rc = Rc::from_raw(user_data.cast::<BatchMessageIteratorInner>());
+        drop(this_rc);
+    }
 }
 
 impl BatchMessageIterator {
@@ -84,7 +93,7 @@ impl BatchMessageIterator {
         let sink = sink {
             initialize_func: None,
             consume_func: Some(Self::consume),
-            finalize_func: None,
+            finalize_func: Some(Self::finalize),
             user_data: shared_ptr as *mut c_void,
         };
 
