@@ -591,6 +591,13 @@ impl Processor {
 
         let message_arc = Arc::new(Mutex::new(message));
 
+        if event.taken {
+            let mut subscriber = subscriber.lock().unwrap();
+            if let Some(_old) = subscriber.replace_taken_message(message_arc.clone()) {
+                // TODO: Save message to dropped messages
+            }
+        }
+
         self.received_messages
             .insert(event.message.into_id(context_id), message_arc.clone());
 

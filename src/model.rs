@@ -74,6 +74,7 @@ pub struct Subscriber {
     queue_depth: Known<usize>,
 
     callback: Known<Arc<Mutex<Callback>>>,
+    taken_message: Option<Arc<Mutex<SubscriptionMessage>>>,
 }
 
 #[derive(Debug, Default)]
@@ -531,6 +532,17 @@ impl Subscriber {
         );
 
         self.callback = Known::new(callback);
+    }
+
+    pub fn replace_taken_message(
+        &mut self,
+        message: Arc<Mutex<SubscriptionMessage>>,
+    ) -> Option<Arc<Mutex<SubscriptionMessage>>> {
+        self.taken_message.replace(message)
+    }
+
+    pub fn take_message(&mut self) -> Option<Arc<Mutex<SubscriptionMessage>>> {
+        self.taken_message.take()
     }
 }
 
