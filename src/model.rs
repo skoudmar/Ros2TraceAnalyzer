@@ -36,7 +36,7 @@ impl std::fmt::Debug for Time {
 
 impl std::fmt::Display for Time {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_datetime())
+        write!(f, "{}", self.as_datetime().naive_local())
     }
 }
 
