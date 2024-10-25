@@ -1,7 +1,9 @@
 use crate::raw_bindings::{
-    bt_clock_snapshot, bt_clock_snapshot_get_ns_from_origin,
+    bt_clock_class, bt_clock_class_origin_is_unix_epoch, bt_clock_snapshot,
+    bt_clock_snapshot_borrow_clock_class_const, bt_clock_snapshot_get_ns_from_origin,
     bt_clock_snapshot_get_ns_from_origin_status, bt_clock_snapshot_get_value,
 };
+use crate::utils::ConstNonNull;
 
 pub struct BtClockSnapshotConst(*const bt_clock_snapshot);
 
@@ -31,5 +33,33 @@ impl BtClockSnapshotConst {
             bt_clock_snapshot_get_ns_from_origin_status::BT_CLOCK_SNAPSHOT_GET_NS_FROM_ORIGIN_STATUS_OVERFLOW_ERROR => None,
             status => unreachable!("Bug: Unknown bt_clock_snapshot_get_ns_from_origin_status: {}", status.0),
         }
+    }
+
+    #[must_use]
+    pub fn get_class(&self) -> BtClockClassConst {
+        unsafe {
+            BtClockClassConst::new_unchecked(
+                bt_clock_snapshot_borrow_clock_class_const(self.as_ptr())
+                    .try_into()
+                    .unwrap_unchecked(),
+            )
+        }
+    }
+}
+
+pub struct BtClockClassConst(ConstNonNull<bt_clock_class>);
+
+impl BtClockClassConst {
+    pub(crate) unsafe fn new_unchecked(ptr: ConstNonNull<bt_clock_class>) -> Self {
+        Self(ptr)
+    }
+
+    pub(crate) fn as_ptr(&self) -> *const bt_clock_class {
+        self.0.as_ptr()
+    }
+
+    #[must_use]
+    pub fn origin_is_unix_epoch(&self) -> bool {
+        0 != unsafe { bt_clock_class_origin_is_unix_epoch(self.as_ptr()) }
     }
 }
