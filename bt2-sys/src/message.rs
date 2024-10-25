@@ -2,12 +2,15 @@ use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
-use crate::clock_snapshot::BtClockSnapshotConst;
+use derive_more::derive::{Deref, From};
+
+use crate::clock_snapshot::{BtClockClassConst, BtClockSnapshotConst};
 use crate::event::BtEventConst;
 use crate::raw_bindings::{
     bt_message, bt_message_event_borrow_default_clock_snapshot_const,
-    bt_message_event_borrow_event_const, bt_message_get_ref, bt_message_get_type,
-    bt_message_put_ref, bt_message_type,
+    bt_message_event_borrow_event_const,
+    bt_message_event_borrow_stream_class_default_clock_class_const, bt_message_get_ref,
+    bt_message_get_type, bt_message_put_ref, bt_message_type,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,11 +25,9 @@ pub enum BtMessageType {
     MessageIteratorInactivity,
 }
 
-impl TryFrom<bt_message_type> for BtMessageType {
-    type Error = ();
-
-    fn try_from(value: bt_message_type) -> Result<Self, Self::Error> {
-        Ok(match value {
+impl From<bt_message_type> for BtMessageType {
+    fn from(value: bt_message_type) -> Self {
+        match value {
             bt_message_type::BT_MESSAGE_TYPE_STREAM_BEGINNING => BtMessageType::StreamBeginning,
             bt_message_type::BT_MESSAGE_TYPE_EVENT => BtMessageType::Event,
             bt_message_type::BT_MESSAGE_TYPE_STREAM_END => BtMessageType::StreamEnd,
@@ -37,39 +38,139 @@ impl TryFrom<bt_message_type> for BtMessageType {
             bt_message_type::BT_MESSAGE_TYPE_MESSAGE_ITERATOR_INACTIVITY => {
                 BtMessageType::MessageIteratorInactivity
             }
-            _ => return Err(()),
-        })
+            _ => {
+                // All bt_message_type variants are handled above
+                unreachable!("Bug: unknown bt_message_type = {}", value.0);
+            }
+        }
     }
 }
 
 #[repr(transparent)]
-pub struct BtMessageConst(*const bt_message);
+pub struct BtMessageConst(ConstNonNull<bt_message>);
+
+#[derive(From, Clone)]
+pub enum BtMessageConstCast {
+    StreamBeginning(BtStreamBeginningMessageConst),
+    StreamEnd(BtStreamEndMessageConst),
+    Event(BtEventMessageConst),
+    PacketBeginning(BtPacketBeginningMessageConst),
+    PacketEnd(BtPacketEndMessageConst),
+    DiscardedEvents(BtDiscardedEventsMessageConst),
+    DiscardedPackets(BtDiscardedPacketsMessageConst),
+    MessageIteratorInactivity(BtMessageIteratorInactivityMessageConst),
+}
+
+#[repr(transparent)]
+#[derive(Deref, Clone)]
+pub struct BtStreamBeginningMessageConst(BtMessageConst);
+
+#[repr(transparent)]
+#[derive(Deref, Clone)]
+pub struct BtStreamEndMessageConst(BtMessageConst);
+
+#[repr(transparent)]
+#[derive(Deref, Clone)]
+pub struct BtEventMessageConst(BtMessageConst);
+
+#[repr(transparent)]
+#[derive(Deref, Clone)]
+pub struct BtPacketBeginningMessageConst(BtMessageConst);
+
+#[repr(transparent)]
+#[derive(Deref, Clone)]
+pub struct BtPacketEndMessageConst(BtMessageConst);
+
+#[repr(transparent)]
+#[derive(Deref, Clone)]
+pub struct BtDiscardedEventsMessageConst(BtMessageConst);
+
+#[repr(transparent)]
+#[derive(Deref, Clone)]
+pub struct BtDiscardedPacketsMessageConst(BtMessageConst);
+
+#[repr(transparent)]
+#[derive(Deref, Clone)]
+pub struct BtMessageIteratorInactivityMessageConst(BtMessageConst);
 
 impl BtMessageConst {
     pub(crate) unsafe fn new_unchecked(message: *const bt_message) -> BtMessageConst {
-        BtMessageConst(message)
+        Self(ConstNonNull::new_unchecked(message))
+    }
+
+    #[inline]
+    pub(crate) fn as_ptr(&self) -> *const bt_message {
+        self.0.as_ptr()
     }
 
     #[must_use]
     pub fn get_type(&self) -> BtMessageType {
-        debug_assert!(!self.0.is_null());
-        unsafe { bt_message_get_type(self.0) }.try_into().unwrap()
+        unsafe { bt_message_get_type(self.as_ptr()) }.into()
     }
 
+    #[must_use]
+    pub fn cast(self) -> BtMessageConstCast {
+        match self.get_type() {
+            BtMessageType::StreamBeginning => BtStreamBeginningMessageConst(self).into(),
+            BtMessageType::StreamEnd => BtStreamEndMessageConst(self).into(),
+            BtMessageType::Event => BtEventMessageConst(self).into(),
+            BtMessageType::PacketBeginning => BtPacketBeginningMessageConst(self).into(),
+            BtMessageType::PacketEnd => BtPacketEndMessageConst(self).into(),
+            BtMessageType::DiscardedEvents => BtDiscardedEventsMessageConst(self).into(),
+            BtMessageType::DiscardedPackets => BtDiscardedPacketsMessageConst(self).into(),
+            BtMessageType::MessageIteratorInactivity => {
+                BtMessageIteratorInactivityMessageConst(self).into()
+            }
+        }
+    }
+
+    /// Cast this message to a [`BtEventMessageConst`].
+    ///
+    /// # Panics
+    /// Panics if the message is not of type [`BtMessageType::Event`].
+    #[must_use]
+    pub fn into_event_msg(self) -> BtEventMessageConst {
+        match self.cast() {
+            BtMessageConstCast::Event(event) => event,
+            _ => panic!("Message is not of type Event"),
+        }
+    }
+}
+
+impl BtEventMessageConst {
+    /// Get the event contained in this message.
     #[must_use]
     pub fn get_event<'a>(&'a self) -> BtEventConst {
-        debug_assert!(!self.0.is_null());
-        assert!(self.get_type() == BtMessageType::Event);
-        unsafe { BtEventConst::<'a>::new_unchecked(bt_message_event_borrow_event_const(self.0)) }
+        debug_assert!(!self.as_ptr().is_null());
+        unsafe {
+            BtEventConst::<'a>::new_unchecked(bt_message_event_borrow_event_const(self.as_ptr()))
+        }
     }
 
+    /// Get snapshot of the default clock.
+    ///
+    /// # Panics
+    /// If the stream class of the event does not have a default clock class,
+    /// i.e., if [`Self::get_default_clock_class`] returns `None`.
     #[must_use]
     pub fn get_default_clock_snapshot(&self) -> BtClockSnapshotConst {
-        debug_assert!(!self.0.is_null());
+        assert!(self.get_default_clock_class().is_some());
+        debug_assert!(!self.as_ptr().is_null());
         unsafe {
             BtClockSnapshotConst::new_unchecked(
-                bt_message_event_borrow_default_clock_snapshot_const(self.0),
+                bt_message_event_borrow_default_clock_snapshot_const(self.as_ptr()),
             )
+        }
+    }
+
+    /// Get the default clock class of the stream class of the event.
+    #[must_use]
+    pub fn get_default_clock_class(&self) -> Option<BtClockClassConst> {
+        unsafe {
+            bt_message_event_borrow_stream_class_default_clock_class_const(self.as_ptr())
+                .try_into()
+                .ok()
+                .map(|ptr| BtClockClassConst::new_unchecked(ptr))
         }
     }
 }
@@ -99,7 +200,7 @@ impl BtMessageArrayConst {
         messages: *mut *const bt_message,
         count: u64,
     ) -> BtMessageArrayConst {
-        BtMessageArrayConst(NonNull::new(messages).unwrap(), count as usize)
+        BtMessageArrayConst(NonNull::new(messages).unwrap(), count.try_into().unwrap())
     }
 }
 
@@ -125,11 +226,9 @@ impl Default for BtMessageArrayConst {
 
 impl Drop for BtMessageArrayConst {
     fn drop(&mut self) {
-        for message in self.deref_mut() {
+        for message in &mut **self {
             unsafe {
-                let message_ptr = (message as *mut BtMessageConst).cast::<*const bt_message>();
                 std::ptr::drop_in_place(message);
-                message_ptr.write(std::ptr::null());
             }
         }
     }

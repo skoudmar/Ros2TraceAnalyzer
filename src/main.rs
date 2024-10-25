@@ -32,7 +32,9 @@ fn main() {
                 println!("Skipping message of type {:?}", message.get_type());
                 continue;
             }
-            BtMessageType::Event => raw_events::get_full_event(&message),
+            BtMessageType::Event => {
+                raw_events::get_full_event(&message.into_event_msg())
+            }
         };
 
         let Some(event) = event else {

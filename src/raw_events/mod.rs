@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use bt2_sys::event::BtEventConst;
-use bt2_sys::message::BtMessageConst;
+use bt2_sys::message::{BtEventMessageConst, BtMessageConst};
 use bt2_sys::trace::BtEnvironmentEntry;
 use derive_more::derive::From;
 
@@ -16,7 +16,7 @@ pub trait FromBtEvent: Sized {
     fn from_event(event: &BtEventConst) -> Option<Self>;
 }
 
-pub fn time_from_message(message: &BtMessageConst) -> Time {
+pub fn time_from_message(message: &BtEventMessageConst) -> Time {
     let clock_snapshot = message.get_default_clock_snapshot();
     let value_from_origin = clock_snapshot.get_value_from_origin().unwrap();
     Time::from_nanos(value_from_origin)
@@ -85,7 +85,7 @@ pub enum Event {
     R2r(r2r::Event),
 }
 
-pub fn get_full_event(message: &BtMessageConst) -> Option<FullEvent> {
+pub fn get_full_event(message: &BtEventMessageConst) -> Option<FullEvent> {
     let event = message.get_event();
     let context = context_from_event(&event);
     let time = time_from_message(message);
