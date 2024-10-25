@@ -14,6 +14,7 @@ use crate::raw_bindings::{
     bt_value_string_create_init, bt_value_string_get, bt_value_string_set,
     bt_value_string_set_status, bt_value_type,
 };
+use crate::utils::ConstNonNull;
 
 pub enum BtValueType {
     Null,
@@ -38,7 +39,7 @@ pub enum BtValueTypedConst {
 }
 
 #[repr(transparent)]
-pub struct BtValueConst(*const bt_value);
+pub struct BtValueConst(ConstNonNull<bt_value>);
 
 #[repr(transparent)]
 #[derive(Deref)]
@@ -91,14 +92,12 @@ impl BtValueType {
 
 impl BtValueConst {
     pub(crate) unsafe fn new_unchecked(ptr: *const bt_value) -> Self {
-        debug_assert!(!ptr.is_null());
-        Self(ptr)
+        Self(ConstNonNull::new_unchecked(ptr))
     }
 
     #[inline]
     pub(crate) fn get_ptr(&self) -> *const bt_value {
-        debug_assert!(!self.0.is_null());
-        self.0
+        self.0.as_ptr()
     }
 
     #[must_use]

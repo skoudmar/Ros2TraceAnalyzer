@@ -15,11 +15,23 @@ macro_rules! impl_deref {
     };
 }
 
+#[repr(transparent)]
+#[derive(Debug, Copy, Clone)]
 pub(crate) struct ConstNonNull<T>(NonNull<T>);
 
 impl<T> ConstNonNull<T> {
     pub(crate) fn new(ptr: *const T) -> Option<Self> {
         NonNull::new(ptr.cast_mut()).map(Self)
+    }
+
+    /// # Safety
+    /// The caller must ensure that the pointer is not null.
+    pub(crate) unsafe fn new_unchecked(ptr: *const T) -> Self {
+        debug_assert!(
+            !ptr.is_null(),
+            "Unsafe precondition violated: pointer must not be null"
+        );
+        Self(NonNull::new_unchecked(ptr.cast_mut()))
     }
 
     #[must_use]

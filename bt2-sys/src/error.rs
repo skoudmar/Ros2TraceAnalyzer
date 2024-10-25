@@ -10,6 +10,7 @@ use crate::raw_bindings::{
     bt_error_cause_get_message, bt_error_get_cause_count, bt_graph_run_once_status,
     bt_message_iterator_next_status,
 };
+use crate::utils::ConstNonNull;
 
 pub type BtResult<T> = Result<T, BtError>;
 
@@ -90,23 +91,16 @@ impl BtError {
 }
 
 #[derive(Error)]
-pub struct BtErrorWrapper(*const bt_error);
+pub struct BtErrorWrapper(ConstNonNull<bt_error>);
 
 impl BtErrorWrapper {
     pub(crate) fn get() -> Option<Self> {
-        unsafe {
-            let error = bt_current_thread_take_error();
-            if error.is_null() {
-                return None;
-            }
-
-            Some(Self(error))
-        }
+        unsafe { bt_current_thread_take_error().try_into().ok().map(Self) }
     }
 
     #[inline]
     pub(crate) fn as_ptr(&self) -> *const bt_error {
-        self.0
+        self.0.as_ptr()
     }
 }
 

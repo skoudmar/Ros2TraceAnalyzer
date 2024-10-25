@@ -168,24 +168,33 @@ impl Iterator for MessageIterator {
     type Item = BtMessageConst;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.current_batch.is_none()
-            || self.current_index >= self.current_batch.as_ref().unwrap().len()
-        {
-            let _ = self.current_batch.take();
-            match self.batch_iterator.next() {
-                Some(batch) => {
-                    self.current_batch = Some(batch);
-                    self.current_index = 0;
-                }
-                None => {
-                    return None;
+        loop {
+            while self.current_batch.is_none()
+                || self.current_index >= self.current_batch.as_ref().unwrap().len()
+            {
+                let _ = self.current_batch.take();
+                match self.batch_iterator.next() {
+                    Some(batch) => {
+                        self.current_batch = Some(batch);
+                        self.current_index = 0;
+                    }
+                    None => {
+                        // No more batches - end of iterator
+                        return None;
+                    }
                 }
             }
+
+            let message = self.current_batch.as_ref().unwrap()[self.current_index].clone();
+            self.current_index += 1;
+
+            if message.is_none() {
+                // Skip None messages
+                // There should be no None messages in the batch
+                continue;
+            }
+
+            return message;
         }
-
-        let message = self.current_batch.as_ref().unwrap()[self.current_index].clone();
-        self.current_index += 1;
-
-        Some(message)
     }
 }

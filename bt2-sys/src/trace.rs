@@ -1,11 +1,12 @@
 use std::ffi::CString;
 
 use crate::raw_bindings::{bt_trace, bt_trace_borrow_environment_entry_value_by_name_const};
+use crate::utils::ConstNonNull;
 use crate::value::{
     BtValueConst, BtValueSignedIntegerConst, BtValueStringConst, BtValueTypedConst,
 };
 
-pub struct BtTraceConst(*const bt_trace);
+pub struct BtTraceConst(ConstNonNull<bt_trace>);
 
 pub enum BtEnvironmentEntry {
     Int(BtValueSignedIntegerConst),
@@ -14,12 +15,11 @@ pub enum BtEnvironmentEntry {
 
 impl BtTraceConst {
     pub(crate) unsafe fn new_unchecked(ptr: *const bt_trace) -> Self {
-        debug_assert!(!ptr.is_null());
-        Self(ptr)
+        Self(ConstNonNull::new_unchecked(ptr))
     }
 
     pub(crate) fn get_ptr(&self) -> *const bt_trace {
-        self.0
+        self.0.as_ptr()
     }
 
     #[must_use]

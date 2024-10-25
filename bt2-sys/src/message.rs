@@ -12,6 +12,7 @@ use crate::raw_bindings::{
     bt_message_event_borrow_stream_class_default_clock_class_const, bt_message_get_ref,
     bt_message_get_type, bt_message_put_ref, bt_message_type,
 };
+use crate::utils::ConstNonNull;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BtMessageType {
@@ -140,10 +141,11 @@ impl BtMessageConst {
 impl BtEventMessageConst {
     /// Get the event contained in this message.
     #[must_use]
-    pub fn get_event<'a>(&'a self) -> BtEventConst {
+    pub fn get_event(&self) -> BtEventConst<'_> {
         debug_assert!(!self.as_ptr().is_null());
         unsafe {
-            BtEventConst::<'a>::new_unchecked(bt_message_event_borrow_event_const(self.as_ptr()))
+            // Safety: bt_message_event_borrow_event_const always returns a valid pointer
+            BtEventConst::new_unchecked(bt_message_event_borrow_event_const(self.as_ptr()))
         }
     }
 
@@ -177,19 +179,18 @@ impl BtEventMessageConst {
 
 impl Clone for BtMessageConst {
     fn clone(&self) -> Self {
-        debug_assert!(!self.0.is_null());
         unsafe {
-            bt_message_get_ref(self.0);
+            bt_message_get_ref(self.as_ptr());
         }
 
-        unsafe { Self::new_unchecked(self.0) }
+        unsafe { Self::new_unchecked(self.as_ptr()) }
     }
 }
 
 impl Drop for BtMessageConst {
     fn drop(&mut self) {
         unsafe {
-            bt_message_put_ref(self.0);
+            bt_message_put_ref(self.as_ptr());
         }
     }
 }
@@ -204,8 +205,13 @@ impl BtMessageArrayConst {
     }
 }
 
+// Ensure that the size of `Option<BtMessageConst>` is the same as `BtMessageConst` so that it
+// is safe to transmute between them.
+const _: [(); std::mem::size_of::<BtMessageConst>()] =
+    [(); std::mem::size_of::<Option<BtMessageConst>>()];
+
 impl Deref for BtMessageArrayConst {
-    type Target = [BtMessageConst];
+    type Target = [Option<BtMessageConst>];
 
     fn deref(&self) -> &Self::Target {
         unsafe { std::slice::from_raw_parts(self.0.cast().as_ptr(), self.1) }
@@ -236,6 +242,8 @@ impl Drop for BtMessageArrayConst {
 
 impl Debug for BtMessageArrayConst {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_list().entries(self.iter().map(|m| m.0)).finish()
+        f.debug_list()
+            .entries(self.iter().map(|m| m.as_ref().map(|m| m.0)))
+            .finish()
     }
 }

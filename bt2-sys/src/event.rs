@@ -10,19 +10,23 @@ use crate::raw_bindings::{
     bt_event_class_get_name,
 };
 use crate::stream::{BtPacketConst, BtStreamConst};
+use crate::utils::ConstNonNull;
 
 #[repr(transparent)]
-pub struct BtEventConst<'a>(*const bt_event, PhantomData<&'a BtMessageConst>);
+pub struct BtEventConst<'a>(ConstNonNull<bt_event>, PhantomData<&'a BtMessageConst>);
 
 impl<'a> BtEventConst<'a> {
-    pub(crate) unsafe fn new_unchecked(event: *const bt_event) -> Self {
-        assert!(!event.is_null());
-        BtEventConst(event, PhantomData)
+    /// Create a new `BtEventConst` from a raw pointer.
+    ///
+    /// # Safety
+    /// The caller must ensure that the pointer is valid.
+    pub(crate) unsafe fn new_unchecked(event_ptr: *const bt_event) -> Self {
+        Self(ConstNonNull::new_unchecked(event_ptr), PhantomData)
     }
 
     #[inline]
     pub(crate) fn get_ptr(&self) -> *const bt_event {
-        self.0
+        self.0.as_ptr()
     }
 
     #[must_use]
@@ -37,6 +41,7 @@ impl<'a> BtEventConst<'a> {
             return None;
         }
 
+        // Safety: payload is not null
         Some(unsafe { BtFieldConst::new_unchecked(payload) })
     }
 
@@ -47,6 +52,7 @@ impl<'a> BtEventConst<'a> {
             return None;
         }
 
+        // Safety: common_context is not null
         Some(unsafe { BtFieldConst::new_unchecked(common_context) })
     }
 
@@ -58,6 +64,7 @@ impl<'a> BtEventConst<'a> {
             return None;
         }
 
+        // Safety: specific_context is not null
         Some(unsafe { BtFieldConst::new_unchecked(specific_context) })
     }
 
@@ -90,16 +97,16 @@ impl<'a> std::fmt::Debug for BtEventConst<'a> {
     }
 }
 
-pub struct BtEventClassConst(*const bt_event_class);
+pub struct BtEventClassConst(ConstNonNull<bt_event_class>);
 
 impl BtEventClassConst {
-    pub(crate) unsafe fn new_unchecked(event_class: *const bt_event_class) -> BtEventClassConst {
-        BtEventClassConst(event_class)
+    pub(crate) unsafe fn new_unchecked(event_class: *const bt_event_class) -> Self {
+        Self(ConstNonNull::new_unchecked(event_class))
     }
 
     #[inline(always)]
     pub(crate) fn get_ptr(&self) -> *const bt_event_class {
-        self.0
+        self.0.as_ptr()
     }
 
     pub fn get_id(&self) -> u64 {

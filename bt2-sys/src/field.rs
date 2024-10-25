@@ -14,9 +14,10 @@ use crate::raw_bindings::{
     bt_field_string_get_length, bt_field_string_get_value,
     bt_field_structure_borrow_member_field_by_name_const,
 };
+use crate::utils::ConstNonNull;
 
 #[repr(transparent)]
-pub struct BtFieldConst(*const bt_field);
+pub struct BtFieldConst(ConstNonNull<bt_field>);
 
 #[repr(transparent)]
 #[derive(Deref)]
@@ -65,12 +66,16 @@ pub enum BtFieldClassType {
 }
 
 impl BtFieldConst {
-    pub(crate) unsafe fn new_unchecked(field: *const bt_field) -> BtFieldConst {
-        BtFieldConst(field)
+    /// Create a new `BtFieldConst` from a raw pointer.
+    ///
+    /// # Safety
+    /// The caller must ensure that the pointer is valid.
+    pub(crate) unsafe fn new_unchecked(field: *const bt_field) -> Self {
+        Self(ConstNonNull::new_unchecked(field))
     }
 
     fn as_ptr(&self) -> *const bt_field {
-        self.0
+        self.0.as_ptr()
     }
 
     fn get_class(&self) -> BtFieldClassConst {
@@ -574,15 +579,15 @@ impl BtFieldClassType {
 }
 
 #[repr(transparent)]
-pub struct BtFieldClassConst(*const bt_field_class);
+pub struct BtFieldClassConst(ConstNonNull<bt_field_class>);
 
 impl BtFieldClassConst {
-    pub(crate) unsafe fn new_unchecked(field_class: *const bt_field_class) -> BtFieldClassConst {
-        BtFieldClassConst(field_class)
+    pub(crate) unsafe fn new_unchecked(field_class: *const bt_field_class) -> Self {
+        Self(ConstNonNull::new_unchecked(field_class))
     }
 
     fn as_ptr(&self) -> *const bt_field_class {
-        self.0
+        self.0.as_ptr()
     }
 }
 
@@ -591,7 +596,7 @@ impl BtFieldClassConst {
 pub struct BtFieldStructClassConst(BtFieldClassConst);
 
 #[repr(transparent)]
-pub struct BtFieldStructMemberClassConst(*const bt_field_class_structure_member);
+pub struct BtFieldStructMemberClassConst(ConstNonNull<bt_field_class_structure_member>);
 
 impl BtFieldStructClassConst {
     #[must_use]
@@ -668,8 +673,12 @@ impl BtFieldStructClassConst {
 impl BtFieldStructMemberClassConst {
     pub(crate) unsafe fn new_unchecked(
         field_class: *const bt_field_class_structure_member,
-    ) -> BtFieldStructMemberClassConst {
-        BtFieldStructMemberClassConst(field_class)
+    ) -> Self {
+        Self(ConstNonNull::new_unchecked(field_class))
+    }
+
+    fn as_ptr(&self) -> *const bt_field_class_structure_member {
+        self.0.as_ptr()
     }
 
     /// Get the name of the structure member.
@@ -679,7 +688,7 @@ impl BtFieldStructMemberClassConst {
     #[must_use]
     pub fn get_name(&self) -> &str {
         unsafe {
-            let name = bt_field_class_structure_member_get_name(self.0);
+            let name = bt_field_class_structure_member_get_name(self.as_ptr());
             std::ffi::CStr::from_ptr(name)
         }
         .to_str()
@@ -690,7 +699,7 @@ impl BtFieldStructMemberClassConst {
     pub fn get_class(&self) -> BtFieldClassConst {
         unsafe {
             BtFieldClassConst::new_unchecked(
-                bt_field_class_structure_member_borrow_field_class_const(self.0),
+                bt_field_class_structure_member_borrow_field_class_const(self.as_ptr()),
             )
         }
     }

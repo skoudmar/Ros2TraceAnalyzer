@@ -1,22 +1,27 @@
 use crate::field::BtFieldConst;
 use crate::raw_bindings::{
-    bt_packet, bt_packet_borrow_context_field_const, bt_stream, bt_stream_borrow_class_const,
-    bt_stream_borrow_trace_const, bt_stream_class, bt_stream_class_supports_packets,
+    bt_packet, bt_packet_borrow_context_field_const, bt_packet_borrow_stream_const, bt_stream,
+    bt_stream_borrow_class_const, bt_stream_borrow_trace_const, bt_stream_class,
+    bt_stream_class_supports_packets,
 };
 use crate::trace::BtTraceConst;
+use crate::utils::ConstNonNull;
 
 #[repr(transparent)]
-pub struct BtStreamConst(*const bt_stream);
+pub struct BtStreamConst(ConstNonNull<bt_stream>);
 
 impl BtStreamConst {
+    /// Create a new `BtStreamConst` from a raw pointer.
+    ///
+    /// # Safety
+    /// The caller must ensure that the pointer is valid.
     pub(crate) unsafe fn new_unchecked(ptr: *const bt_stream) -> Self {
-        debug_assert!(!ptr.is_null());
-        Self(ptr)
+        Self(ConstNonNull::new_unchecked(ptr))
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) fn get_ptr(&self) -> *const bt_stream {
-        self.0
+        self.0.as_ptr()
     }
 
     pub fn get_class(&self) -> BtStreamClassConst {
@@ -29,17 +34,16 @@ impl BtStreamConst {
 }
 
 #[repr(transparent)]
-pub struct BtStreamClassConst(*const bt_stream_class);
+pub struct BtStreamClassConst(ConstNonNull<bt_stream_class>);
 
 impl BtStreamClassConst {
     pub(crate) unsafe fn new_unchecked(ptr: *const bt_stream_class) -> Self {
-        debug_assert!(!ptr.is_null());
-        Self(ptr)
+        Self(ConstNonNull::new_unchecked(ptr))
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) fn get_ptr(&self) -> *const bt_stream_class {
-        self.0
+        self.0.as_ptr()
     }
 
     pub fn supports_packets(&self) -> bool {
@@ -48,17 +52,16 @@ impl BtStreamClassConst {
 }
 
 #[repr(transparent)]
-pub struct BtPacketConst(*const bt_packet);
+pub struct BtPacketConst(ConstNonNull<bt_packet>);
 
 impl BtPacketConst {
     pub(crate) unsafe fn new_unchecked(ptr: *const bt_packet) -> Self {
-        debug_assert!(!ptr.is_null());
-        Self(ptr)
+        Self(ConstNonNull::new_unchecked(ptr))
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) fn get_ptr(&self) -> *const bt_packet {
-        self.0
+        self.0.as_ptr()
     }
 
     pub fn get_context_field(&self) -> Option<BtFieldConst> {
