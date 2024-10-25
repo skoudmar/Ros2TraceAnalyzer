@@ -35,29 +35,33 @@ pub enum BtValueTypedConst {
 pub struct BtValueConst(*const bt_value);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtValueNullConst(BtValueConst);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtValueBoolConst(BtValueConst);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtValueUnsignedIntegerConst(BtValueConst);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtValueSignedIntegerConst(BtValueConst);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtValueRealConst(BtValueConst);
 
 #[repr(transparent)]
+#[derive(Deref)]
 pub struct BtValueStringConst(BtValueConst);
 
 impl BtValueType {
     #[must_use]
     pub fn from_raw(raw: bt_value_type) -> Option<Self> {
         match raw {
-            #![allow(non_upper_case_globals)]
-            #![allow(non_snake_case)]
             bt_value_type::BT_VALUE_TYPE_NULL => Some(Self::Null),
             bt_value_type::BT_VALUE_TYPE_BOOL => Some(Self::Bool),
             bt_value_type::BT_VALUE_TYPE_UNSIGNED_INTEGER => Some(Self::UnsignedInteger),
@@ -103,8 +107,6 @@ impl BtValueConst {
     }
 }
 
-impl_deref!(BtValueConst; for BtValueNullConst, BtValueBoolConst, BtValueUnsignedIntegerConst, BtValueSignedIntegerConst, BtValueRealConst, BtValueStringConst);
-
 impl BtValueSignedIntegerConst {
     pub fn get_value(&self) -> i64 {
         unsafe { bt_value_integer_signed_get(self.get_ptr()) }
@@ -115,8 +117,8 @@ impl BtValueStringConst {
     pub fn get_value(&self) -> &str {
         unsafe {
             let ptr = bt_value_string_get(self.get_ptr());
-            assert!(!ptr.is_null());
-            CStr::from_ptr(ptr).to_str().unwrap()
+            debug_assert!(!ptr.is_null());
+            CStr::from_ptr(ptr).to_str().expect("Invalid UTF-8")
         }
     }
 }
