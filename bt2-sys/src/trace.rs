@@ -1,4 +1,4 @@
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 use crate::raw_bindings::{bt_trace, bt_trace_borrow_environment_entry_value_by_name_const};
 use crate::utils::ConstNonNull;
@@ -22,9 +22,24 @@ impl BtTraceConst {
         self.0.as_ptr()
     }
 
+    /// Get an environment entry by name.
+    ///
+    /// Returns `None` if the environment entry does not exist.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the name contains a null byte.
     #[must_use]
     pub fn get_environment_entry_by_name(&self, name: &str) -> Option<BtEnvironmentEntry> {
         let name = CString::new(name).unwrap();
+        self.get_environment_entry_by_name_cstr(name.as_ref())
+    }
+
+    /// Get an environment entry by name.
+    ///
+    /// Returns `None` if the environment entry does not exist.
+    #[must_use]
+    pub fn get_environment_entry_by_name_cstr(&self, name: &CStr) -> Option<BtEnvironmentEntry> {
         let value = unsafe {
             bt_trace_borrow_environment_entry_value_by_name_const(self.get_ptr(), name.as_ptr())
         };

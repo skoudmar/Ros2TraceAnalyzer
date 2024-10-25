@@ -13,7 +13,7 @@ impl BtMessageIterator {
         let mut messages = ptr::null_mut();
         unsafe { bt_message_iterator_next(self.0, &mut messages, &mut count) }
             .into_result()
-            .map(|_| unsafe { BtMessageArrayConst::new_unchecked(messages, count) })
+            .map(|()| unsafe { BtMessageArrayConst::new_unchecked(messages, count) })
     }
 }
 

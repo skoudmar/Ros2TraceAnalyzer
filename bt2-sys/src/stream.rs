@@ -24,10 +24,12 @@ impl BtStreamConst {
         self.0.as_ptr()
     }
 
+    #[must_use]
     pub fn get_class(&self) -> BtStreamClassConst {
         unsafe { BtStreamClassConst::new_unchecked(bt_stream_borrow_class_const(self.get_ptr())) }
     }
 
+    #[must_use]
     pub fn get_trace(&self) -> BtTraceConst {
         unsafe { BtTraceConst::new_unchecked(bt_stream_borrow_trace_const(self.get_ptr())) }
     }
@@ -46,6 +48,7 @@ impl BtStreamClassConst {
         self.0.as_ptr()
     }
 
+    #[must_use]
     pub fn supports_packets(&self) -> bool {
         0 != unsafe { bt_stream_class_supports_packets(self.get_ptr()) }
     }
@@ -64,6 +67,7 @@ impl BtPacketConst {
         self.0.as_ptr()
     }
 
+    #[must_use]
     pub fn get_context_field(&self) -> Option<BtFieldConst> {
         let field = unsafe { bt_packet_borrow_context_field_const(self.get_ptr()) };
         if field.is_null() {
@@ -71,5 +75,10 @@ impl BtPacketConst {
         }
 
         Some(unsafe { BtFieldConst::new_unchecked(field) })
+    }
+
+    #[must_use]
+    pub fn get_stream(&self) -> BtStreamConst {
+        unsafe { BtStreamConst::new_unchecked(bt_packet_borrow_stream_const(self.get_ptr())) }
     }
 }

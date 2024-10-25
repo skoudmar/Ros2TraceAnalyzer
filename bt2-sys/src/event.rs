@@ -73,6 +73,11 @@ impl<'a> BtEventConst<'a> {
         unsafe { BtStreamConst::new_unchecked(bt_event_borrow_stream_const(self.get_ptr())) }
     }
 
+    /// Get the packet associated with this event.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the event stream does not support packets.
     #[must_use]
     pub fn get_packet(&self) -> BtPacketConst {
         assert!(
@@ -104,15 +109,22 @@ impl BtEventClassConst {
         Self(ConstNonNull::new_unchecked(event_class))
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) fn get_ptr(&self) -> *const bt_event_class {
         self.0.as_ptr()
     }
 
+    #[must_use]
     pub fn get_id(&self) -> u64 {
         unsafe { bt_event_class_get_id(self.get_ptr()) }
     }
 
+    /// Get name of the event.
+    ///
+    /// # Panics
+    ///
+    /// Panics if name is not valid UTF-8.
+    #[must_use]
     pub fn get_name(&self) -> Option<&str> {
         Some(
             unsafe {
@@ -127,6 +139,7 @@ impl BtEventClassConst {
         )
     }
 
+    #[must_use]
     pub fn get_payload_field_class(&self) -> BtFieldClassConst {
         unsafe {
             BtFieldClassConst::new_unchecked(bt_event_class_borrow_payload_field_class_const(

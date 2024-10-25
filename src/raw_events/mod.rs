@@ -6,7 +6,6 @@ use bt2_sys::trace::BtEnvironmentEntry;
 use derive_more::derive::From;
 
 use crate::events_common::{Context, Time};
-use crate::impl_from_for_enum;
 
 pub mod ros2;
 
