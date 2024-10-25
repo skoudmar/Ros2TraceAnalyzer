@@ -159,7 +159,10 @@ impl IntoResult<()> for bt_message_iterator_next_status {
                 Err(BtError::MemoryError(OutOfMemory))
             }
             Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_ERROR => Err(BtError::get_error().unwrap()),
-            status => unreachable!("Bug: unknown bt_message_iterator_next_status = {}", status.0),
+            status => unreachable!(
+                "Bug: unknown bt_message_iterator_next_status = {}",
+                status.0
+            ),
         }
     }
 }
