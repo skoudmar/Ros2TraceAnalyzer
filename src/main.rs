@@ -18,17 +18,27 @@ fn main() {
     let mut processor = processor::Processor::new();
 
     for message in MessageIterator::new(&trace_path).take(1_000_000) {
-        if message.get_type() != BtMessageType::Event {
-            println!("Skipping message of type {:?}", message.get_type());
-            continue;
-        }
+        let event = match message.get_type() {
+            BtMessageType::StreamBeginning
+            | BtMessageType::StreamEnd
+            | BtMessageType::PacketBeginning
+            | BtMessageType::PacketEnd => {
+                // Silently skip these messages
+                continue;
+            }
+            BtMessageType::DiscardedEvents
+            | BtMessageType::DiscardedPackets
+            | BtMessageType::MessageIteratorInactivity => {
+                println!("Skipping message of type {:?}", message.get_type());
+                continue;
+            }
+            BtMessageType::Event => raw_events::get_full_event(&message),
+        };
 
-        assert!(matches!(message.get_type(), BtMessageType::Event));
-        let Some(event) = raw_events::get_full_event(&message) else {
+        let Some(event) = event else {
             continue;
         };
-        match processor.process_raw_event(event) 
-        {
+        match processor.process_raw_event(event) {
             Ok(processed_event) => {
                 println!("{processed_event}");
             }
