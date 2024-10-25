@@ -47,7 +47,7 @@ pub enum BtError {
 impl BtError {
     const MODULE: &CStr = c"Rust Error";
 
-    fn get_error() -> Option<BtError> {
+    fn get_error() -> Option<Self> {
         Some(Self::Error(BtErrorWrapper::get()?))
     }
 

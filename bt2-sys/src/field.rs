@@ -207,7 +207,7 @@ impl BtFieldConst {
     }
 
     pub(crate) unsafe fn clone_unchecked(&self) -> Self {
-        unsafe { BtFieldConst::new_unchecked(self.as_ptr()) }
+        unsafe { Self::new_unchecked(self.as_ptr()) }
     }
 }
 
@@ -259,12 +259,12 @@ impl std::ops::Deref for BtFieldType {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            BtFieldType::Boolean(inner) => inner,
-            BtFieldType::UnsignedInteger(inner) => inner,
-            BtFieldType::SignedInteger(inner) => inner,
-            BtFieldType::String(inner) => inner,
-            BtFieldType::Array(inner) => inner,
-            BtFieldType::Structure(inner) => inner,
+            Self::Boolean(inner) => inner,
+            Self::UnsignedInteger(inner) => inner,
+            Self::SignedInteger(inner) => inner,
+            Self::String(inner) => inner,
+            Self::Array(inner) => inner,
+            Self::Structure(inner) => inner,
         }
     }
 }

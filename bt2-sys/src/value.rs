@@ -385,8 +385,8 @@ trait MapInsertStatusIntoResult {
 impl MapInsertStatusIntoResult for bt_value_map_insert_entry_status {
     fn into_result(self) -> Result<(), OutOfMemory> {
         match self {
-            bt_value_map_insert_entry_status::BT_VALUE_MAP_INSERT_ENTRY_STATUS_OK => Ok(()),
-            bt_value_map_insert_entry_status::BT_VALUE_MAP_INSERT_ENTRY_STATUS_MEMORY_ERROR => {
+            Self::BT_VALUE_MAP_INSERT_ENTRY_STATUS_OK => Ok(()),
+            Self::BT_VALUE_MAP_INSERT_ENTRY_STATUS_MEMORY_ERROR => {
                 Err(OutOfMemory)
             }
             status => unreachable!(

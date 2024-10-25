@@ -29,15 +29,15 @@ pub enum BtMessageType {
 impl From<bt_message_type> for BtMessageType {
     fn from(value: bt_message_type) -> Self {
         match value {
-            bt_message_type::BT_MESSAGE_TYPE_STREAM_BEGINNING => BtMessageType::StreamBeginning,
-            bt_message_type::BT_MESSAGE_TYPE_EVENT => BtMessageType::Event,
-            bt_message_type::BT_MESSAGE_TYPE_STREAM_END => BtMessageType::StreamEnd,
-            bt_message_type::BT_MESSAGE_TYPE_PACKET_BEGINNING => BtMessageType::PacketBeginning,
-            bt_message_type::BT_MESSAGE_TYPE_PACKET_END => BtMessageType::PacketEnd,
-            bt_message_type::BT_MESSAGE_TYPE_DISCARDED_EVENTS => BtMessageType::DiscardedEvents,
-            bt_message_type::BT_MESSAGE_TYPE_DISCARDED_PACKETS => BtMessageType::DiscardedPackets,
+            bt_message_type::BT_MESSAGE_TYPE_STREAM_BEGINNING => Self::StreamBeginning,
+            bt_message_type::BT_MESSAGE_TYPE_EVENT => Self::Event,
+            bt_message_type::BT_MESSAGE_TYPE_STREAM_END => Self::StreamEnd,
+            bt_message_type::BT_MESSAGE_TYPE_PACKET_BEGINNING => Self::PacketBeginning,
+            bt_message_type::BT_MESSAGE_TYPE_PACKET_END => Self::PacketEnd,
+            bt_message_type::BT_MESSAGE_TYPE_DISCARDED_EVENTS => Self::DiscardedEvents,
+            bt_message_type::BT_MESSAGE_TYPE_DISCARDED_PACKETS => Self::DiscardedPackets,
             bt_message_type::BT_MESSAGE_TYPE_MESSAGE_ITERATOR_INACTIVITY => {
-                BtMessageType::MessageIteratorInactivity
+                Self::MessageIteratorInactivity
             }
             _ => {
                 // All bt_message_type variants are handled above
@@ -95,7 +95,7 @@ pub struct BtDiscardedPacketsMessageConst(BtMessageConst);
 pub struct BtMessageIteratorInactivityMessageConst(BtMessageConst);
 
 impl BtMessageConst {
-    pub(crate) unsafe fn new_unchecked(message: *const bt_message) -> BtMessageConst {
+    pub(crate) unsafe fn new_unchecked(message: *const bt_message) -> Self {
         Self(ConstNonNull::new_unchecked(message))
     }
 
@@ -197,11 +197,8 @@ impl Drop for BtMessageConst {
 
 pub(crate) struct BtMessageArrayConst(NonNull<*const bt_message>, usize);
 impl BtMessageArrayConst {
-    pub(crate) unsafe fn new_unchecked(
-        messages: *mut *const bt_message,
-        count: u64,
-    ) -> BtMessageArrayConst {
-        BtMessageArrayConst(NonNull::new(messages).unwrap(), count.try_into().unwrap())
+    pub(crate) unsafe fn new_unchecked(messages: *mut *const bt_message, count: u64) -> Self {
+        Self(NonNull::new(messages).unwrap(), count.try_into().unwrap())
     }
 }
 
