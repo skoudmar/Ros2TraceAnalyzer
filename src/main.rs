@@ -1,3 +1,4 @@
+mod analysis;
 mod events_common;
 mod model;
 mod processed_events;
