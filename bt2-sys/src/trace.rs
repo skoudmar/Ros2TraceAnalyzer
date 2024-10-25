@@ -34,7 +34,7 @@ impl BtTraceConst {
 
         let value = unsafe { BtValueConst::new_unchecked(value) };
 
-        match value.get_type() {
+        match value.cast() {
             BtValueTypedConst::SignedInteger(value) => Some(BtEnvironmentEntry::Int(value)),
             BtValueTypedConst::String(value) => Some(BtEnvironmentEntry::String(value)),
             _ => unreachable!(
