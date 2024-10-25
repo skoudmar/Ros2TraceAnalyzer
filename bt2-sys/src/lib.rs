@@ -2,6 +2,7 @@ pub mod clock_snapshot;
 pub mod error;
 pub mod event;
 pub mod field;
+pub mod graph;
 pub mod iterator;
 pub mod message;
 pub mod stream;
