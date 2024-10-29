@@ -1,4 +1,3 @@
-use core::time;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -85,12 +84,10 @@ pub struct Processor {
 
     nodes_by_rcl: HashMap<Id<u64>, Arc<Mutex<Node>>>,
 
-    subscribers_by_dds: HashMap<Id<u64>, Arc<Mutex<Subscriber>>>,
     subscribers_by_rmw: HashMap<Id<u64>, Arc<Mutex<Subscriber>>>,
     subscribers_by_rcl: HashMap<Id<u64>, Arc<Mutex<Subscriber>>>,
     subscribers_by_rclcpp: HashMap<Id<u64>, Arc<Mutex<Subscriber>>>,
 
-    publishers_by_dds: HashMap<Id<u64>, Arc<Mutex<Publisher>>>,
     publishers_by_rmw: HashMap<Id<u64>, Arc<Mutex<Publisher>>>,
     publishers_by_rcl: HashMap<Id<u64>, Arc<Mutex<Publisher>>>,
 

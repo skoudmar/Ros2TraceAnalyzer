@@ -1,10 +1,8 @@
 use std::fmt::Display;
 use std::sync::{Arc, Mutex};
 
-use derive_more::derive::Display;
+use derive_more::derive::{Display, From};
 
-use crate::events_common::Time;
-use crate::impl_from_for_enum;
 use crate::model::{
     Callback, CallbackInstance, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
     SubscriptionMessage, Timer,
@@ -12,8 +10,7 @@ use crate::model::{
 
 type RefCount<T> = Arc<Mutex<T>>;
 
-impl_from_for_enum! {
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, From)]
 pub enum Event {
     RclInit(RclInit),
     RclNodeInit(RclNodeInit),
@@ -39,7 +36,7 @@ pub enum Event {
     RclcppCallbackRegister(RclcppCallbackRegister),
     CallbackStart(CallbackStart),
     CallbackEnd(CallbackEnd),
-}}
+}
 
 impl Display for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -75,14 +72,14 @@ impl Display for Event {
             }
             Event::RmwTake(rmw_take) => write!(f, "rmw_take({rmw_take})"),
             Event::RclTake(rcl_take) => write!(f, "rcl_take({rcl_take})"),
-            Event::RclCppTake(rcl_cpp_take) => write!(f, "rcl_cpp_take({rcl_cpp_take})"),
+            Event::RclCppTake(rcl_cpp_take) => write!(f, "rclcpp_take({rcl_cpp_take})"),
             Event::RclServiceInit(rcl_service_init) => {
                 write!(f, "rcl_service_init({rcl_service_init})")
             }
             Event::RclCppServiceCallbackAdded(rcl_cpp_service_callback_added) => {
                 write!(
                     f,
-                    "rcl_cpp_service_callback_added({rcl_cpp_service_callback_added})"
+                    "rclcpp_service_callback_added({rcl_cpp_service_callback_added})"
                 )
             }
             Event::RclClientInit(rcl_client_init) => {

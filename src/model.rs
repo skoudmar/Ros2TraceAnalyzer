@@ -69,7 +69,6 @@ pub struct Subscriber {
     rmw_gid: Known<RmwGid>,
 
     topic_name: Known<String>,
-    topic_name_dds: Known<String>,
     node: Known<Weak<Mutex<Node>>>,
     queue_depth: Known<usize>,
 
@@ -87,7 +86,6 @@ pub struct Publisher {
     rmw_gid: Known<RmwGid>,
 
     topic_name: Known<String>,
-    topic_name_dds: Known<String>,
     node: Known<Weak<Mutex<Node>>>,
     queue_depth: Known<usize>,
 }

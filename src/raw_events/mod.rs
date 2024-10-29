@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use bt2_sys::event::BtEventConst;
-use bt2_sys::message::{BtEventMessageConst, BtMessageConst};
+use bt2_sys::message::BtEventMessageConst;
 use bt2_sys::trace::BtEnvironmentEntry;
 use derive_more::derive::From;
 

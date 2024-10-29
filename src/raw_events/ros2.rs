@@ -1,8 +1,6 @@
 use bt2_sys::event::BtEventConst;
 use derive_more::derive::From;
 
-use crate::impl_from_for_enum;
-
 use super::FromBtEvent;
 
 pub const GID_SIZE: usize = 24;
