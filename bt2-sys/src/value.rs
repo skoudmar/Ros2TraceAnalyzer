@@ -386,9 +386,7 @@ impl MapInsertStatusIntoResult for bt_value_map_insert_entry_status {
     fn into_result(self) -> Result<(), OutOfMemory> {
         match self {
             Self::BT_VALUE_MAP_INSERT_ENTRY_STATUS_OK => Ok(()),
-            Self::BT_VALUE_MAP_INSERT_ENTRY_STATUS_MEMORY_ERROR => {
-                Err(OutOfMemory)
-            }
+            Self::BT_VALUE_MAP_INSERT_ENTRY_STATUS_MEMORY_ERROR => Err(OutOfMemory),
             status => unreachable!(
                 "Bug: Unknown bt_value_map_insert_entry_status: {:?}",
                 status.0
