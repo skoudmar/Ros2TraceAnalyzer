@@ -6,7 +6,7 @@ use derive_more::derive::Display;
 use crate::events_common::Time;
 use crate::impl_from_for_enum;
 use crate::model::{
-    Callback, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
+    Callback, CallbackInstance, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
     SubscriptionMessage, Timer,
 };
 
@@ -258,16 +258,14 @@ pub struct RclcppCallbackRegister {
 }
 
 #[derive(Debug, Clone, Display)]
-#[display("Callback({})", callback.lock().unwrap())]
+#[display("CallbackInstance({})", callback.lock().unwrap())]
 pub struct CallbackStart {
     pub is_intra_process: bool,
-    pub callback: RefCount<Callback>,
+    pub callback: RefCount<CallbackInstance>,
 }
 
 #[derive(Debug, Clone, Display)]
-#[display("Callback({})", callback.lock().unwrap())]
+#[display("CallbackInstance({})", callback.lock().unwrap())]
 pub struct CallbackEnd {
-    pub callback: RefCount<Callback>,
-    pub start_time: Time,
-    pub end_time: Time,
+    pub callback: RefCount<CallbackInstance>,
 }

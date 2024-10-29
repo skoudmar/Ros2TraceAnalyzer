@@ -5,10 +5,51 @@ use std::sync::{Arc, Mutex};
 
 use crate::events_common::{Context, Time};
 use crate::model::{
-    Callback, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
+    Callback, CallbackInstance, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
     SubscriptionMessage, Timer,
 };
 use crate::{processed_events, raw_events};
+
+pub enum MaybeProccessed<P, R> {
+    Processed(P),
+    Raw(R),
+}
+
+impl MaybeProccessed<processed_events::Event, raw_events::Event> {
+    pub fn into_full_event(
+        self,
+        context: Context,
+        time: Time,
+    ) -> MaybeProccessed<processed_events::FullEvent, raw_events::FullEvent> {
+        match self {
+            MaybeProccessed::Processed(event) => {
+                MaybeProccessed::Processed(processed_events::FullEvent {
+                    context,
+                    time,
+                    event,
+                })
+            }
+            MaybeProccessed::Raw(event) => MaybeProccessed::Raw(raw_events::FullEvent {
+                context,
+                time,
+                event,
+            }),
+        }
+    }
+}
+
+impl<P, R> From<Result<P, R>> for MaybeProccessed<processed_events::Event, raw_events::Event>
+where
+    P: Into<processed_events::Event>,
+    R: Into<raw_events::Event>,
+{
+    fn from(result: Result<P, R>) -> Self {
+        match result {
+            Ok(processed) => MaybeProccessed::Processed(processed.into()),
+            Err(raw) => MaybeProccessed::Raw(raw.into()),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ContextId {
@@ -93,21 +134,20 @@ impl Processor {
     pub fn process_raw_event(
         &mut self,
         full_event: raw_events::FullEvent,
-    ) -> Result<processed_events::FullEvent, raw_events::Event> {
-        let event = match full_event.event {
-            raw_events::Event::Ros2(event) => self
-                .process_raw_ros2_event(event, &full_event.context, full_event.time)?
-                .into(),
-            raw_events::Event::R2r(event) => self
-                .process_raw_r2r_event(event, &full_event.context, full_event.time)?
-                .into(),
-        };
-
-        Ok(processed_events::FullEvent {
-            context: full_event.context,
-            time: full_event.time,
-            event,
-        })
+    ) -> MaybeProccessed<processed_events::FullEvent, raw_events::FullEvent> {
+        match full_event.event {
+            raw_events::Event::Ros2(event) => MaybeProccessed::from(self.process_raw_ros2_event(
+                event,
+                &full_event.context,
+                full_event.time,
+            )),
+            raw_events::Event::R2r(event) => MaybeProccessed::from(self.process_raw_r2r_event(
+                event,
+                &full_event.context,
+                full_event.time,
+            )),
+        }
+        .into_full_event(full_event.context, full_event.time)
     }
 
     pub fn process_raw_ros2_event(
@@ -860,16 +900,12 @@ impl Processor {
         let callback_arc = self
             .callbacks_by_id
             .get(&event.callback.into_id(context_id))
-            .expect("Callback not found. Missing rclcpp_*_callback_added event?")
-            .clone();
+            .expect("Callback not found. Missing rclcpp_*_callback_added event?");
 
-        {
-            let mut callback = callback_arc.lock().unwrap();
-            callback.start(time);
-        }
+        let calback_instance = CallbackInstance::new(callback_arc.clone(), time);
 
         processed_events::ros2::CallbackStart {
-            callback: callback_arc,
+            callback: calback_instance,
             is_intra_process: event.is_intra_process,
         }
     }
@@ -886,15 +922,20 @@ impl Processor {
             .expect("Callback not found. Missing rclcpp_*_callback_added event?")
             .clone();
 
-        let start_time = {
+        let callback_instance = {
             let mut callback = callback_arc.lock().unwrap();
-            callback.end()
+            callback
+                .take_running_instance()
+                .expect("No running instance found")
         };
 
+        {
+            let mut callback_instance = callback_instance.lock().unwrap();
+            callback_instance.end(time);
+        }
+
         processed_events::ros2::CallbackEnd {
-            callback: callback_arc,
-            start_time,
-            end_time: time,
+            callback: callback_instance,
         }
     }
 }

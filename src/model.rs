@@ -132,7 +132,7 @@ pub struct Callback {
     handle: u64,
     caller: Known<CallbackCaller>,
     name: Known<String>,
-    start_time: Option<Time>,
+    running_instance: Option<Arc<Mutex<CallbackInstance>>>,
 }
 
 pub enum Gid {
@@ -186,6 +186,10 @@ impl PublicationMessage {
             rcl_publish_time: Known::Unknown,
             rclcpp_publish_time: Known::Unknown,
         }
+    }
+
+    pub fn get_publisher(&self) -> Option<Arc<Mutex<Publisher>>> {
+        self.publisher.clone().into()
     }
 
     pub(crate) fn set_publisher(&mut self, publisher: Arc<Mutex<Publisher>>) {
@@ -544,6 +548,10 @@ impl Subscriber {
     pub fn take_message(&mut self) -> Option<Arc<Mutex<SubscriptionMessage>>> {
         self.taken_message.take()
     }
+
+    pub fn get_topic(&self) -> Known<&str> {
+        self.topic_name.as_ref().map(String::as_str)
+    }
 }
 
 impl std::fmt::Display for Subscriber {
@@ -706,34 +714,28 @@ impl std::fmt::Display for Timer {
 }
 
 impl Callback {
-    pub fn new_subscription(handle: u64, caller: &Arc<Mutex<Subscriber>>) -> Arc<Mutex<Self>> {
-        let caller = Known::new(CallbackCaller::Subscription(Arc::downgrade(caller)));
+    fn new(handle: u64, caller: CallbackCaller) -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             handle,
-            caller,
+            caller: Known::Known(caller),
             name: Known::Unknown,
-            start_time: None,
+            running_instance: None,
         }))
+    }
+
+    pub fn new_subscription(handle: u64, caller: &Arc<Mutex<Subscriber>>) -> Arc<Mutex<Self>> {
+        let caller = CallbackCaller::Subscription(Arc::downgrade(caller));
+        Self::new(handle, caller)
     }
 
     pub fn new_service(handle: u64, caller: &Arc<Mutex<Service>>) -> Arc<Mutex<Self>> {
-        let caller = Known::new(CallbackCaller::Service(Arc::downgrade(caller)));
-        Arc::new(Mutex::new(Self {
-            handle,
-            caller,
-            name: Known::Unknown,
-            start_time: None,
-        }))
+        let caller = CallbackCaller::Service(Arc::downgrade(caller));
+        Self::new(handle, caller)
     }
 
     pub fn new_timer(handle: u64, caller: &Arc<Mutex<Timer>>) -> Arc<Mutex<Self>> {
-        let caller = Known::new(CallbackCaller::Timer(Arc::downgrade(caller)));
-        Arc::new(Mutex::new(Self {
-            handle,
-            caller,
-            name: Known::Unknown,
-            start_time: None,
-        }))
+        let caller = CallbackCaller::Timer(Arc::downgrade(caller));
+        Self::new(handle, caller)
     }
 
     pub fn set_name(&mut self, name: String) {
@@ -745,17 +747,8 @@ impl Callback {
         self.name = Known::new(name);
     }
 
-    pub fn start(&mut self, time: Time) {
-        assert!(
-            self.start_time.is_none(),
-            "Callback start_time already set. {self:#?}"
-        );
-
-        self.start_time = Some(time);
-    }
-
-    pub fn end(&mut self) -> Time {
-        self.start_time.take().expect("Callback start_time not set")
+    pub fn take_running_instance(&mut self) -> Option<Arc<Mutex<CallbackInstance>>> {
+        self.running_instance.take()
     }
 }
 
@@ -923,5 +916,91 @@ impl std::fmt::Display for SubscriptionMessage {
                 )
             }
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum CallbackTrigger {
+    SubscriptionMessage(Arc<Mutex<SubscriptionMessage>>),
+    Service(Arc<Mutex<Service>>),
+    Timer(Arc<Mutex<Timer>>),
+}
+
+#[derive(Debug)]
+pub struct CallbackInstance {
+    start_time: Time,
+    end_time: Known<Time>,
+    callback: Arc<Mutex<Callback>>,
+    trigger: CallbackTrigger,
+}
+
+impl CallbackInstance {
+    pub fn new(callback: Arc<Mutex<Callback>>, start_time: Time) -> Arc<Mutex<Self>> {
+        let callback_arc = callback;
+        let mut callback = callback_arc.lock().unwrap();
+        assert!(
+            callback.running_instance.is_none(),
+            "Callback already has a running instance. {callback:#?}"
+        );
+
+        let trigger = match callback.caller.as_ref().unwrap() {
+            CallbackCaller::Subscription(weak) => {
+                let subscriber = weak.upgrade().unwrap();
+                let mut subscriber = subscriber.lock().unwrap();
+                let message = subscriber.take_message().unwrap();
+                CallbackTrigger::SubscriptionMessage(message)
+            }
+            CallbackCaller::Service(weak) => {
+                let service = weak.upgrade().unwrap();
+                CallbackTrigger::Service(service)
+            }
+            CallbackCaller::Timer(weak) => {
+                let timer = weak.upgrade().unwrap();
+                CallbackTrigger::Timer(timer)
+            }
+        };
+
+        let new = Arc::new(Mutex::new(Self {
+            start_time,
+            end_time: Known::Unknown,
+            callback: callback_arc.clone(),
+            trigger,
+        }));
+
+        callback.running_instance = Some(new.clone());
+
+        new
+    }
+
+    pub fn end(&mut self, time: Time) {
+        assert!(
+            self.end_time.is_unknown(),
+            "CallbackInstance end_time already set. {self:#?}"
+        );
+
+        self.end_time = Known::Known(time);
+    }
+
+    pub fn get_callback(&self) -> Arc<Mutex<Callback>> {
+        self.callback.clone()
+    }
+
+    pub fn get_start_time(&self) -> Time {
+        self.start_time
+    }
+
+    pub fn get_end_time(&self) -> Option<Time> {
+        self.end_time.into()
+    }
+}
+
+impl std::fmt::Display for CallbackInstance {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let callback = self.callback.lock().unwrap();
+        write!(
+            f,
+            "(start_time={}, end_time={}, callback={callback})",
+            self.start_time, self.end_time,
+        )
     }
 }
