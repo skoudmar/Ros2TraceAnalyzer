@@ -5,8 +5,10 @@ edition = "2021"
 
 [dependencies]
 bt2-sys = { path = "bt2-sys" }
+bt2-derive = { path = "bt2-derive" }
 chrono = "0.4.38"
 derive_more = { version = "1.0.0", features = ["display", "from"] }
 
+
 [workspace]
-members = ["bt2-sys"]
+members = [ "bt2-derive","bt2-sys"]

@@ -1,6 +1,8 @@
+use core::error;
 use std::ffi::{CStr, CString};
 
 use derive_more::derive::Deref;
+use thiserror::Error;
 
 use crate::raw_bindings::{
     bt_field, bt_field_array_borrow_element_field_by_index_const, bt_field_array_get_length,
@@ -126,6 +128,28 @@ impl BtFieldConst {
         })
     }
 
+    pub fn into_bool(self) -> BtFieldBooleanConst {
+        match self.cast() {
+            Ok(BtFieldType::Boolean(inner)) => inner,
+            Ok(t) => panic!("Expected boolean, got {:?}", t.get_class_type()),
+            _ => panic!("Expected boolean, got unsupported type"),
+        }
+    }
+
+    pub fn try_into_bool(self) -> Result<BtFieldBooleanConst, IncorrectTypeError> {
+        match self.cast() {
+            Ok(BtFieldType::Boolean(inner)) => Ok(inner),
+            Ok(t) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::Bool,
+                actual_type: Some(t.get_class_type()),
+            }),
+            Err(_) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::Bool,
+                actual_type: None,
+            }),
+        }
+    }
+
     /// Cast the field into an unsigned integer.
     ///
     /// # Panics
@@ -139,6 +163,20 @@ impl BtFieldConst {
             Ok(BtFieldType::UnsignedInteger(inner)) => inner,
             Ok(t) => panic!("Expected unsigned integer, got {:?}", t.get_class_type()),
             _ => panic!("Expected unsigned integer, got unsupported type"),
+        }
+    }
+
+    pub fn try_into_uint(self) -> Result<BtFieldUnsignedIntegerConst, IncorrectTypeError> {
+        match self.cast() {
+            Ok(BtFieldType::UnsignedInteger(inner)) => Ok(inner),
+            Ok(t) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::UnsignedInteger,
+                actual_type: Some(t.get_class_type()),
+            }),
+            Err(_) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::UnsignedInteger,
+                actual_type: None,
+            }),
         }
     }
 
@@ -158,6 +196,20 @@ impl BtFieldConst {
         }
     }
 
+    pub fn try_into_int(self) -> Result<BtFieldSignedIntegerConst, IncorrectTypeError> {
+        match self.cast() {
+            Ok(BtFieldType::SignedInteger(inner)) => Ok(inner),
+            Ok(t) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::SignedInteger,
+                actual_type: Some(t.get_class_type()),
+            }),
+            Err(_) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::SignedInteger,
+                actual_type: None,
+            }),
+        }
+    }
+
     /// Cast the field into a string.
     ///
     /// # Panics
@@ -171,6 +223,20 @@ impl BtFieldConst {
             Ok(BtFieldType::String(inner)) => inner,
             Ok(t) => panic!("Expected string, got {:?}", t.get_class_type()),
             _ => panic!("Expected string, got unsupported type"),
+        }
+    }
+
+    pub fn try_into_string(self) -> Result<BtFieldStringConst, IncorrectTypeError> {
+        match self.cast() {
+            Ok(BtFieldType::String(inner)) => Ok(inner),
+            Ok(t) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::String,
+                actual_type: Some(t.get_class_type()),
+            }),
+            Err(_) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::String,
+                actual_type: None,
+            }),
         }
     }
 
@@ -190,6 +256,20 @@ impl BtFieldConst {
         }
     }
 
+    pub fn try_into_struct(self) -> Result<BtFieldStructureConst, IncorrectTypeError> {
+        match self.cast() {
+            Ok(BtFieldType::Structure(inner)) => Ok(inner),
+            Ok(t) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::Structure,
+                actual_type: Some(t.get_class_type()),
+            }),
+            Err(_) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::Structure,
+                actual_type: None,
+            }),
+        }
+    }
+
     /// Cast the field into an array.
     ///
     /// # Panics
@@ -203,6 +283,20 @@ impl BtFieldConst {
             Ok(BtFieldType::Array(inner)) => inner,
             Ok(t) => panic!("Expected array, got {:?}", t.get_class_type()),
             _ => panic!("Expected array, got unsupported type"),
+        }
+    }
+
+    pub fn try_into_array(self) -> Result<BtFieldArrayConst, IncorrectTypeError> {
+        match self.cast() {
+            Ok(BtFieldType::Array(inner)) => Ok(inner),
+            Ok(t) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::Array,
+                actual_type: Some(t.get_class_type()),
+            }),
+            Err(_) => Err(IncorrectTypeError {
+                requested_type: BtFieldClassType::Array,
+                actual_type: None,
+            }),
         }
     }
 
@@ -250,6 +344,20 @@ impl std::fmt::Display for BtFieldConst {
             BtFieldType::String(inner) => inner.fmt(f),
             BtFieldType::Array(inner) => inner.fmt(f),
             BtFieldType::Structure(inner) => inner.fmt(f),
+        }
+    }
+}
+
+impl BtFieldType {
+    #[must_use]
+    pub fn get_class_type(&self) -> BtFieldClassType {
+        match self {
+            Self::Boolean(_) => BtFieldClassType::Bool,
+            Self::UnsignedInteger(_) => BtFieldClassType::UnsignedInteger,
+            Self::SignedInteger(_) => BtFieldClassType::SignedInteger,
+            Self::String(_) => BtFieldClassType::String,
+            Self::Array(_) => BtFieldClassType::Array,
+            Self::Structure(_) => BtFieldClassType::Structure,
         }
     }
 }
@@ -703,4 +811,32 @@ impl BtFieldStructMemberClassConst {
             )
         }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum ConversionError {
+    #[error("Cannot convert returned value to string. The value is not valid UTF-8!")]
+    InvalidUtf8(#[from] std::str::Utf8Error),
+    #[error("Cannot convert value. Not a lossless conversion!")]
+    TryFromIntError(#[from] std::num::TryFromIntError),
+    #[error(transparent)]
+    StructConversionError(#[from] StructConversionError),
+    #[error(transparent)]
+    IncorrectTypeError(#[from] IncorrectTypeError),
+}
+
+
+#[derive(Debug, Error)]
+#[error("Cannot convert value. BtFieldConst has different class type: expected {requested_type:?}, got {actual_type:?}")]
+pub struct IncorrectTypeError {
+    requested_type: BtFieldClassType,
+    actual_type: Option<BtFieldClassType>,
+}
+
+#[derive(Debug, Error)]
+pub enum StructConversionError {
+    #[error("Struct field not found: {0}")]
+    FieldNotFound(&'static str),
+    #[error("Struct field {1}: {0}")]
+    FieldConversonError(#[source] Box<ConversionError>, &'static str),
 }
