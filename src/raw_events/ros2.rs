@@ -302,90 +302,51 @@ impl FromBtEvent for Event {
 
         assert!(provider_name == "ros2");
 
-        match event_name {
-            "rcl_init" => RclInit::from_event(event).map(Event::RclInit),
-            "rcl_node_init" => RclNodeInit::from_event(event).map(Event::RclNodeInit),
-            "rmw_publisher_init" => {
-                RmwPublisherInit::from_event(event).map(Event::RmwPublisherInit)
-            }
-            "rcl_publisher_init" => {
-                RclPublisherInit::from_event(event).map(Event::RclPublisherInit)
-            }
-            "rclcpp_publish" => RclcppPublish::from_event(event).map(Event::RclcppPublish),
-            "rclcpp_intra_publish" => {
-                RclcppIntraPublish::from_event(event).map(Event::RclcppIntraPublish)
-            }
-            "rcl_publish" => RclPublish::from_event(event).map(Event::RclPublish),
-            "rmw_publish" => RmwPublish::from_event(event).map(Event::RmwPublish),
-            "rmw_subscription_init" => {
-                RmwSubscriptionInit::from_event(event).map(Event::RmwSubscriptionInit)
-            }
-            "rcl_subscription_init" => {
-                RclSubscriptionInit::from_event(event).map(Event::RclSubscriptionInit)
-            }
-            "rclcpp_subscription_init" => {
-                RclcppSubscriptionInit::from_event(event).map(Event::RclcppSubscriptionInit)
-            }
+        Some(match event_name {
+            "rcl_init" => RclInit::from_event(event)?.into(),
+            "rcl_node_init" => RclNodeInit::from_event(event)?.into(),
+            "rmw_publisher_init" => RmwPublisherInit::from_event(event)?.into(),
+            "rcl_publisher_init" => RclPublisherInit::from_event(event)?.into(),
+            "rclcpp_publish" => RclcppPublish::from_event(event)?.into(),
+            "rclcpp_intra_publish" => RclcppIntraPublish::from_event(event)?.into(),
+            "rcl_publish" => RclPublish::from_event(event)?.into(),
+            "rmw_publish" => RmwPublish::from_event(event)?.into(),
+            "rmw_subscription_init" => RmwSubscriptionInit::from_event(event)?.into(),
+            "rcl_subscription_init" => RclSubscriptionInit::from_event(event)?.into(),
+            "rclcpp_subscription_init" => RclcppSubscriptionInit::from_event(event)?.into(),
             "rclcpp_subscription_callback_added" => {
-                RclcppSubscriptionCallbackAdded::from_event(event)
-                    .map(Event::RclcppSubscriptionCallbackAdded)
+                RclcppSubscriptionCallbackAdded::from_event(event)?.into()
             }
-            "rmw_take" => RmwTake::from_event(event).map(Event::RmwTake),
-            "rcl_take" => RclTake::from_event(event).map(Event::RclTake),
-            "rclcpp_take" => RclcppTake::from_event(event).map(Event::RclcppTake),
-            "rcl_service_init" => RclServiceInit::from_event(event).map(Event::RclServiceInit),
+            "rmw_take" => RmwTake::from_event(event)?.into(),
+            "rcl_take" => RclTake::from_event(event)?.into(),
+            "rclcpp_take" => RclcppTake::from_event(event)?.into(),
+            "rcl_service_init" => RclServiceInit::from_event(event)?.into(),
             "rclcpp_service_callback_added" => {
-                RclcppServiceCallbackAdded::from_event(event).map(Event::RclcppServiceCallbackAdded)
+                RclcppServiceCallbackAdded::from_event(event)?.into()
             }
-            "rcl_client_init" => RclClientInit::from_event(event).map(Event::RclClientInit),
-            "rcl_timer_init" => RclTimerInit::from_event(event).map(Event::RclTimerInit),
-            "rclcpp_timer_callback_added" => {
-                RclcppTimerCallbackAdded::from_event(event).map(Event::RclcppTimerCallbackAdded)
+            "rcl_client_init" => RclClientInit::from_event(event)?.into(),
+            "rcl_timer_init" => RclTimerInit::from_event(event)?.into(),
+            "rclcpp_timer_callback_added" => RclcppTimerCallbackAdded::from_event(event)?.into(),
+            "rclcpp_timer_link_node" => RclcppTimerLinkNode::from_event(event)?.into(),
+            "rclcpp_callback_register" => RclcppCallbackRegister::from_event(event)?.into(),
+            "callback_start" => CallbackStart::from_event(event)?.into(),
+            "callback_end" => CallbackEnd::from_event(event)?.into(),
+            "rcl_lifecycle_state_machine_init" => {
+                RclLifecycleStateMachineInit::from_event(event)?.into()
             }
-            "rclcpp_timer_link_node" => {
-                RclcppTimerLinkNode::from_event(event).map(Event::RclcppTimerLinkNode)
-            }
-            "rclcpp_callback_register" => {
-                RclcppCallbackRegister::from_event(event).map(Event::RclcppCallbackRegister)
-            }
-            "callback_start" => CallbackStart::from_event(event).map(Event::CallbackStart),
-            "callback_end" => CallbackEnd::from_event(event).map(Event::CallbackEnd),
-            "rcl_lifecycle_state_machine_init" => RclLifecycleStateMachineInit::from_event(event)
-                .map(Event::RclLifecycleStateMachineInit),
-            "rcl_lifecycle_transition" => {
-                RclLifecycleTransition::from_event(event).map(Event::RclLifecycleTransition)
-            }
+            "rcl_lifecycle_transition" => RclLifecycleTransition::from_event(event)?.into(),
             "rclcpp_executor_get_next_ready" => {
-                RclCppExecutorGetNextReady::from_event(event).map(Event::RclcppExecutorGetNextReady)
+                RclCppExecutorGetNextReady::from_event(event)?.into()
             }
-            "rclcpp_executor_wait_for_work" => {
-                RclCppExecutorWaitForWork::from_event(event).map(Event::RclcppExecutorWaitForWork)
-            }
-            "rclcpp_executor_execute" => {
-                RclCppExecutorExecute::from_event(event).map(Event::RclcppExecutorExecute)
-            }
-            "rcl_ipb_to_subscription" => {
-                RclCppIpbToSubscription::from_event(event).map(Event::RclcppIpbToSubscription)
-            }
-            "rclcpp_buffer_to_ipb" => {
-                RclCppBufferToIpb::from_event(event).map(Event::RclcppBufferToIpb)
-            }
-            "rclcpp_construct_ring_buffer" => {
-                RclCppConstructRingBuffer::from_event(event).map(Event::RclcppConstructRingBuffer)
-            }
-            "rclcpp_ring_buffer_enqueue" => {
-                RclCppRingBufferEnqueue::from_event(event).map(Event::RclcppRingBufferEnqueue)
-            }
-            "rclcpp_ring_buffer_dequeue" => {
-                RclCppRingBufferDequeue::from_event(event).map(Event::RclcppRingBufferDequeue)
-            }
-            "rclcpp_ring_buffer_clear" => {
-                RclCppRingBufferClear::from_event(event).map(Event::RclcppRingBufferClear)
-            }
-            _ => {
-                eprintln!("Unknown event: {full_event_name}");
-                None
-            }
-        }
+            "rclcpp_executor_wait_for_work" => RclCppExecutorWaitForWork::from_event(event)?.into(),
+            "rclcpp_executor_execute" => RclCppExecutorExecute::from_event(event)?.into(),
+            "rcl_ipb_to_subscription" => RclCppIpbToSubscription::from_event(event)?.into(),
+            "rclcpp_buffer_to_ipb" => RclCppBufferToIpb::from_event(event)?.into(),
+            "rclcpp_construct_ring_buffer" => RclCppConstructRingBuffer::from_event(event)?.into(),
+            "rclcpp_ring_buffer_enqueue" => RclCppRingBufferEnqueue::from_event(event)?.into(),
+            "rclcpp_ring_buffer_dequeue" => RclCppRingBufferDequeue::from_event(event)?.into(),
+            "rclcpp_ring_buffer_clear" => RclCppRingBufferClear::from_event(event)?.into(),
+            _ => return None,
+        })
     }
 }
