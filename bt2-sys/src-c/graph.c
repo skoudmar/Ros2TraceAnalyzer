@@ -85,8 +85,8 @@ trace_context *init_trace(const char *trace_path, const struct sink *sink_def) {
       return NULL;
     }
 
-    bt_value_put_ref(inputs);
-    bt_value_put_ref(params);
+    BT_VALUE_PUT_REF_AND_RESET(inputs);
+    BT_VALUE_PUT_REF_AND_RESET(params);
   }
 
   uint64_t src_out_port_count = bt_component_source_get_output_port_count(src);
@@ -185,8 +185,8 @@ trace_context *init_trace(const char *trace_path, const struct sink *sink_def) {
     }
   }
 
-  bt_plugin_put_ref(ctf_plugin);
-  bt_plugin_put_ref(utils_plugin);
+  BT_PLUGIN_PUT_REF_AND_RESET(ctf_plugin);
+  BT_PLUGIN_PUT_REF_AND_RESET(utils_plugin);
 
   return ctx;
 }
@@ -205,7 +205,7 @@ bt_graph_run_once_status next_events(trace_context *ctx) {
 // Clean up the trace context
 void destroy_trace_context(trace_context *ctx) {
   if (ctx->graph) {
-    bt_graph_put_ref(ctx->graph);
+    BT_GRAPH_PUT_REF_AND_RESET(ctx->graph);
   }
   free(ctx);
 }
