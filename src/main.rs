@@ -1,3 +1,5 @@
+#![forbid(unsafe_code, reason = "It shoudn't be needed")]
+
 mod analysis;
 mod events_common;
 mod model;
