@@ -11,7 +11,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(cpu_id: u32, vpid: u32, vtid: u32, procname: String, hostname: String) -> Self {
+    pub const fn new(
+        cpu_id: u32,
+        vpid: u32,
+        vtid: u32,
+        procname: String,
+        hostname: String,
+    ) -> Self {
         Self {
             cpu_id,
             vpid,
@@ -21,15 +27,15 @@ impl Context {
         }
     }
 
-    pub fn cpu_id(&self) -> u32 {
+    pub const fn cpu_id(&self) -> u32 {
         self.cpu_id
     }
 
-    pub fn vpid(&self) -> u32 {
+    pub const fn vpid(&self) -> u32 {
         self.vpid
     }
 
-    pub fn vtid(&self) -> u32 {
+    pub const fn vtid(&self) -> u32 {
         self.vtid
     }
 
