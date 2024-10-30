@@ -6,8 +6,8 @@ use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, Ident};
 
-#[proc_macro_derive(FromBtFieldConst, attributes(bt2))]
-pub fn from_bt_field_const_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(TryFromBtFieldConst, attributes(bt2))]
+pub fn derive_try_from_bt_field_const(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 

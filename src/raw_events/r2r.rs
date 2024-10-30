@@ -1,10 +1,10 @@
-use bt2_derive::FromBtFieldConst;
+use bt2_derive::TryFromBtFieldConst;
 use bt2_sys::event::BtEventConst;
 use derive_more::derive::From;
 
 use super::FromBtEvent;
 
-#[derive(Debug, FromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst)]
 pub struct SpinStart {
     node_handle: u64,
     timeout_s: u64,
