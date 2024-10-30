@@ -1081,18 +1081,34 @@ impl From<Infallible> for ConversionError {
 }
 
 #[derive(Debug, Error)]
-#[error("Cannot convert value. BtFieldConst has different class type: expected {requested_type:?}, got {actual_type:?}")]
 pub struct IncorrectTypeError {
     requested_type: BtFieldClassType,
     actual_type: Option<BtFieldClassType>,
 }
 
+impl std::fmt::Display for IncorrectTypeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.actual_type {
+            Some(actual) => write!(
+                f,
+                "BtFieldConst has different class type: expected {:?}, got {:?}",
+                self.requested_type, actual
+            ),
+            None => write!(
+                f,
+                "BtFieldConst has different class type: expected {:?}, got unsupported type",
+                self.requested_type
+            ),
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum StructConversionError {
-    #[error("Struct field not found: {0}")]
+    #[error("Struct field not found: `{0}`")]
     FieldNotFound(&'static str),
 
-    #[error("Struct field {1}: {0}")]
+    #[error("Struct field `{1}`: {0}")]
     FieldConversonError(#[source] Box<ConversionError>, &'static str),
 }
 
