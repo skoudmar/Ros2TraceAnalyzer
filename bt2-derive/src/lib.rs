@@ -72,7 +72,7 @@ fn generate_field_conversion(field: &Field) -> proc_macro2::TokenStream {
     let conversion = match try_from_attr.unwrap() {
         Some(Conversion {
             try_from,
-            is_non_zero: true,
+            is_not_zero: true,
         }) => match try_from {
             TryFromType::Bool => {
                 let conversion = convert(TryFromType::Bool, field_name, field_span);
@@ -87,17 +87,17 @@ fn generate_field_conversion(field: &Field) -> proc_macro2::TokenStream {
                 }
             }
             TryFromType::String => {
-                syn::Error::new_spanned(field, "is_non_zero is not supported for strings")
+                syn::Error::new_spanned(field, "is_not_zero is not supported for strings")
                     .into_compile_error()
             }
             TryFromType::Array => {
-                syn::Error::new_spanned(field, "is_non_zero is not supported for arrays")
+                syn::Error::new_spanned(field, "is_not_zero is not supported for arrays")
                     .into_compile_error()
             }
         },
         Some(Conversion {
             try_from: TryFromType::Array,
-            is_non_zero: false,
+            is_not_zero: false,
         }) => {
             let conversion = convert(TryFromType::Array, field_name, field_span);
             quote_spanned! {field_span=>
@@ -106,7 +106,7 @@ fn generate_field_conversion(field: &Field) -> proc_macro2::TokenStream {
         }
         Some(Conversion {
             try_from,
-            is_non_zero: false,
+            is_not_zero: false,
         }) => {
             let conversion = convert(try_from, field_name, field_span);
             quote_spanned! {field_span=>
@@ -149,7 +149,7 @@ fn convert(try_from: TryFromType, field_name: &Ident, span: Span) -> proc_macro2
 #[derive(Debug, Clone, Copy)]
 struct Conversion {
     try_from: TryFromType,
-    is_non_zero: bool,
+    is_not_zero: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -179,7 +179,7 @@ impl FromStr for TryFromType {
 fn parse_attribute(attr: &syn::Attribute) -> syn::Result<Option<Conversion>> {
     if attr.path().is_ident("bt2") {
         let mut try_from = None;
-        let mut is_non_zero = false;
+        let mut is_not_zero = false;
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("try_from") {
                 let expr: syn::Expr = meta.value()?.parse()?;
@@ -192,15 +192,15 @@ fn parse_attribute(attr: &syn::Attribute) -> syn::Result<Option<Conversion>> {
                         Ok(())
                     },
                 )
-            } else if meta.path.is_ident("is_non_zero") {
-                is_non_zero = true;
+            } else if meta.path.is_ident("is_not_zero") {
+                is_not_zero = true;
                 Ok(())
             } else {
                 Err(meta.error("unknown attribute"))
             }
         })?;
 
-        if is_non_zero && try_from.is_none() {
+        if is_not_zero && try_from.is_none() {
             Err(syn::Error::new_spanned(
                 attr,
                 "The `is_non_zero` attribute requires a `try_from` attribute to determine the field type",
@@ -208,7 +208,7 @@ fn parse_attribute(attr: &syn::Attribute) -> syn::Result<Option<Conversion>> {
         } else {
             Ok(Some(Conversion {
                 try_from: try_from.unwrap_or(TryFromType::String),
-                is_non_zero,
+                is_not_zero,
             }))
         }
     } else {
