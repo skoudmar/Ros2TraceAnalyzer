@@ -123,6 +123,7 @@ impl Drop for BatchMessageIterator {
         let _ = self.internal.0.borrow_mut().take();
 
         unsafe {
+            // FIXME: This might be dropped before the BtMessageArrayConst during panic
             destroy_trace_context(self.trace_context);
         }
     }
