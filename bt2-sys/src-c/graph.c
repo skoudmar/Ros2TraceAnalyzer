@@ -128,32 +128,6 @@ trace_context *init_trace(const char *trace_path, const struct sink *sink_def) {
     }
   }
 
-  // const bt_plugin *sink_plugin = NULL;
-  // {
-  //   bt_plugin_find_status status =
-  //       bt_plugin_find("proxy", 0, 0, 0, 1, 1, &sink_plugin);
-  //   if (status != BT_PLUGIN_FIND_STATUS_OK) {
-  //     fprintf(stderr, "Failed to find proxy plugin\n");
-  //     exit(100);
-  //     return NULL;
-  //   }
-  // }
-
-  // const bt_component_class_sink *sink_class =
-  //     bt_plugin_borrow_sink_component_class_by_name_const(sink_plugin,
-  //                                                         "output");
-
-  // const bt_component_sink *sink = NULL;
-  // {
-  //   bt_graph_add_component_status status = bt_graph_add_sink_component(
-  //       ctx->graph, sink_class, "output", NULL, log_level, &sink);
-  //   if (status != BT_GRAPH_ADD_COMPONENT_STATUS_OK) {
-  //     fprintf(stderr, "Failed to add sink component\n");
-  //     exit(100);
-  //     return NULL;
-  //   }
-  // }
-
   const bt_component_sink *simple_sink = NULL;
   {
     bt_graph_add_component_status status = bt_graph_add_simple_sink_component(
