@@ -47,6 +47,9 @@ pub struct BtFieldArrayConst(BtFieldConst);
 #[derive(Deref)]
 pub struct BtFieldStructureConst(BtFieldConst);
 
+/// Casted [`BtFieldConst`] to more specific field types.
+///
+/// Note: This enum is non-exhaustive because it does not cover all possible field types.
 #[non_exhaustive]
 pub enum BtFieldType {
     Boolean(BtFieldBooleanConst),
@@ -57,6 +60,10 @@ pub enum BtFieldType {
     Structure(BtFieldStructureConst),
 }
 
+/// Type of the field.
+///
+/// Note: This enum is non-exhaustive because it does not cover all possible
+/// field types only supported ones.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum BtFieldClassType {
@@ -102,13 +109,6 @@ impl BtFieldConst {
     ///
     /// # Errors
     /// The function will fail if the field type is not supported.
-    ///
-    /// # See also
-    /// - [`Self::into_uint()`] to cast the field into an unsigned integer.
-    /// - [`Self::into_int()`] to cast the field into a signed integer.
-    /// - [`Self::into_string()`] to cast the field into a string.
-    /// - [`Self::into_struct()`] to cast the field into a structure.
-    /// - [`Self::into_array()`] to cast the field into an array.
     pub fn cast(self) -> Result<BtFieldType, (Self, bt_field_class_type)> {
         let class = unsafe { bt_field_get_class_type(self.as_ptr()) };
         let Some(matched) = BtFieldClassType::from_field_class_type(class) else {
@@ -130,6 +130,15 @@ impl BtFieldConst {
         })
     }
 
+    /// Cast the field into a boolean.
+    ///
+    /// # Panics
+    /// If the field is not a boolean.
+    ///
+    /// # See also
+    /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::try_into_bool()`] to attempt to cast the field into a boolean.
+    #[must_use]
     pub fn into_bool(self) -> BtFieldBooleanConst {
         match self.cast() {
             Ok(BtFieldType::Boolean(inner)) => inner,
@@ -138,6 +147,14 @@ impl BtFieldConst {
         }
     }
 
+    /// Attempt to cast the field into a boolean.
+    ///
+    /// # Errors
+    /// If the field is not a boolean.
+    ///
+    /// # See also
+    /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::into_bool()`] to cast the field into a boolean and panic on failure.
     pub fn try_into_bool(self) -> Result<BtFieldBooleanConst, IncorrectTypeError> {
         match self.cast() {
             Ok(BtFieldType::Boolean(inner)) => Ok(inner),
@@ -159,6 +176,7 @@ impl BtFieldConst {
     ///
     /// # See also
     /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::try_into_uint()`] to attempt to cast the field into an unsigned integer.
     #[must_use]
     pub fn into_uint(self) -> BtFieldUnsignedIntegerConst {
         match self.cast() {
@@ -168,6 +186,14 @@ impl BtFieldConst {
         }
     }
 
+    /// Attempt to cast the field into an unsigned integer.
+    ///
+    /// # Errors
+    /// If the field is not an unsigned integer.
+    ///
+    /// # See also
+    /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::into_uint()`] to cast the field into an unsigned integer and panic on failure.
     pub fn try_into_uint(self) -> Result<BtFieldUnsignedIntegerConst, IncorrectTypeError> {
         match self.cast() {
             Ok(BtFieldType::UnsignedInteger(inner)) => Ok(inner),
@@ -189,6 +215,7 @@ impl BtFieldConst {
     ///
     /// # See also
     /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::try_into_int()`] to attempt to cast the field into a signed integer.
     #[must_use]
     pub fn into_int(self) -> BtFieldSignedIntegerConst {
         match self.cast() {
@@ -198,6 +225,14 @@ impl BtFieldConst {
         }
     }
 
+    /// Attempt to cast the field into a signed integer.
+    ///
+    /// # Errors
+    /// If the field is not a signed integer.
+    ///
+    /// # See also
+    /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::into_int()`] to cast the field into a signed integer and panic on failure.
     pub fn try_into_int(self) -> Result<BtFieldSignedIntegerConst, IncorrectTypeError> {
         match self.cast() {
             Ok(BtFieldType::SignedInteger(inner)) => Ok(inner),
@@ -219,6 +254,7 @@ impl BtFieldConst {
     ///
     /// # See also
     /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::try_into_string()`] to attempt to cast the field into a string.
     #[must_use]
     pub fn into_string(self) -> BtFieldStringConst {
         match self.cast() {
@@ -228,6 +264,14 @@ impl BtFieldConst {
         }
     }
 
+    /// Attempt to cast the field into a string.
+    ///
+    /// # Errors
+    /// If the field is not a string.
+    ///
+    /// # See also
+    /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::into_string()`] to cast the field into a string and panic on failure.
     pub fn try_into_string(self) -> Result<BtFieldStringConst, IncorrectTypeError> {
         match self.cast() {
             Ok(BtFieldType::String(inner)) => Ok(inner),
@@ -249,6 +293,7 @@ impl BtFieldConst {
     ///
     /// # See also
     /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::try_into_struct()`] to attempt to cast the field into a structure.
     #[must_use]
     pub fn into_struct(self) -> BtFieldStructureConst {
         match self.cast() {
@@ -258,6 +303,14 @@ impl BtFieldConst {
         }
     }
 
+    /// Attempt to cast the field into a structure.
+    ///
+    /// # Errors
+    /// If the field is not a structure.
+    ///
+    /// # See also
+    /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::into_struct()`] to cast the field into a structure and panic on failure.
     pub fn try_into_struct(self) -> Result<BtFieldStructureConst, IncorrectTypeError> {
         match self.cast() {
             Ok(BtFieldType::Structure(inner)) => Ok(inner),
@@ -279,6 +332,7 @@ impl BtFieldConst {
     ///
     /// # See also
     /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::try_into_array()`] to attempt to cast the field into an array.
     #[must_use]
     pub fn into_array(self) -> BtFieldArrayConst {
         match self.cast() {
@@ -288,6 +342,14 @@ impl BtFieldConst {
         }
     }
 
+    /// Attempt to cast the field into an array.
+    ///
+    /// # Errors
+    /// If the field is not an array.
+    ///
+    /// # See also
+    /// - [`Self::cast()`] to also obtain the field type.
+    /// - [`Self::into_array()`] to cast the field into an array and panic on failure.
     pub fn try_into_array(self) -> Result<BtFieldArrayConst, IncorrectTypeError> {
         match self.cast() {
             Ok(BtFieldType::Array(inner)) => Ok(inner),
@@ -346,6 +408,14 @@ macro_rules! impl_try_from_for_scalar_field {
 impl_try_from_for_scalar_field!(try_into_uint; u8, u16, u32, usize, u128);
 impl_try_from_for_scalar_field!(try_into_int; i8, i16, i32, isize, i128);
 
+impl TryFrom<BtFieldConst> for String {
+    type Error = ConversionError;
+
+    fn try_from(value: BtFieldConst) -> Result<Self, Self::Error> {
+        Ok(value.try_into_string()?.try_get_value()?.to_string())
+    }
+}
+
 impl<const N: usize, T> TryFrom<BtFieldConst> for [T; N]
 where
     T: TryFrom<BtFieldConst>,
@@ -369,7 +439,7 @@ where
 
     fn try_from(value: BtFieldConst) -> Result<Self, Self::Error> {
         let bt_array = value.try_into_array()?;
-        Vec::<T>::try_from(bt_array).map_err(Into::into)
+        Self::try_from(bt_array).map_err(Into::into)
     }
 }
 
@@ -418,7 +488,7 @@ impl std::fmt::Display for BtFieldConst {
 
 impl BtFieldType {
     #[must_use]
-    pub fn get_class_type(&self) -> BtFieldClassType {
+    pub const fn get_class_type(&self) -> BtFieldClassType {
         match self {
             Self::Boolean(_) => BtFieldClassType::Bool,
             Self::UnsignedInteger(_) => BtFieldClassType::UnsignedInteger,
@@ -528,6 +598,18 @@ impl BtFieldStringConst {
     /// - If the string value cannot be converted to a `str`.
     #[must_use]
     pub fn get_value(&self) -> &str {
+        self.try_get_value()
+            .expect("String value is not valid UTF-8")
+    }
+
+    /// Try to get the value of the string field.
+    ///
+    /// # Errors
+    /// - If the string value is not valid UTF-8.
+    ///
+    /// # Panics
+    /// - If the string length cannot fit into `usize`.
+    pub fn try_get_value(&self) -> Result<&str, std::str::Utf8Error> {
         let length = self
             .get_length()
             .try_into()
@@ -536,7 +618,6 @@ impl BtFieldStringConst {
             let ptr = bt_field_string_get_value(self.as_ptr());
             let bytes = std::slice::from_raw_parts(ptr.cast::<u8>(), length);
             std::str::from_utf8(bytes)
-                .expect("BtFieldStringConst::get_value(): Failed to convert bytes to str")
         }
     }
 }
@@ -824,7 +905,7 @@ impl std::fmt::Display for BtFieldStructureConst {
 
 impl BtFieldClassType {
     #[must_use]
-    pub(crate) fn from_field_class_type(class: bt_field_class_type) -> Option<Self> {
+    pub(crate) const fn from_field_class_type(class: bt_field_class_type) -> Option<Self> {
         Some(match class {
             bt_field_class_type::BT_FIELD_CLASS_TYPE_BOOL => Self::Bool,
             bt_field_class_type::BT_FIELD_CLASS_TYPE_UNSIGNED_INTEGER => Self::UnsignedInteger,
