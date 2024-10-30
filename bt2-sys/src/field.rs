@@ -1,5 +1,7 @@
 use core::error;
+use std::convert::Infallible;
 use std::ffi::{CStr, CString};
+use std::mem::MaybeUninit;
 
 use derive_more::derive::Deref;
 use thiserror::Error;
@@ -305,6 +307,72 @@ impl BtFieldConst {
     }
 }
 
+impl TryFrom<BtFieldConst> for bool {
+    type Error = IncorrectTypeError;
+
+    fn try_from(value: BtFieldConst) -> Result<Self, Self::Error> {
+        value.try_into_bool().map(|v| v.get_value())
+    }
+}
+
+impl TryFrom<BtFieldConst> for i64 {
+    type Error = IncorrectTypeError;
+
+    fn try_from(value: BtFieldConst) -> Result<Self, Self::Error> {
+        value.try_into_int().map(|v| v.get_value())
+    }
+}
+
+impl TryFrom<BtFieldConst> for u64 {
+    type Error = IncorrectTypeError;
+
+    fn try_from(value: BtFieldConst) -> Result<Self, Self::Error> {
+        value.try_into_uint().map(|v| v.get_value())
+    }
+}
+
+macro_rules! impl_try_from_for_scalar_field {
+    ($convert_fn:ident; $($type:ty),+) => {
+        $(impl TryFrom<BtFieldConst> for $type {
+            type Error = ConversionError;
+
+            fn try_from(value: BtFieldConst) -> Result<Self, Self::Error> {
+                value.$convert_fn()?.get_value().try_into().map_err(Into::into)
+            }
+        })+
+    };
+}
+
+impl_try_from_for_scalar_field!(try_into_uint; u8, u16, u32, usize, u128);
+impl_try_from_for_scalar_field!(try_into_int; i8, i16, i32, isize, i128);
+
+impl<const N: usize, T> TryFrom<BtFieldConst> for [T; N]
+where
+    T: TryFrom<BtFieldConst>,
+    <T as TryFrom<BtFieldConst>>::Error: Into<ConversionError>,
+{
+    type Error = ConversionError;
+
+    fn try_from(value: BtFieldConst) -> Result<Self, Self::Error> {
+        let bt_array = value.try_into_array()?;
+
+        <[T; N]>::try_from(bt_array).map_err(Into::into)
+    }
+}
+
+impl<T> TryFrom<BtFieldConst> for Vec<T>
+where
+    T: TryFrom<BtFieldConst>,
+    <T as TryFrom<BtFieldConst>>::Error: Into<ConversionError>,
+{
+    type Error = ConversionError;
+
+    fn try_from(value: BtFieldConst) -> Result<Self, Self::Error> {
+        let bt_array = value.try_into_array()?;
+        Vec::<T>::try_from(bt_array).map_err(Into::into)
+    }
+}
+
 impl std::fmt::Debug for BtFieldConst {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let casted = match unsafe { self.clone_unchecked() }.cast() {
@@ -403,6 +471,13 @@ impl BtFieldBooleanConst {
     }
 }
 
+impl From<BtFieldBooleanConst> for bool {
+    #[inline]
+    fn from(field: BtFieldBooleanConst) -> Self {
+        field.get_value()
+    }
+}
+
 impl_debug_and_display_for_scalar_field!(BtFieldBooleanConst);
 
 impl BtFieldUnsignedIntegerConst {
@@ -413,6 +488,13 @@ impl BtFieldUnsignedIntegerConst {
     }
 }
 
+impl From<BtFieldUnsignedIntegerConst> for u64 {
+    #[inline]
+    fn from(field: BtFieldUnsignedIntegerConst) -> Self {
+        field.get_value()
+    }
+}
+
 impl_debug_and_display_for_scalar_field!(BtFieldUnsignedIntegerConst);
 
 impl BtFieldSignedIntegerConst {
@@ -420,6 +502,13 @@ impl BtFieldSignedIntegerConst {
     #[must_use]
     pub fn get_value(&self) -> i64 {
         unsafe { bt_field_integer_signed_get_value(self.as_ptr()) }
+    }
+}
+
+impl From<BtFieldSignedIntegerConst> for i64 {
+    #[inline]
+    fn from(field: BtFieldSignedIntegerConst) -> Self {
+        field.get_value()
     }
 }
 
@@ -449,6 +538,14 @@ impl BtFieldStringConst {
             std::str::from_utf8(bytes)
                 .expect("BtFieldStringConst::get_value(): Failed to convert bytes to str")
         }
+    }
+}
+
+impl TryFrom<BtFieldStringConst> for String {
+    type Error = std::string::FromUtf8Error;
+
+    fn try_from(value: BtFieldStringConst) -> Result<Self, Self::Error> {
+        Ok(value.get_value().to_string())
     }
 }
 
@@ -547,6 +644,71 @@ impl std::fmt::Display for BtFieldArrayConst {
             write!(f, "{}", self.get_value(i))?;
         }
         write!(f, "]")
+    }
+}
+
+impl<const N: usize, T> TryFrom<BtFieldArrayConst> for [T; N]
+where
+    T: TryFrom<BtFieldConst>,
+    <T as TryFrom<BtFieldConst>>::Error: Into<ConversionError>,
+{
+    type Error = ArrayConversionError;
+
+    fn try_from(bt_array: BtFieldArrayConst) -> Result<Self, Self::Error> {
+        let len = bt_array.get_length();
+        if len != N as u64 {
+            return Err(ArrayConversionError::length_mismatch(N as u64, len));
+        }
+        let mut array = [const { MaybeUninit::uninit() }; N];
+        let mut i = 0;
+        let (initialized, error) = loop {
+            if i >= N {
+                // Safety: The array is fully initialized.
+                return unsafe { Ok(array.map(|elem| elem.assume_init())) };
+            }
+            let elem = bt_array.get_value(i as u64).try_into().map_err(
+                |e: <T as TryFrom<BtFieldConst>>::Error| {
+                    ArrayConversionError::element_conversion_error(e, i as u64)
+                },
+            );
+            match elem {
+                Ok(elem) => array[i] = MaybeUninit::new(elem),
+                Err(e) => break (i, e),
+            }
+            i += 1;
+        };
+
+        // Drop the initialized elements.
+        // Safety: The elements are initialized up to and excluding index `initialized`.
+        for elem in array.iter_mut().take(initialized) {
+            unsafe {
+                elem.assume_init_drop();
+            }
+        }
+
+        Err(error)
+    }
+}
+
+impl<T> TryFrom<BtFieldArrayConst> for Vec<T>
+where
+    T: TryFrom<BtFieldConst>,
+    <T as TryFrom<BtFieldConst>>::Error: Into<ConversionError>,
+{
+    type Error = ArrayConversionError;
+
+    fn try_from(bt_array: BtFieldArrayConst) -> Result<Self, Self::Error> {
+        let len = bt_array.get_length();
+        let mut vec = Vec::with_capacity(len as usize);
+        for i in 0..len {
+            let elem = bt_array.get_value(i).try_into().map_err(
+                |e: <T as TryFrom<BtFieldConst>>::Error| {
+                    ArrayConversionError::element_conversion_error(e, i)
+                },
+            )?;
+            vec.push(elem);
+        }
+        Ok(vec)
     }
 }
 
@@ -817,14 +979,25 @@ impl BtFieldStructMemberClassConst {
 pub enum ConversionError {
     #[error("Cannot convert returned value to string. The value is not valid UTF-8!")]
     InvalidUtf8(#[from] std::str::Utf8Error),
+
     #[error("Cannot convert value. Not a lossless conversion!")]
     TryFromIntError(#[from] std::num::TryFromIntError),
+
     #[error(transparent)]
     StructConversionError(#[from] StructConversionError),
+
     #[error(transparent)]
     IncorrectTypeError(#[from] IncorrectTypeError),
+
+    #[error(transparent)]
+    ArrayConversionError(#[from] ArrayConversionError),
 }
 
+impl From<Infallible> for ConversionError {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
+}
 
 #[derive(Debug, Error)]
 #[error("Cannot convert value. BtFieldConst has different class type: expected {requested_type:?}, got {actual_type:?}")]
@@ -837,6 +1010,54 @@ pub struct IncorrectTypeError {
 pub enum StructConversionError {
     #[error("Struct field not found: {0}")]
     FieldNotFound(&'static str),
+
     #[error("Struct field {1}: {0}")]
     FieldConversonError(#[source] Box<ConversionError>, &'static str),
+}
+
+impl StructConversionError {
+    #[must_use]
+    pub const fn field_not_found(name: &'static str) -> Self {
+        Self::FieldNotFound(name)
+    }
+
+    #[must_use]
+    pub fn field_conversion_error<E: Into<ConversionError>>(name: &'static str, error: E) -> Self {
+        Self::FieldConversonError(Box::new(error.into()), name)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ArrayConversionError {
+    #[error("Array index out of bounds: index={index} >= length={length}")]
+    IndexOutOfBounds { index: u64, length: u64 },
+
+    #[error("Array element at position {1}: {0}")]
+    ElementConversionError(#[source] Box<ConversionError>, u64),
+
+    #[error("Array length mismatch: expected {expected}, got {actual}")]
+    LengthMismatch { expected: u64, actual: u64 },
+}
+
+impl ArrayConversionError {
+    #[must_use]
+    pub const fn index_out_of_bounds(index: u64, length: u64) -> Self {
+        Self::IndexOutOfBounds { index, length }
+    }
+
+    #[must_use]
+    pub fn element_conversion_error<E: Into<ConversionError>>(error: E, index: u64) -> Self {
+        Self::ElementConversionError(Box::new(error.into()), index)
+    }
+
+    #[must_use]
+    pub const fn length_mismatch(expected: u64, actual: u64) -> Self {
+        Self::LengthMismatch { expected, actual }
+    }
+}
+
+impl From<Infallible> for ArrayConversionError {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
 }
