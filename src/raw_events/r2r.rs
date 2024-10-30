@@ -11,12 +11,6 @@ pub struct SpinStart {
     timeout_ns: u64,
 }
 
-impl FromBtEvent for SpinStart {
-    fn from_event(event: &BtEventConst) -> Option<Self> {
-        Some(event.get_payload().unwrap().try_into().unwrap())
-    }
-}
-
 #[derive(Debug, From)]
 pub enum Event {
     SpinStart(SpinStart),

@@ -1,6 +1,7 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 use bt2_sys::event::BtEventConst;
+use bt2_sys::field::BtFieldConst;
 use bt2_sys::message::BtEventMessageConst;
 use bt2_sys::trace::BtEnvironmentEntry;
 use derive_more::derive::From;
@@ -13,6 +14,21 @@ pub mod r2r;
 
 pub trait FromBtEvent: Sized {
     fn from_event(event: &BtEventConst) -> Option<Self>;
+}
+
+impl<T> FromBtEvent for T
+where
+    T: TryFrom<BtFieldConst>,
+    <T as TryFrom<BtFieldConst>>::Error: Display,
+{
+    fn from_event(event: &BtEventConst) -> Option<Self> {
+        Some(event.get_payload()?.try_into().unwrap_or_else(|e| {
+            panic!(
+                "Failed to parse event payload into {}: {e}",
+                std::any::type_name::<T>()
+            )
+        }))
+    }
 }
 
 pub fn time_from_message(message: &BtEventMessageConst) -> Time {
