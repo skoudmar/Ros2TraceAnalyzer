@@ -91,6 +91,7 @@ pub struct RmwTake {
     pub rmw_subscription_handle: u64,
     pub message: u64,
     pub source_timestamp: i64,
+    #[bt2(try_from = i64, is_not_zero)]
     pub taken: bool,
 }
 
@@ -153,6 +154,7 @@ pub struct RclcppCallbackRegister {
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct CallbackStart {
     pub callback: u64,
+    #[bt2(try_from = i64, is_not_zero)]
     pub is_intra_process: bool,
 }
 
@@ -210,6 +212,7 @@ pub struct RclCppRingBufferEnqueue {
     pub buffer: u64,
     pub index: u64,
     pub size: u64,
+    #[bt2(try_from = i64, is_not_zero)]
     pub overwritten: bool,
 }
 
