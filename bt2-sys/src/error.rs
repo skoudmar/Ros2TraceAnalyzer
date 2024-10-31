@@ -28,16 +28,20 @@ macro_rules! rethrow {
     };
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
 #[error("Out of memory")]
 pub struct OutOfMemory;
+
+#[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
+#[error("Try again")]
+pub struct TryAgain;
 
 #[derive(Debug, Error)]
 pub enum BtError {
     #[error("Iteration ended")]
     End,
-    #[error("Try again")]
-    Again,
+    #[error(transparent)]
+    Again(#[from] TryAgain),
     #[error("Babeltrace2 error: {}", .0)]
     MemoryError(#[from] OutOfMemory),
     #[error("Babeltrace2 error: {}", .0)]
@@ -46,6 +50,8 @@ pub enum BtError {
 
 impl BtError {
     const MODULE: &CStr = c"Rust Error";
+    pub(crate) const AGAIN: Self = Self::Again(TryAgain);
+    pub(crate) const MEMORY_ERROR: Self = Self::MemoryError(OutOfMemory);
 
     fn get_error() -> Option<Self> {
         Some(Self::Error(BtErrorWrapper::get()?))
@@ -148,10 +154,8 @@ impl IntoResult<()> for bt_message_iterator_next_status {
         match self {
             Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_OK => Ok(()),
             Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_END => Err(BtError::End),
-            Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_AGAIN => Err(BtError::Again),
-            Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_MEMORY_ERROR => {
-                Err(BtError::MemoryError(OutOfMemory))
-            }
+            Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_AGAIN => Err(BtError::AGAIN),
+            Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_MEMORY_ERROR => Err(BtError::MEMORY_ERROR),
             Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_ERROR => Err(BtError::get_error().unwrap()),
             status => unreachable!(
                 "Bug: unknown bt_message_iterator_next_status = {}",
@@ -166,8 +170,8 @@ impl IntoResult<MessageIteratorState> for bt_graph_run_once_status {
         match self {
             Self::BT_GRAPH_RUN_ONCE_STATUS_OK => Ok(MessageIteratorState::Running),
             Self::BT_GRAPH_RUN_ONCE_STATUS_END => Ok(MessageIteratorState::Ended),
-            Self::BT_GRAPH_RUN_ONCE_STATUS_AGAIN => Err(BtError::Again),
-            Self::BT_GRAPH_RUN_ONCE_STATUS_MEMORY_ERROR => Err(BtError::MemoryError(OutOfMemory)),
+            Self::BT_GRAPH_RUN_ONCE_STATUS_AGAIN => Err(BtError::AGAIN),
+            Self::BT_GRAPH_RUN_ONCE_STATUS_MEMORY_ERROR => Err(BtError::MEMORY_ERROR),
             Self::BT_GRAPH_RUN_ONCE_STATUS_ERROR => Err(BtError::get_error().unwrap()),
             status => unreachable!("Bug: unknown bt_graph_run_once_status = {}", status.0),
         }

@@ -62,7 +62,7 @@ impl BatchMessageIterator {
 
                     return STATUS_OK;
                 }
-                Err(BtError::Again) => {
+                Err(BtError::Again(_)) => {
                     continue;
                 }
                 Err(BtError::End) => {
