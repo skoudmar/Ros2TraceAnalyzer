@@ -21,7 +21,7 @@ use crate::raw_bindings::{
     bt_value_real_create_init, bt_value_real_get, bt_value_real_set, bt_value_string_create_init,
     bt_value_string_get, bt_value_string_set, bt_value_string_set_status, bt_value_type,
 };
-use crate::utils::{Borrowed, ConstNonNull};
+use crate::utils::ConstNonNull;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BtValueType {
