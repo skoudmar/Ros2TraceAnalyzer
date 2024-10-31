@@ -11,4 +11,5 @@ mod utils;
 pub mod value;
 mod wrappers;
 
+pub mod logging;
 mod raw_bindings;
