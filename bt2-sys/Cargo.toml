@@ -8,5 +8,5 @@ derive_more = { version = "1.0.0", features = ["deref", "deref_mut", "from"] }
 thiserror = "1.0.64"
 
 [build-dependencies]
-bindgen = "0.70.1"
+bindgen = { version = "0.70.1", features = ["experimental"]}
 cc = "1.0"
