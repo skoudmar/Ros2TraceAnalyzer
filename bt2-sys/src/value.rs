@@ -1,21 +1,29 @@
 use core::str;
 use std::ffi::{CStr, CString};
+use std::marker::PhantomData;
 use std::ptr::NonNull;
 
-use derive_more::derive::{Deref, DerefMut};
+use derive_more::derive::{Deref, DerefMut, Into};
+use thiserror::Error;
 
 use crate::error::OutOfMemory;
 use crate::raw_bindings::{
-    bt_value, bt_value_bool_create_init, bt_value_bool_get, bt_value_bool_set, bt_value_get_ref,
-    bt_value_get_type, bt_value_integer_signed_get, bt_value_map_create,
+    bt_value, bt_value_array_append_element, bt_value_array_append_element_status,
+    bt_value_array_borrow_element_by_index_const, bt_value_array_create, bt_value_array_get_length,
+    bt_value_array_is_empty, bt_value_bool_create_init, bt_value_bool_get, bt_value_bool_set,
+    bt_value_get_ref, bt_value_get_type, bt_value_integer_signed_create_init,
+    bt_value_integer_signed_get, bt_value_integer_signed_set,
+    bt_value_integer_unsigned_create_init, bt_value_integer_unsigned_get,
+    bt_value_integer_unsigned_set, bt_value_map_borrow_entry_value_const, bt_value_map_create,
     bt_value_map_insert_bool_entry, bt_value_map_insert_entry, bt_value_map_insert_entry_status,
     bt_value_map_insert_signed_integer_entry, bt_value_map_insert_string_entry,
     bt_value_map_insert_unsigned_integer_entry, bt_value_null, bt_value_put_ref,
-    bt_value_string_create_init, bt_value_string_get, bt_value_string_set,
-    bt_value_string_set_status, bt_value_type,
+    bt_value_real_create_init, bt_value_real_get, bt_value_real_set, bt_value_string_create_init,
+    bt_value_string_get, bt_value_string_set, bt_value_string_set_status, bt_value_type,
 };
-use crate::utils::ConstNonNull;
+use crate::utils::{Borrowed, ConstNonNull};
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BtValueType {
     Null,
     Bool,
@@ -27,51 +35,92 @@ pub enum BtValueType {
     Map,
 }
 
-pub enum BtValueTypedConst {
-    Null(BtValueNullConst),
-    Bool(BtValueBoolConst),
-    UnsignedInteger(BtValueUnsignedIntegerConst),
-    SignedInteger(BtValueSignedIntegerConst),
-    Real(BtValueRealConst),
-    String(BtValueStringConst),
-    Array(BtValueArrayConst),
-    Map(BtValueMapConst),
+macro_rules! impl_try_from_using_cast {
+    ($($($lt:lifetime),+ =>)? $enum:ident::$variant:ident, $from:ty, $to:ty) => {
+        impl$(<$($lt),+>)? TryFrom<$from> for $to {
+            type Error = IncorrectTypeError;
+
+            fn try_from(value: $from) -> Result<Self, Self::Error> {
+                match value.cast() {
+                    $enum::$variant(value) => Ok(value),
+                    got => Err(IncorrectTypeError {
+                        expected: BtValueType::$variant,
+                        got: got.get_type(),
+                    }),
+                }
+            }
+        }
+    };
+}
+
+#[derive(Debug, Error, Copy, Clone)]
+#[error("Incorrect BtValue type: expected {expected:?}, got {got:?}")]
+pub struct IncorrectTypeError {
+    expected: BtValueType,
+    got: BtValueType,
+}
+
+pub enum BtValueTypedConst<'a> {
+    Null(BtValueNullConst<'a>),
+    Bool(BtValueBoolConst<'a>),
+    UnsignedInteger(BtValueUnsignedIntegerConst<'a>),
+    SignedInteger(BtValueSignedIntegerConst<'a>),
+    Real(BtValueRealConst<'a>),
+    String(BtValueStringConst<'a>),
+    Array(BtValueArrayConst<'a>),
+    Map(BtValueMapConst<'a>),
+}
+
+impl<'a> BtValueTypedConst<'a> {
+    #[must_use]
+    pub fn get_type(&self) -> BtValueType {
+        match self {
+            BtValueTypedConst::Null(_) => BtValueType::Null,
+            BtValueTypedConst::Bool(_) => BtValueType::Bool,
+            BtValueTypedConst::UnsignedInteger(_) => BtValueType::UnsignedInteger,
+            BtValueTypedConst::SignedInteger(_) => BtValueType::SignedInteger,
+            BtValueTypedConst::Real(_) => BtValueType::Real,
+            BtValueTypedConst::String(_) => BtValueType::String,
+            BtValueTypedConst::Array(_) => BtValueType::Array,
+            BtValueTypedConst::Map(_) => BtValueType::Map,
+        }
+    }
 }
 
 #[repr(transparent)]
-pub struct BtValueConst(ConstNonNull<bt_value>);
+pub struct BtValueConst<'a>(ConstNonNull<bt_value>, PhantomData<&'a bt_value>);
 
 #[repr(transparent)]
-#[derive(Deref)]
-pub struct BtValueNullConst(BtValueConst);
+#[derive(Deref, Into)]
+pub struct BtValueNullConst<'a>(BtValueConst<'a>);
 
 #[repr(transparent)]
-#[derive(Deref)]
-pub struct BtValueBoolConst(BtValueConst);
+#[derive(Deref, Into)]
+pub struct BtValueBoolConst<'a>(BtValueConst<'a>);
 
 #[repr(transparent)]
-#[derive(Deref)]
-pub struct BtValueUnsignedIntegerConst(BtValueConst);
+#[derive(Deref, Into)]
+pub struct BtValueUnsignedIntegerConst<'a>(BtValueConst<'a>);
 
 #[repr(transparent)]
-#[derive(Deref)]
-pub struct BtValueSignedIntegerConst(BtValueConst);
+#[derive(Deref, Into)]
+pub struct BtValueSignedIntegerConst<'a>(BtValueConst<'a>);
 
 #[repr(transparent)]
-#[derive(Deref)]
-pub struct BtValueRealConst(BtValueConst);
+#[derive(Deref, Into)]
+pub struct BtValueRealConst<'a>(BtValueConst<'a>);
 
 #[repr(transparent)]
-#[derive(Deref)]
-pub struct BtValueStringConst(BtValueConst);
+#[derive(Deref, Into)]
+pub struct BtValueStringConst<'a>(BtValueConst<'a>);
 
 #[repr(transparent)]
-#[derive(Deref)]
-pub struct BtValueArrayConst(BtValueConst);
+#[derive(Deref, Into)]
+pub struct BtValueArrayConst<'a>(BtValueConst<'a>);
 
 #[repr(transparent)]
-#[derive(Deref)]
-pub struct BtValueMapConst(BtValueConst);
+#[derive(Deref, Into)]
+pub struct BtValueMapConst<'a>(BtValueConst<'a>);
 
 impl BtValueType {
     #[must_use]
@@ -90,19 +139,23 @@ impl BtValueType {
     }
 }
 
-impl BtValueConst {
+impl<'a> BtValueConst<'a> {
     pub(crate) unsafe fn new_unchecked(ptr: *const bt_value) -> Self {
-        Self(ConstNonNull::new_unchecked(ptr))
+        Self(ConstNonNull::new_unchecked(ptr), PhantomData)
+    }
+
+    pub(crate) unsafe fn new(ptr: ConstNonNull<bt_value>) -> Self {
+        Self(ptr, PhantomData)
     }
 
     #[inline]
-    pub(crate) fn get_ptr(&self) -> *const bt_value {
+    pub(crate) fn as_ptr(&self) -> *const bt_value {
         self.0.as_ptr()
     }
 
     #[must_use]
-    pub fn cast(self) -> BtValueTypedConst {
-        let typ = unsafe { bt_value_get_type(self.get_ptr()) };
+    pub fn cast(self) -> BtValueTypedConst<'a> {
+        let typ = unsafe { bt_value_get_type(self.as_ptr()) };
 
         match BtValueType::from_raw(typ).expect("Unknown bt_value_type") {
             BtValueType::Null => BtValueTypedConst::Null(BtValueNullConst(self)),
@@ -121,28 +174,91 @@ impl BtValueConst {
     }
 }
 
-impl BtValueSignedIntegerConst {
+impl_try_from_using_cast!('a => BtValueTypedConst::Null, BtValueConst<'a>, BtValueNullConst<'a>);
+
+impl<'a> BtValueBoolConst<'a> {
     #[must_use]
-    pub fn get_value(&self) -> i64 {
-        unsafe { bt_value_integer_signed_get(self.get_ptr()) }
+    pub fn get(&self) -> bool {
+        0 != unsafe { bt_value_bool_get(self.as_ptr()) }
     }
 }
 
-impl BtValueStringConst {
-    /// Get the contained string value.
-    ///
-    /// # Panics
-    ///
-    /// Panics if value is not valid UTF-8.
+impl_try_from_using_cast!('a => BtValueTypedConst::Bool, BtValueConst<'a>, BtValueBoolConst<'a>);
+
+impl<'a> BtValueUnsignedIntegerConst<'a> {
     #[must_use]
-    pub fn get_value(&self) -> &str {
+    pub fn get(&self) -> u64 {
+        unsafe { bt_value_integer_unsigned_get(self.as_ptr()) }
+    }
+}
+
+impl_try_from_using_cast!('a => BtValueTypedConst::UnsignedInteger, BtValueConst<'a>, BtValueUnsignedIntegerConst<'a>);
+
+impl<'a> BtValueSignedIntegerConst<'a> {
+    #[must_use]
+    pub fn get(&self) -> i64 {
+        unsafe { bt_value_integer_signed_get(self.as_ptr()) }
+    }
+}
+
+impl_try_from_using_cast!('a => BtValueTypedConst::SignedInteger, BtValueConst<'a>, BtValueSignedIntegerConst<'a>);
+
+impl<'a> BtValueStringConst<'a> {
+    /// Get the contained string value.
+    pub fn get(&self) -> Result<&str, str::Utf8Error> {
         unsafe {
-            let ptr = bt_value_string_get(self.get_ptr());
+            let ptr = bt_value_string_get(self.as_ptr());
             debug_assert!(!ptr.is_null());
-            CStr::from_ptr(ptr).to_str().expect("Invalid UTF-8")
+            CStr::from_ptr(ptr).to_str()
         }
     }
 }
+
+impl_try_from_using_cast!('a => BtValueTypedConst::String, BtValueConst<'a>, BtValueStringConst<'a>);
+
+impl<'a> BtValueRealConst<'a> {
+    #[must_use]
+    pub fn get(&self) -> f64 {
+        unsafe { bt_value_real_get(self.as_ptr()) }
+    }
+}
+
+impl_try_from_using_cast!('a => BtValueTypedConst::Real, BtValueConst<'a>, BtValueRealConst<'a>);
+
+impl<'a> BtValueArrayConst<'a> {
+    #[must_use]
+    pub fn length(&self) -> u64 {
+        unsafe { bt_value_array_get_length(self.as_ptr()) }
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        unsafe { 0 != bt_value_array_is_empty(self.as_ptr()) }
+    }
+
+    #[must_use]
+    pub fn get(&'a self, index: u64) -> BtValueConst<'a> {
+        assert!(index < self.length());
+        let ptr = unsafe { bt_value_array_borrow_element_by_index_const(self.as_ptr(), index) };
+        unsafe { BtValueConst::new_unchecked(ptr) }
+    }
+}
+
+impl_try_from_using_cast!('a => BtValueTypedConst::Array, BtValueConst<'a>, BtValueArrayConst<'a>);
+
+impl<'a> BtValueMapConst<'a> {
+    pub fn get(&self, key: &str) -> Option<BtValueConst<'a>> {
+        let key = CString::new(key).expect("Key must not contain null byte");
+        self.get_with_cstr_key(&key)
+    }
+
+    pub fn get_with_cstr_key(&self, key: &CStr) -> Option<BtValueConst<'a>> {
+        let ptr = unsafe { bt_value_map_borrow_entry_value_const(self.as_ptr(), key.as_ptr()) };
+        ConstNonNull::new(ptr).map(|ptr| unsafe { BtValueConst::new(ptr) })
+    }
+}
+
+impl_try_from_using_cast!('a => BtValueTypedConst::Map, BtValueConst<'a>, BtValueMapConst<'a>);
 
 #[repr(transparent)]
 pub struct BtValue(NonNull<bt_value>);
@@ -158,41 +274,61 @@ pub enum BtValueTyped {
     Map(BtValueMap),
 }
 
+impl BtValueTyped {
+    #[must_use]
+    pub fn get_type(&self) -> BtValueType {
+        match self {
+            BtValueTyped::Null(_) => BtValueType::Null,
+            BtValueTyped::Bool(_) => BtValueType::Bool,
+            BtValueTyped::UnsignedInteger(_) => BtValueType::UnsignedInteger,
+            BtValueTyped::SignedInteger(_) => BtValueType::SignedInteger,
+            BtValueTyped::Real(_) => BtValueType::Real,
+            BtValueTyped::String(_) => BtValueType::String,
+            BtValueTyped::Array(_) => BtValueType::Array,
+            BtValueTyped::Map(_) => BtValueType::Map,
+        }
+    }
+}
+
 #[repr(transparent)]
-#[derive(Clone, Deref)]
+#[derive(Deref, DerefMut, Into)]
 pub struct BtValueNull(BtValue);
 
 #[repr(transparent)]
-#[derive(Clone, Deref)]
+#[derive(Deref, DerefMut, Into)]
 pub struct BtValueBool(BtValue);
 
 #[repr(transparent)]
-#[derive(Clone, Deref, DerefMut)]
+#[derive(Deref, DerefMut, Into)]
 pub struct BtValueUnsignedInteger(BtValue);
 
 #[repr(transparent)]
-#[derive(Clone, Deref, DerefMut)]
+#[derive(Deref, DerefMut, Into)]
 pub struct BtValueSignedInteger(BtValue);
 
 #[repr(transparent)]
-#[derive(Clone, Deref, DerefMut)]
+#[derive(Deref, DerefMut, Into)]
 pub struct BtValueReal(BtValue);
 
 #[repr(transparent)]
-#[derive(Clone, Deref, DerefMut)]
+#[derive(Deref, DerefMut, Into)]
 pub struct BtValueString(BtValue);
 
 #[repr(transparent)]
-#[derive(Clone, Deref, DerefMut)]
+#[derive(Deref, DerefMut, Into)]
 pub struct BtValueArray(BtValue);
 
 #[repr(transparent)]
-#[derive(Clone, Deref, DerefMut)]
+#[derive(Deref, DerefMut, Into)]
 pub struct BtValueMap(BtValue);
 
 impl BtValue {
-    fn new(ptr: NonNull<bt_value>) -> Self {
+    unsafe fn new_from_inner(ptr: NonNull<bt_value>) -> Self {
         Self(ptr)
+    }
+
+    pub(crate) unsafe fn new_unchecked(ptr: *mut bt_value) -> Self {
+        Self(NonNull::new_unchecked(ptr))
     }
 
     #[inline]
@@ -202,9 +338,7 @@ impl BtValue {
 
     #[must_use]
     pub fn cast(self) -> BtValueTyped {
-        let typ = unsafe { bt_value_get_type(self.as_ptr()) };
-
-        match BtValueType::from_raw(typ).expect("Unknown bt_value_type") {
+        match self.get_type() {
             BtValueType::Null => BtValueTyped::Null(BtValueNull(self)),
             BtValueType::Bool => BtValueTyped::Bool(BtValueBool(self)),
             BtValueType::UnsignedInteger => {
@@ -217,12 +351,15 @@ impl BtValue {
             BtValueType::Map => BtValueTyped::Map(BtValueMap(self)),
         }
     }
-}
 
-impl Clone for BtValue {
-    fn clone(&self) -> Self {
-        unsafe { bt_value_get_ref(self.as_ptr()) };
-        Self::new(self.0)
+    #[must_use]
+    pub fn get_type(&self) -> BtValueType {
+        BtValueType::from_raw(unsafe { bt_value_get_type(self.as_ptr()) })
+            .expect("Unknown bt_value_type")
+    }
+
+    pub fn as_const<'a>(&'a self) -> BtValueConst<'a> {
+        unsafe { BtValueConst::new_unchecked(self.as_ptr()) }
     }
 }
 
@@ -238,19 +375,23 @@ impl Default for BtValueNull {
             bt_value_get_ref(bt_value_null);
         };
         // Safety: bt_value_null is different from NULL
-        Self(unsafe { BtValue::new(NonNull::new_unchecked(bt_value_null)) })
+        Self(unsafe { BtValue::new_from_inner(NonNull::new_unchecked(bt_value_null)) })
     }
 }
+
+impl_try_from_using_cast!(BtValueTyped::Null, BtValue, BtValueNull);
 
 impl BtValueBool {
     pub fn new(value: bool) -> Result<Self, OutOfMemory> {
         let ptr = unsafe { bt_value_bool_create_init(value.into()) };
         NonNull::new(ptr)
             .ok_or(OutOfMemory)
-            .map(BtValue::new)
+            .map(|ptr| unsafe { BtValue::new_from_inner(ptr) })
             .map(Self)
     }
 
+    #[must_use]
+    #[inline]
     pub fn get(&self) -> bool {
         0 != unsafe { bt_value_bool_get(self.as_ptr()) }
     }
@@ -258,7 +399,97 @@ impl BtValueBool {
     pub fn set(&mut self, value: bool) {
         unsafe { bt_value_bool_set(self.as_ptr(), value.into()) }
     }
+
+    #[must_use]
+    pub fn as_const<'a>(&'a self) -> BtValueBoolConst<'a> {
+        BtValueBoolConst(self.0.as_const())
+    }
 }
+
+impl_try_from_using_cast!(BtValueTyped::Bool, BtValue, BtValueBool);
+
+impl BtValueUnsignedInteger {
+    pub fn new(value: u64) -> Result<Self, OutOfMemory> {
+        let ptr = unsafe { bt_value_integer_unsigned_create_init(value) };
+        NonNull::new(ptr)
+            .ok_or(OutOfMemory)
+            .map(|ptr| unsafe { BtValue::new_from_inner(ptr) })
+            .map(Self)
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn get(&self) -> u64 {
+        self.as_const().get()
+    }
+
+    pub fn set(&mut self, value: u64) {
+        unsafe { bt_value_integer_unsigned_set(self.as_ptr(), value) }
+    }
+
+    #[must_use]
+    pub fn as_const<'a>(&'a self) -> BtValueUnsignedIntegerConst<'a> {
+        BtValueUnsignedIntegerConst(self.0.as_const())
+    }
+}
+
+impl_try_from_using_cast!(
+    BtValueTyped::UnsignedInteger,
+    BtValue,
+    BtValueUnsignedInteger
+);
+
+impl BtValueSignedInteger {
+    pub fn new(value: i64) -> Result<Self, OutOfMemory> {
+        let ptr = unsafe { bt_value_integer_signed_create_init(value) };
+        NonNull::new(ptr)
+            .ok_or(OutOfMemory)
+            .map(|ptr| unsafe { BtValue::new_from_inner(ptr) })
+            .map(Self)
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn get(&self) -> i64 {
+        self.as_const().get()
+    }
+
+    pub fn set(&mut self, value: i64) {
+        unsafe { bt_value_integer_signed_set(self.as_ptr(), value) }
+    }
+
+    pub fn as_const<'a>(&'a self) -> BtValueSignedIntegerConst<'a> {
+        BtValueSignedIntegerConst(self.0.as_const())
+    }
+}
+
+impl_try_from_using_cast!(BtValueTyped::SignedInteger, BtValue, BtValueSignedInteger);
+
+impl BtValueReal {
+    pub fn new(value: f64) -> Result<Self, OutOfMemory> {
+        let ptr = unsafe { bt_value_real_create_init(value) };
+        NonNull::new(ptr)
+            .ok_or(OutOfMemory)
+            .map(|ptr| unsafe { BtValue::new_from_inner(ptr) })
+            .map(Self)
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn get(&self) -> f64 {
+        self.as_const().get()
+    }
+
+    pub fn set(&mut self, value: f64) {
+        unsafe { bt_value_real_set(self.as_ptr(), value) }
+    }
+
+    pub fn as_const<'a>(&'a self) -> BtValueRealConst<'a> {
+        BtValueRealConst(self.0.as_const())
+    }
+}
+
+impl_try_from_using_cast!(BtValueTyped::Real, BtValue, BtValueReal);
 
 impl BtValueString {
     pub fn new(value: &str) -> Result<Self, OutOfMemory> {
@@ -270,7 +501,7 @@ impl BtValueString {
         let ptr = unsafe { bt_value_string_create_init(value.as_ptr()) };
         NonNull::new(ptr)
             .ok_or(OutOfMemory)
-            .map(BtValue::new)
+            .map(|ptr| unsafe { BtValue::new_from_inner(ptr) })
             .map(Self)
     }
 
@@ -294,14 +525,58 @@ impl BtValueString {
             status => unreachable!("Bug: Unknown bt_value_string_set_status: {:?}", status.0),
         }
     }
+
+    pub fn as_const<'a>(&'a self) -> BtValueStringConst<'a> {
+        BtValueStringConst(self.0.as_const())
+    }
 }
+
+impl_try_from_using_cast!(BtValueTyped::String, BtValue, BtValueString);
+
+impl BtValueArray {
+    pub fn new() -> Result<Self, OutOfMemory> {
+        let ptr = unsafe { bt_value_array_create() };
+        NonNull::new(ptr)
+            .ok_or(OutOfMemory)
+            .map(|ptr| unsafe { BtValue::new_from_inner(ptr) })
+            .map(Self)
+    }
+
+    pub fn push(&mut self, value: &BtValue) -> Result<(), OutOfMemory> {
+        unsafe { bt_value_array_append_element(self.as_ptr(), value.as_ptr()) }.into_result()
+    }
+
+    #[inline]
+    pub fn length(&self) -> u64 {
+        self.as_const().length()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.as_const().is_empty()
+    }
+
+    #[inline]
+    pub fn as_const<'a>(&'a self) -> BtValueArrayConst<'a> {
+        BtValueArrayConst(self.0.as_const())
+    }
+
+    #[must_use]
+    pub fn get<'a>(&'a self, index: u64) -> BtValueConst<'a> {
+        assert!(index < self.length());
+        let ptr = unsafe { bt_value_array_borrow_element_by_index_const(self.as_ptr(), index) };
+        unsafe { BtValueConst::new_unchecked(ptr) }
+    }
+}
+
+impl_try_from_using_cast!(BtValueTyped::Array, BtValue, BtValueArray);
 
 impl BtValueMap {
     pub fn new() -> Result<Self, OutOfMemory> {
         let ptr = unsafe { bt_value_map_create() };
         NonNull::new(ptr)
             .ok_or(OutOfMemory)
-            .map(BtValue::new)
+            .map(|ptr| unsafe { BtValue::new_from_inner(ptr) })
             .map(Self)
     }
 
@@ -376,13 +651,40 @@ impl BtValueMap {
         unsafe { bt_value_map_insert_string_entry(self.as_ptr(), key.as_ptr(), value.as_ptr()) }
             .into_result()
     }
+
+    pub fn as_const<'a>(&'a self) -> BtValueMapConst<'a> {
+        BtValueMapConst(self.0.as_const())
+    }
+
+    pub fn get<'a>(&'a self, key: &str) -> Option<BtValueConst<'a>> {
+        self.as_const().get(key)
+    }
+
+    pub fn get_with_cstr_key<'a>(&'a self, key: &CStr) -> Option<BtValueConst<'a>> {
+        self.as_const().get_with_cstr_key(key)
+    }
 }
 
-trait MapInsertStatusIntoResult {
+impl_try_from_using_cast!(BtValueTyped::Map, BtValue, BtValueMap);
+
+trait InsertStatusIntoResult {
     fn into_result(self) -> Result<(), OutOfMemory>;
 }
 
-impl MapInsertStatusIntoResult for bt_value_map_insert_entry_status {
+impl InsertStatusIntoResult for bt_value_array_append_element_status {
+    fn into_result(self) -> Result<(), OutOfMemory> {
+        match self {
+            Self::BT_VALUE_ARRAY_APPEND_ELEMENT_STATUS_OK => Ok(()),
+            Self::BT_VALUE_ARRAY_APPEND_ELEMENT_STATUS_MEMORY_ERROR => Err(OutOfMemory),
+            status => unreachable!(
+                "Bug: Unknown bt_value_array_append_element_status: {:?}",
+                status.0
+            ),
+        }
+    }
+}
+
+impl InsertStatusIntoResult for bt_value_map_insert_entry_status {
     fn into_result(self) -> Result<(), OutOfMemory> {
         match self {
             Self::BT_VALUE_MAP_INSERT_ENTRY_STATUS_OK => Ok(()),

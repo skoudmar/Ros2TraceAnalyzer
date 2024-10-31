@@ -1,4 +1,9 @@
+use std::marker::PhantomData;
 use std::ptr::NonNull;
+
+use derive_more::derive::Deref;
+
+use crate::value;
 
 #[macro_export]
 macro_rules! impl_deref {
@@ -45,5 +50,32 @@ impl<T> TryFrom<*const T> for ConstNonNull<T> {
 
     fn try_from(ptr: *const T) -> Result<Self, Self::Error> {
         Self::new(ptr).ok_or(())
+    }
+}
+
+/// A newtype for a constant value.
+///
+/// This is useful to prevent creating mutable references to the value.
+#[repr(transparent)]
+#[derive(Debug, Clone, Deref)]
+pub struct Const<T>(T);
+
+impl<T> Const<T> {
+    pub const fn new(value: T) -> Self {
+        Self(value)
+    }
+
+    pub fn into<U>(self) -> Const<U>
+    where
+        T: Into<U>,
+    {
+        Const::new(self.0.into())
+    }
+
+    pub fn try_into<U>(self) -> Result<Const<U>, T::Error>
+    where
+        T: TryInto<U>,
+    {
+        Ok(Const::new(self.0.try_into()?))
     }
 }

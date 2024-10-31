@@ -50,15 +50,17 @@ pub fn context_from_event(event: &BtEventConst) -> Context {
         .try_into()
         .unwrap();
 
-    let BtEnvironmentEntry::String(hostname) = event
-        .get_stream()
-        .get_trace()
+    let trace = event.get_stream().get_trace();
+    let BtEnvironmentEntry::String(hostname) = trace
         .get_environment_entry_by_name("hostname")
         .expect("Trace missing hostname environment entry")
     else {
         panic!("Missing hostname environment entry");
     };
-    let hostname = hostname.get_value().to_string();
+    let hostname = hostname
+        .get()
+        .expect("Hostname should be valid UTF-8.")
+        .to_string();
 
     let common_context = event
         .get_common_context_field()
