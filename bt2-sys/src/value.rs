@@ -75,14 +75,14 @@ impl<'a> BtValueTypedConst<'a> {
     #[must_use]
     pub fn get_type(&self) -> BtValueType {
         match self {
-            BtValueTypedConst::Null(_) => BtValueType::Null,
-            BtValueTypedConst::Bool(_) => BtValueType::Bool,
-            BtValueTypedConst::UnsignedInteger(_) => BtValueType::UnsignedInteger,
-            BtValueTypedConst::SignedInteger(_) => BtValueType::SignedInteger,
-            BtValueTypedConst::Real(_) => BtValueType::Real,
-            BtValueTypedConst::String(_) => BtValueType::String,
-            BtValueTypedConst::Array(_) => BtValueType::Array,
-            BtValueTypedConst::Map(_) => BtValueType::Map,
+            Self::Null(_) => BtValueType::Null,
+            Self::Bool(_) => BtValueType::Bool,
+            Self::UnsignedInteger(_) => BtValueType::UnsignedInteger,
+            Self::SignedInteger(_) => BtValueType::SignedInteger,
+            Self::Real(_) => BtValueType::Real,
+            Self::String(_) => BtValueType::String,
+            Self::Array(_) => BtValueType::Array,
+            Self::Map(_) => BtValueType::Map,
         }
     }
 }
@@ -278,14 +278,14 @@ impl BtValueTyped {
     #[must_use]
     pub fn get_type(&self) -> BtValueType {
         match self {
-            BtValueTyped::Null(_) => BtValueType::Null,
-            BtValueTyped::Bool(_) => BtValueType::Bool,
-            BtValueTyped::UnsignedInteger(_) => BtValueType::UnsignedInteger,
-            BtValueTyped::SignedInteger(_) => BtValueType::SignedInteger,
-            BtValueTyped::Real(_) => BtValueType::Real,
-            BtValueTyped::String(_) => BtValueType::String,
-            BtValueTyped::Array(_) => BtValueType::Array,
-            BtValueTyped::Map(_) => BtValueType::Map,
+            Self::Null(_) => BtValueType::Null,
+            Self::Bool(_) => BtValueType::Bool,
+            Self::UnsignedInteger(_) => BtValueType::UnsignedInteger,
+            Self::SignedInteger(_) => BtValueType::SignedInteger,
+            Self::Real(_) => BtValueType::Real,
+            Self::String(_) => BtValueType::String,
+            Self::Array(_) => BtValueType::Array,
+            Self::Map(_) => BtValueType::Map,
         }
     }
 }

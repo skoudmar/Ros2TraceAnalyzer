@@ -42,13 +42,13 @@ impl From<bt_logging_level> for LogLevel {
 impl From<LogLevel> for bt_logging_level {
     fn from(value: LogLevel) -> Self {
         match value {
-            LogLevel::Trace => bt_logging_level::BT_LOGGING_LEVEL_TRACE,
-            LogLevel::Debug => bt_logging_level::BT_LOGGING_LEVEL_DEBUG,
-            LogLevel::Info => bt_logging_level::BT_LOGGING_LEVEL_INFO,
-            LogLevel::Warning => bt_logging_level::BT_LOGGING_LEVEL_WARNING,
-            LogLevel::Error => bt_logging_level::BT_LOGGING_LEVEL_ERROR,
-            LogLevel::Fatal => bt_logging_level::BT_LOGGING_LEVEL_FATAL,
-            LogLevel::None => bt_logging_level::BT_LOGGING_LEVEL_NONE,
+            LogLevel::Trace => Self::BT_LOGGING_LEVEL_TRACE,
+            LogLevel::Debug => Self::BT_LOGGING_LEVEL_DEBUG,
+            LogLevel::Info => Self::BT_LOGGING_LEVEL_INFO,
+            LogLevel::Warning => Self::BT_LOGGING_LEVEL_WARNING,
+            LogLevel::Error => Self::BT_LOGGING_LEVEL_ERROR,
+            LogLevel::Fatal => Self::BT_LOGGING_LEVEL_FATAL,
+            LogLevel::None => Self::BT_LOGGING_LEVEL_NONE,
         }
     }
 }

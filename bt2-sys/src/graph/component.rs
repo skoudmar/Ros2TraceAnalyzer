@@ -36,9 +36,9 @@ impl BtComponentCasted {
     #[must_use]
     pub fn as_type(&self) -> BtComponentType {
         match self {
-            BtComponentCasted::Source(_) => BtComponentType::Source,
-            BtComponentCasted::Filter(_) => BtComponentType::Filter,
-            BtComponentCasted::Sink(_) => BtComponentType::Sink,
+            Self::Source(_) => BtComponentType::Source,
+            Self::Filter(_) => BtComponentType::Filter,
+            Self::Sink(_) => BtComponentType::Sink,
         }
     }
 }
