@@ -1,6 +1,7 @@
 #![forbid(unsafe_code, reason = "It shoudn't be needed")]
 
 mod analysis;
+mod args;
 mod events_common;
 mod model;
 mod processed_events;
@@ -8,11 +9,13 @@ mod processor;
 mod raw_events;
 mod utils;
 
-use std::env;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 
+use args::{find_trace_paths, is_trace_path, Args};
 use bt2_sys::iterator::MessageIterator;
 use bt2_sys::message::BtMessageType;
+use clap::Parser;
+use color_eyre::eyre::{bail, ensure};
 
 struct ProcessedEventsIter<'a> {
     iter: MessageIterator,
@@ -25,9 +28,7 @@ impl<'a> ProcessedEventsIter<'a> {
     fn new(trace_path: &CStr) -> Self {
         Self {
             iter: MessageIterator::new(trace_path),
-            on_unprocessed_event: |event| {
-                println!("Unprocessed event: {event:?}");
-            },
+            on_unprocessed_event: |_event| {}, // Do nothing by default
             analyses: Vec::new(),
             processor: processor::Processor::new(),
         }
@@ -91,29 +92,64 @@ impl<'a> Iterator for ProcessedEventsIter<'a> {
     }
 }
 
-fn main() {
-    let trace_path = env::args()
-        .nth(1)
-        .expect("Expected trace path as first argument");
+fn main() -> color_eyre::eyre::Result<()> {
+    color_eyre::install()?;
 
-    let trace_path = CString::new(trace_path).expect("Failed to convert trace path to CString");
+    let args = Args::parse();
+
+    let trace_path = args.trace_path_cstring();
+
+    let trace_paths = if args.is_exact_path() {
+        [trace_path]
+            .into_iter()
+            .filter_map(|path| {
+                if is_trace_path(&path) {
+                    Some(path)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    } else {
+        find_trace_paths(args.trace_path())
+    };
+
+    ensure!(
+        !trace_paths.is_empty(),
+        "No traces found in the provided path."
+    );
+
+    println!("Found traces:");
+    for path in &trace_paths {
+        println!("  {}", path.to_string_lossy());
+    }
+
+    if trace_paths.len() > 1 {
+        bail!("Processing multiple traces is not supported yet.");
+    }
 
     let mut message_latency_analysis = analysis::MessageLatency::new();
     let mut callback_duration_analysis = analysis::CallbackDuration::new();
 
-    let mut iter = ProcessedEventsIter::new(&trace_path);
+    let mut iter = ProcessedEventsIter::new(&trace_paths[0]);
     iter.add_analysis(&mut message_latency_analysis);
     iter.add_analysis(&mut callback_duration_analysis);
-    iter.set_on_unprocessed_event(|event| {
-        println!("Unprocessed event: {event:?}");
-    });
+    if args.should_print_unprocessed_events() {
+        iter.set_on_unprocessed_event(|event| {
+            println!("Unprocessed event: {event:?}");
+        });
+    }
 
     for event in &mut iter {
-        println!("{event}");
+        if args.should_print_events() {
+            println!("{event}");
+        }
     }
 
     iter.processor.print_objects();
 
     message_latency_analysis.print_stats();
     callback_duration_analysis.print_stats();
+
+    Ok(())
 }
