@@ -96,7 +96,7 @@ impl<T> From<Known<T>> for Option<T> {
 
 impl<T> std::fmt::Display for Known<T>
 where
-    T: std::fmt::Display + Debug,
+    T: std::fmt::Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -203,11 +203,29 @@ impl<'a, T: Debug> Debug for DisplayWeakMutex<'a, T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct DisplayDebug<T>(pub(crate) T);
 
 impl<T: Debug> Display for DisplayDebug<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct DisplayDuration(pub(crate) i64);
+
+impl std::fmt::Display for DisplayDuration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let nanos = self.0;
+        if nanos % 1_000_000_000 == 0 {
+            write!(f, "{} s", nanos / 1_000_000_000)
+        } else if nanos % 1_000_000 == 0 {
+            write!(f, "{} ms", nanos / 1_000_000)
+        } else if nanos % 1_000 == 0 {
+            write!(f, "{} us", nanos / 1_000)
+        } else {
+            write!(f, "{nanos} ns")
+        }
     }
 }

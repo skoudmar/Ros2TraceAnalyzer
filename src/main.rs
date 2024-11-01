@@ -105,9 +105,11 @@ fn main() {
         println!("Unprocessed event: {event:?}");
     });
 
-    for event in iter {
+    for event in &mut iter {
         println!("{event}");
     }
+
+    iter.processor.print_objects();
 
     message_latency_analysis.print_stats();
     callback_duration_analysis.print_stats();

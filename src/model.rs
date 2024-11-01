@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, Weak};
 use chrono::{Local, TimeZone};
 
 use crate::raw_events;
-use crate::utils::{DisplayArcMutex, DisplayDebug, DisplayWeakMutex, Known};
+use crate::utils::{DisplayArcMutex, DisplayDebug, DisplayDuration, DisplayWeakMutex, Known};
 
 const GID_SIZE: usize = 16;
 const GID_SUFFIX_SIZE: usize = 8;
@@ -413,6 +413,51 @@ impl Node {
     pub fn get_name(&self) -> Known<&str> {
         self.full_name.as_ref().map(Name::get_name)
     }
+
+    pub fn timers(&self) -> &[Arc<Mutex<Timer>>] {
+        &self.timers
+    }
+
+    pub fn subscribers(&self) -> &[Arc<Mutex<Subscriber>>] {
+        &self.subscribers
+    }
+
+    pub fn publishers(&self) -> &[Arc<Mutex<Publisher>>] {
+        &self.publishers
+    }
+
+    pub fn services(&self) -> &[Arc<Mutex<Service>>] {
+        &self.services
+    }
+
+    pub fn clients(&self) -> &[Arc<Mutex<Client>>] {
+        &self.clients
+    }
+
+    pub fn print_node_info(&self) {
+        println!("Node{}", self);
+        for subscriber in self.subscribers() {
+            println!(
+                "  Subscriber{:#}",
+                SubscriberDisplayWithoutNode(&subscriber.lock().unwrap())
+            );
+        }
+        for publisher in self.publishers() {
+            println!("  Publisher{:#}", publisher.lock().unwrap());
+        }
+        for service in self.services() {
+            println!("  Service{:#}", service.lock().unwrap());
+        }
+        for client in self.clients() {
+            println!("  Client{:#}", client.lock().unwrap());
+        }
+        for timer in self.timers() {
+            println!(
+                "  Timer{:#}",
+                TimerDisplayWithoutNode(&timer.lock().unwrap())
+            );
+        }
+    }
 }
 
 impl std::fmt::Display for Node {
@@ -569,6 +614,22 @@ impl std::fmt::Display for Subscriber {
     }
 }
 
+struct SubscriberDisplayWithoutNode<'a>(&'a Subscriber);
+
+impl<'a> std::fmt::Display for SubscriberDisplayWithoutNode<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let callback = self
+            .0
+            .callback
+            .as_ref()
+            .map(|callback| DisplayArcMutex::new(callback, false));
+
+        write!(f, "(topic={}, handles={{dds={:x}, rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, callback={callback:#})",
+            self.0.topic_name.as_ref().map(DisplayDebug), self.0.dds_handle, self.0.rmw_handle, self.0.rcl_handle, self.0.rclcpp_handle, self.0.queue_depth,
+        )
+    }
+}
+
 impl Service {
     pub fn new(rcl_handle: u64) -> Self {
         Self {
@@ -702,11 +763,32 @@ impl std::fmt::Display for Timer {
             .callback
             .as_ref()
             .map(|callback| DisplayArcMutex::new(callback, f.alternate()));
+        let period = self.period.map(DisplayDuration);
 
         write!(
             f,
-            "(period={}, rcl_handle={}, node={node} callback={callback:#})",
-            self.period, self.rcl_handle,
+            "(period={period}, rcl_handle={}, node={node} callback={callback:#})",
+            self.rcl_handle,
+        )
+    }
+}
+
+struct TimerDisplayWithoutNode<'a>(&'a Timer);
+
+impl<'a> std::fmt::Display for TimerDisplayWithoutNode<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let callback = self
+            .0
+            .callback
+            .as_ref()
+            .map(|callback| DisplayArcMutex::new(callback, false));
+
+        let period = self.0.period.map(DisplayDuration);
+
+        write!(
+            f,
+            "(period={period}, rcl_handle={}, callback={callback:#})",
+            self.0.rcl_handle,
         )
     }
 }

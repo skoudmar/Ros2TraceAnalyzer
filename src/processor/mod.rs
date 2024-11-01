@@ -128,6 +128,19 @@ impl Processor {
             .or_insert(next_id)
     }
 
+    pub fn get_all_nodes(&self) -> Vec<Arc<Mutex<Node>>> {
+        self.nodes_by_rcl.values().cloned().collect()
+    }
+
+    pub fn print_objects(&self) {
+        println!("Nodes:");
+        for (i, node) in self.nodes_by_rcl.values().enumerate() {
+            let node = node.lock().unwrap();
+            print!(" [{i}] ");
+            node.print_node_info();
+        }
+    }
+
     pub fn process_raw_event(
         &mut self,
         full_event: raw_events::FullEvent,
