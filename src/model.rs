@@ -1072,6 +1072,10 @@ impl CallbackInstance {
     pub fn get_end_time(&self) -> Option<Time> {
         self.end_time.into()
     }
+
+    pub fn get_trigger(&self) -> &CallbackTrigger {
+        &self.trigger
+    }
 }
 
 impl std::fmt::Display for CallbackInstance {
