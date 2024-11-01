@@ -9,6 +9,7 @@ mod raw_events;
 mod utils;
 
 use std::env;
+use std::ffi::{CStr, CString};
 
 use bt2_sys::iterator::MessageIterator;
 use bt2_sys::message::BtMessageType;
@@ -21,7 +22,7 @@ struct ProcessedEventsIter<'a> {
 }
 
 impl<'a> ProcessedEventsIter<'a> {
-    fn new(trace_path: &str) -> Self {
+    fn new(trace_path: &CStr) -> Self {
         Self {
             iter: MessageIterator::new(trace_path),
             on_unprocessed_event: |event| {
@@ -94,6 +95,8 @@ fn main() {
     let trace_path = env::args()
         .nth(1)
         .expect("Expected trace path as first argument");
+
+    let trace_path = CString::new(trace_path).expect("Failed to convert trace path to CString");
 
     let mut message_latency_analysis = analysis::MessageLatency::new();
     let mut callback_duration_analysis = analysis::CallbackDuration::new();

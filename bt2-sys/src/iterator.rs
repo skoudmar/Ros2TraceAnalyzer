@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::ffi::{c_void, CString};
+use std::ffi::{c_void, CStr};
 use std::ptr::NonNull;
 use std::rc::Rc;
 
@@ -87,7 +87,7 @@ impl BatchMessageIterator {
 }
 
 impl BatchMessageIterator {
-    pub fn new(trace_path: &str) -> Self {
+    pub fn new(trace_path: &CStr) -> Self {
         let shared = Rc::new(BatchMessageIteratorInner::default());
         let shared_ptr = Rc::into_raw(shared.clone());
         let sink = sink {
@@ -96,8 +96,6 @@ impl BatchMessageIterator {
             finalize_func: Some(Self::finalize),
             user_data: shared_ptr as *mut c_void,
         };
-
-        let trace_path = CString::new(trace_path).unwrap();
 
         let trace_context = unsafe { init_trace(trace_path.as_ptr(), &sink) };
         debug_assert!(!trace_context.is_null());
@@ -156,7 +154,7 @@ pub struct MessageIterator {
 
 impl MessageIterator {
     #[must_use]
-    pub fn new(trace_path: &str) -> Self {
+    pub fn new(trace_path: &CStr) -> Self {
         Self {
             batch_iterator: BatchMessageIterator::new(trace_path),
             current_batch: None,
