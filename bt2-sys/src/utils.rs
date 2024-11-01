@@ -3,7 +3,7 @@ use std::ptr::NonNull;
 
 use derive_more::derive::Deref;
 
-use crate::value;
+use crate::raw_bindings::bt_property_availability;
 
 #[macro_export]
 macro_rules! impl_deref {
@@ -77,5 +77,26 @@ impl<T> Const<T> {
         T: TryInto<U>,
     {
         Ok(Const::new(self.0.try_into()?))
+    }
+}
+
+pub(crate) enum BtProperyAvailabilty {
+    Available,
+    NotAvailable,
+}
+
+impl BtProperyAvailabilty {
+    pub fn is_available(&self) -> bool {
+        matches!(self, Self::Available)
+    }
+}
+
+impl From<bt_property_availability> for BtProperyAvailabilty {
+    fn from(value: bt_property_availability) -> Self {
+        match value {
+            bt_property_availability::BT_PROPERTY_AVAILABILITY_AVAILABLE => Self::Available,
+            bt_property_availability::BT_PROPERTY_AVAILABILITY_NOT_AVAILABLE => Self::NotAvailable,
+            _ => unreachable!("Bug: unknown bt_property_availability = {}", value.0),
+        }
     }
 }
