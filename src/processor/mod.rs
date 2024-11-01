@@ -237,7 +237,10 @@ impl Processor {
     ) -> Result<processed_events::r2r::Event, raw_events::r2r::Event> {
         Err(event)
     }
+}
 
+// Event processing methods
+impl Processor {
     fn process_rcl_node_init(
         &mut self,
         event: raw_events::ros2::RclNodeInit,
