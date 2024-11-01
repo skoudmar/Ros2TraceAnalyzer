@@ -19,14 +19,32 @@ use crate::value::{BtValue, BtValueMap};
 
 use super::plugin::BtPlugin;
 
-#[repr(transparent)]
-pub struct BtComponent(NonNull<bt_component>);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BtComponentType {
+    Source,
+    Filter,
+    Sink,
+}
 
 pub enum BtComponentCasted {
     Source(BtComponentSource),
     Filter(BtComponentFilter),
     Sink(BtComponentSink),
 }
+
+impl BtComponentCasted {
+    #[must_use]
+    pub fn as_type(&self) -> BtComponentType {
+        match self {
+            BtComponentCasted::Source(_) => BtComponentType::Source,
+            BtComponentCasted::Filter(_) => BtComponentType::Filter,
+            BtComponentCasted::Sink(_) => BtComponentType::Sink,
+        }
+    }
+}
+
+#[repr(transparent)]
+pub struct BtComponent(NonNull<bt_component>);
 
 #[repr(transparent)]
 #[derive(Clone, Deref, DerefMut)]
@@ -164,7 +182,7 @@ impl<'a> BtComponentClassSourceConst<'a> {
     }
 
     #[must_use]
-    pub fn as_component_class_const(&self) -> BtComponentClassConst<'a> {
+    pub fn upcast(self) -> BtComponentClassConst<'a> {
         unsafe { BtComponentClassConst::new_unchecked(self.as_ptr_upcast()) }
     }
 }
@@ -185,7 +203,7 @@ impl<'a> BtComponentClassFilterConst<'a> {
     }
 
     #[must_use]
-    pub fn as_component_class_const(&self) -> BtComponentClassConst<'a> {
+    pub fn upcast(self) -> BtComponentClassConst<'a> {
         unsafe { BtComponentClassConst::new_unchecked(self.as_ptr_upcast()) }
     }
 }
@@ -206,7 +224,7 @@ impl<'a> BtComponentClassSinkConst<'a> {
     }
 
     #[must_use]
-    pub fn as_component_class_const(&self) -> BtComponentClassConst<'a> {
+    pub fn upcast(self) -> BtComponentClassConst<'a> {
         unsafe { BtComponentClassConst::new_unchecked(self.as_ptr_upcast()) }
     }
 }

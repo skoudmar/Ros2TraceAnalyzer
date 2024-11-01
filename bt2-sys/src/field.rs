@@ -1,4 +1,3 @@
-use core::error;
 use std::convert::Infallible;
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;

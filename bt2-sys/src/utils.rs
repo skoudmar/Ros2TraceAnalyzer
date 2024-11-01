@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::ptr::NonNull;
 
 use derive_more::derive::Deref;
@@ -83,12 +82,6 @@ impl<T> Const<T> {
 pub(crate) enum BtProperyAvailabilty {
     Available,
     NotAvailable,
-}
-
-impl BtProperyAvailabilty {
-    pub fn is_available(&self) -> bool {
-        matches!(self, Self::Available)
-    }
 }
 
 impl From<bt_property_availability> for BtProperyAvailabilty {

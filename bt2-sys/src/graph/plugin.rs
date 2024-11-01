@@ -8,10 +8,9 @@ use crate::error::{BtErrorWrapper, OutOfMemory};
 use crate::raw_bindings::{
     bt_plugin, bt_plugin_borrow_filter_component_class_by_name_const,
     bt_plugin_borrow_sink_component_class_by_name_const,
-    bt_plugin_borrow_source_component_class_by_name_const, bt_plugin_find,
-    bt_plugin_find_all_status, bt_plugin_find_status, bt_plugin_get_author,
-    bt_plugin_get_description, bt_plugin_get_license, bt_plugin_get_name, bt_plugin_get_path,
-    bt_plugin_get_ref, bt_plugin_get_version, bt_plugin_put_ref,
+    bt_plugin_borrow_source_component_class_by_name_const, bt_plugin_find, bt_plugin_find_status,
+    bt_plugin_get_author, bt_plugin_get_description, bt_plugin_get_license, bt_plugin_get_name,
+    bt_plugin_get_path, bt_plugin_get_ref, bt_plugin_get_version, bt_plugin_put_ref,
 };
 use crate::utils::{BtProperyAvailabilty, ConstNonNull};
 
