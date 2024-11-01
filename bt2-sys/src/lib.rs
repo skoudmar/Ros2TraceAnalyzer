@@ -5,6 +5,7 @@ pub mod field;
 pub mod graph;
 pub mod iterator;
 pub mod message;
+pub mod query;
 pub mod stream;
 pub mod trace;
 mod utils;
