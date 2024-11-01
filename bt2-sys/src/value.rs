@@ -358,7 +358,7 @@ impl BtValue {
             .expect("Unknown bt_value_type")
     }
 
-    pub fn as_const<'a>(&'a self) -> BtValueConst<'a> {
+    pub fn as_const(&self) -> BtValueConst<'_> {
         unsafe { BtValueConst::new_unchecked(self.as_ptr()) }
     }
 }
@@ -401,7 +401,7 @@ impl BtValueBool {
     }
 
     #[must_use]
-    pub fn as_const<'a>(&'a self) -> BtValueBoolConst<'a> {
+    pub fn as_const(&self) -> BtValueBoolConst<'_> {
         BtValueBoolConst(self.0.as_const())
     }
 }
@@ -428,7 +428,7 @@ impl BtValueUnsignedInteger {
     }
 
     #[must_use]
-    pub fn as_const<'a>(&'a self) -> BtValueUnsignedIntegerConst<'a> {
+    pub fn as_const(&self) -> BtValueUnsignedIntegerConst<'_> {
         BtValueUnsignedIntegerConst(self.0.as_const())
     }
 }
@@ -458,7 +458,7 @@ impl BtValueSignedInteger {
         unsafe { bt_value_integer_signed_set(self.as_ptr(), value) }
     }
 
-    pub fn as_const<'a>(&'a self) -> BtValueSignedIntegerConst<'a> {
+    pub fn as_const(&self) -> BtValueSignedIntegerConst<'_> {
         BtValueSignedIntegerConst(self.0.as_const())
     }
 }
@@ -484,7 +484,7 @@ impl BtValueReal {
         unsafe { bt_value_real_set(self.as_ptr(), value) }
     }
 
-    pub fn as_const<'a>(&'a self) -> BtValueRealConst<'a> {
+    pub fn as_const(&self) -> BtValueRealConst<'_> {
         BtValueRealConst(self.0.as_const())
     }
 }
@@ -526,7 +526,7 @@ impl BtValueString {
         }
     }
 
-    pub fn as_const<'a>(&'a self) -> BtValueStringConst<'a> {
+    pub fn as_const(&self) -> BtValueStringConst<'_> {
         BtValueStringConst(self.0.as_const())
     }
 }
@@ -557,12 +557,12 @@ impl BtValueArray {
     }
 
     #[inline]
-    pub fn as_const<'a>(&'a self) -> BtValueArrayConst<'a> {
+    pub fn as_const(&self) -> BtValueArrayConst<'_> {
         BtValueArrayConst(self.0.as_const())
     }
 
     #[must_use]
-    pub fn get<'a>(&'a self, index: u64) -> BtValueConst<'a> {
+    pub fn get(&self, index: u64) -> BtValueConst<'_> {
         assert!(index < self.length());
         let ptr = unsafe { bt_value_array_borrow_element_by_index_const(self.as_ptr(), index) };
         unsafe { BtValueConst::new_unchecked(ptr) }
@@ -652,7 +652,7 @@ impl BtValueMap {
             .into_result()
     }
 
-    pub fn as_const<'a>(&'a self) -> BtValueMapConst<'a> {
+    pub fn as_const(&self) -> BtValueMapConst<'_> {
         BtValueMapConst(self.0.as_const())
     }
 
