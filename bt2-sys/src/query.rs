@@ -209,3 +209,101 @@ impl TryFrom<Const<BtValue>> for SupportInfoResult {
         }
     }
 }
+
+pub mod support_info {
+    use std::ffi::CString;
+    use std::mem;
+
+    use thiserror::Error;
+
+    use crate::error::{BtErrorWrapper, OutOfMemory};
+    use crate::graph::component::{BtComponentClassConst, BtComponentType};
+    use crate::graph::plugin::{BtPlugin, BtPluginLoadError};
+
+    use super::{SupportInfoParams, SupportInfoResult, SupportInfoResultError};
+
+    #[derive(Clone)]
+    pub struct Query {
+        component: BtComponentClassConst<'static>,
+
+        // The plugin is stored to ensure that the component is valid for the lifetime of the query.
+        _plugin: BtPlugin,
+    }
+
+    impl Query {
+        pub fn new_prepared(
+            plugin_name: &str,
+            component_name: &str,
+            component_type: BtComponentType,
+        ) -> Result<Self, QueryError> {
+            let plugin_name = CString::new(plugin_name)?;
+            let component_name = CString::new(component_name)?;
+
+            let plugin = BtPlugin::find_anywhere(&plugin_name)?;
+
+            let component = match component_type {
+                BtComponentType::Source => plugin
+                    .borrow_source_component_class_by_name(&component_name)
+                    .ok_or(QueryError::ComponentNotFound)?
+                    .upcast(),
+                BtComponentType::Filter => plugin
+                    .borrow_filter_component_class_by_name(&component_name)
+                    .ok_or(QueryError::ComponentNotFound)?
+                    .upcast(),
+                BtComponentType::Sink => plugin
+                    .borrow_sink_component_class_by_name(&component_name)
+                    .ok_or(QueryError::ComponentNotFound)?
+                    .upcast(),
+            };
+
+            let component = unsafe {
+                // Safety: The component is guaranteed to be valid for the lifetime of the query object.
+                // The component lifetime is tied to the plugin lifetime and plugin is also stored
+                // in the query.
+                mem::transmute::<BtComponentClassConst<'_>, BtComponentClassConst<'static>>(
+                    component,
+                )
+            };
+
+            Ok(Self {
+                _plugin: plugin,
+                component,
+            })
+        }
+
+        pub fn query(
+            &self,
+            params: SupportInfoParams,
+        ) -> Result<SupportInfoResult, SupportInfoResultError> {
+            self.component.query_support_info(params)
+        }
+    }
+
+    #[derive(Debug, Error)]
+    pub enum QueryError {
+        #[error("Plugin not found.")]
+        PluginNotFound,
+
+        #[error("Component not found.")]
+        ComponentNotFound,
+
+        #[error("Name conversion error.")]
+        NameConversion(#[from] std::ffi::NulError),
+
+        #[error(transparent)]
+        Memory(#[from] OutOfMemory),
+
+        #[error("Error caused by: {0}")]
+        Other(#[from] BtErrorWrapper),
+    }
+
+    impl From<BtPluginLoadError> for QueryError {
+        fn from(err: BtPluginLoadError) -> Self {
+            match err {
+                BtPluginLoadError::NotFound => Self::PluginNotFound,
+                BtPluginLoadError::Memory(err) => Self::Memory(err),
+                BtPluginLoadError::Other(err) => Self::Other(err),
+            }
+        }
+    }
+}
