@@ -601,6 +601,14 @@ impl PublicationMessage {
         self.sender_timestamp = Known::new(Time::from_nanos(timestamp));
     }
 
+    pub(crate) fn rmw_publish_old(&mut self, time: Time) {
+        assert!(
+            self.rmw_publish_time.is_unknown(),
+            "PublicationMessage rmw_publish already called on this message. {self:#?}"
+        );
+        self.rmw_publish_time = Known::new(time);
+    }
+
     pub fn get_rmw_publication_time(&self) -> Option<Time> {
         self.rmw_publish_time.into()
     }

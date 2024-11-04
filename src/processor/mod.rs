@@ -443,7 +443,10 @@ impl Processor {
             });
         event.timestamp.map_or_else(
             || {
-                eprintln!("Missing timestamp for RMW publish event. Ignoring message: {event:?}");
+                eprintln!("Missing timestamp for RMW publish event. Subscribtion messages will not match it: [{time}] {event:?}");
+
+                let mut message = message_arc.lock().unwrap();
+                message.rmw_publish_old(time);
             },
             |timestamp| {
                 let mut message = message_arc.lock().unwrap();
@@ -746,7 +749,7 @@ impl Processor {
             .services_by_rcl
             .entry(event.service_handle.into_id(context_id))
             .or_insert_with_key(|key| {
-                eprintln!("Service not found for callback: {event:?} Creating new service");
+                eprintln!("Service not found for callback. Creating new service. Event: {event:?} Creating new service");
                 let service = Service::new(key.id);
                 Arc::new(Mutex::new(service))
             });
