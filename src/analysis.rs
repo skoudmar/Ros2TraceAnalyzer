@@ -11,6 +11,7 @@ use crate::model::{
     SubscriptionMessage,
 };
 use crate::processed_events::{ros2, Event, FullEvent};
+use crate::utils::DurationDisplayImprecise;
 
 pub trait EventAnalysis {
     /// Initialize the analysis
@@ -128,8 +129,8 @@ impl MessageLatency {
             let topic = subscriber.get_topic();
             let publisher = publisher.as_ref().map(|p| p.0.lock().unwrap());
             let lat_len = latencies.len();
-            let min_latency = latencies.iter().min().unwrap();
-            let max_latency = latencies.iter().max().unwrap();
+            let min_latency = *latencies.iter().min().unwrap();
+            let max_latency = *latencies.iter().max().unwrap();
             let avg_latency =
                 latencies.iter().copied().map(i128::from).sum::<i128>() / lat_len as i128;
 
@@ -142,9 +143,12 @@ impl MessageLatency {
             }
             println!("    Message count: {lat_len}");
             if lat_len > 0 {
-                println!("    Max latency: {max_latency}");
-                println!("    Min latency: {min_latency}");
-                println!("    Avg latency: {avg_latency}");
+                println!("    Max latency: {}", DurationDisplayImprecise(max_latency));
+                println!("    Min latency: {}", DurationDisplayImprecise(min_latency));
+                println!(
+                    "    Avg latency: {}",
+                    DurationDisplayImprecise(avg_latency as i64)
+                );
             }
         }
     }
@@ -258,9 +262,18 @@ impl CallbackDuration {
             println!("- [{i:4}] Callback {callback}:");
             println!("    Call count: {dur_len}");
             if dur_len > 0 {
-                println!("    Max duration: {max_duration}");
-                println!("    Min duration: {min_duration}");
-                println!("    Avg duration: {avg_duration}");
+                println!(
+                    "    Max duration: {}",
+                    DurationDisplayImprecise(max_duration)
+                );
+                println!(
+                    "    Min duration: {}",
+                    DurationDisplayImprecise(min_duration)
+                );
+                println!(
+                    "    Avg duration: {}",
+                    DurationDisplayImprecise(avg_duration)
+                );
             }
         }
     }

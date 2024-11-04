@@ -16,6 +16,7 @@ use bt2_sys::iterator::MessageIterator;
 use bt2_sys::message::BtMessageType;
 use clap::Parser;
 use color_eyre::eyre::{bail, ensure};
+use color_eyre::owo_colors::OwoColorize;
 
 struct ProcessedEventsIter<'a> {
     iter: MessageIterator,
@@ -92,6 +93,10 @@ impl<'a> Iterator for ProcessedEventsIter<'a> {
     }
 }
 
+fn print_headline(headline: &str) {
+    println!("\n{:#^60}\n", headline.green());
+}
+
 fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
 
@@ -150,10 +155,16 @@ fn main() -> color_eyre::eyre::Result<()> {
         }
     }
 
+    print_headline(" Objects ");
     iter.processor.print_objects();
 
+    print_headline(" Analysis ");
     message_latency_analysis.print_stats();
+
+    print_headline(" Analysis ");
     callback_duration_analysis.print_stats();
+
+    print_headline(" Analysis ");
     callback_dependency_analysis
         .get_graph()
         .unwrap()
