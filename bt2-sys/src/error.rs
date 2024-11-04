@@ -49,9 +49,9 @@ pub enum BtError {
 }
 
 impl BtError {
-    const MODULE: &CStr = c"Rust Error";
     pub(crate) const AGAIN: Self = Self::Again(TryAgain);
     pub(crate) const MEMORY_ERROR: Self = Self::MemoryError(OutOfMemory);
+    const MODULE: &CStr = c"Rust Error";
 
     fn get_error() -> Option<Self> {
         Some(Self::Error(BtErrorWrapper::get()?))
