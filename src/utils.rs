@@ -56,6 +56,17 @@ impl<T> Known<T> {
         }
     }
 
+    #[inline]
+    pub fn as_deref(&self) -> Known<&T::Target>
+    where
+        T: std::ops::Deref,
+    {
+        match self {
+            Self::Known(value) => Known::Known(value),
+            Self::Unknown => Known::Unknown,
+        }
+    }
+
     pub fn map<U, F>(self, f: F) -> Known<U>
     where
         F: FnOnce(T) -> U,
