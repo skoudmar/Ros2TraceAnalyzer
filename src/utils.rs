@@ -1,6 +1,8 @@
 use std::fmt::{Debug, Display};
 use std::sync::{Arc, Mutex, Weak};
 
+use derive_more::derive::From;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Known<T> {
     Known(T),
@@ -228,15 +230,48 @@ pub(crate) struct DisplayDuration(pub(crate) i64);
 
 impl std::fmt::Display for DisplayDuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let nanos = self.0;
-        if nanos % 1_000_000_000 == 0 {
-            write!(f, "{} s", nanos / 1_000_000_000)
-        } else if nanos % 1_000_000 == 0 {
-            write!(f, "{} ms", nanos / 1_000_000)
-        } else if nanos % 1_000 == 0 {
-            write!(f, "{} us", nanos / 1_000)
-        } else {
-            write!(f, "{nanos} ns")
+        const SUFFIX: [&str; 6] = ["ns", "μs", "ms", "s", "m", "h"];
+        /// Factor to convert the duration to the next suffix.
+        const FACTOR: [i64; SUFFIX.len() - 1] = [1000, 1000, 1000, 60, 60];
+
+        let mut value = self.0;
+        let mut suffix = 0;
+        while suffix < SUFFIX.len() - 1 && value % FACTOR[suffix] == 0 {
+            value /= FACTOR[suffix];
+
+            suffix += 1;
         }
+
+        write!(f, "{} {}", value, SUFFIX[suffix])
+    }
+}
+
+/// Wrapper for durations represented as nanoseconds for display purposes.
+///
+/// This wrapper is imprecise and should not be used for calculations.
+///
+/// Note: The display of years is assuming every year has 365 days.
+#[derive(Debug, Clone, Copy, From)]
+pub(crate) struct DurationDisplayImprecise(pub i64);
+
+impl std::fmt::Display for DurationDisplayImprecise {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const SUFFIX: [&str; 8] = ["ns", "μs", "ms", "s", "m", "h", "days", "years"];
+        /// Factor to convert the duration to the next suffix.
+        const FACTOR: [i64; SUFFIX.len() - 1] = [1000, 1000, 1000, 60, 60, 24, 365];
+
+        let mut value = self.0;
+        let mut suffix = 0;
+        let mut total_factor = 1;
+        while suffix < SUFFIX.len() - 1 && value >= FACTOR[suffix] {
+            value /= FACTOR[suffix];
+            total_factor *= FACTOR[suffix];
+
+            suffix += 1;
+        }
+
+        let value = self.0 as f64 / total_factor as f64;
+
+        write!(f, "{} {}", value, SUFFIX[suffix])
     }
 }
