@@ -229,6 +229,27 @@ impl std::fmt::Display for DisplayDuration {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct DisplayLargeDuration(pub(crate) u128);
+
+impl std::fmt::Display for DisplayLargeDuration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const SUFFIX: [&str; 6] = ["ns", "μs", "ms", "s", "m", "h"];
+        /// Factor to convert the duration to the next suffix.
+        const FACTOR: [u128; SUFFIX.len() - 1] = [1000, 1000, 1000, 60, 60];
+
+        let mut value = self.0;
+        let mut suffix = 0;
+        while suffix < SUFFIX.len() - 1 && value % FACTOR[suffix] == 0 {
+            value /= FACTOR[suffix];
+
+            suffix += 1;
+        }
+
+        write!(f, "{} {}", value, SUFFIX[suffix])
+    }
+}
+
 /// Wrapper for durations represented as nanoseconds for display purposes.
 ///
 /// This wrapper is imprecise and should not be used for calculations.
