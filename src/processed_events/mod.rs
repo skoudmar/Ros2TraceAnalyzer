@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use derive_more::derive::From;
 
 use crate::events_common::{Context, Time};
@@ -5,6 +7,8 @@ use crate::events_common::{Context, Time};
 pub mod ros2;
 
 pub mod r2r;
+
+type RefCount<T> = Arc<Mutex<T>>;
 
 #[derive(Debug, Clone, From)]
 pub enum Event {

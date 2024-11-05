@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::sync::{Arc, Mutex};
 
 use derive_more::derive::{Display, From};
 
@@ -8,7 +7,7 @@ use crate::model::{
     SubscriptionMessage, Timer,
 };
 
-type RefCount<T> = Arc<Mutex<T>>;
+use super::RefCount;
 
 #[derive(Debug, Clone, From)]
 pub enum Event {
