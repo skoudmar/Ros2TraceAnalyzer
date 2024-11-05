@@ -636,11 +636,17 @@ impl Processor {
 
         let mut message = SubscriptionMessage::new(event.message);
 
-        match self.published_messages.get(&event.source_timestamp) {
+        match (event.source_timestamp != 0)
+            .then_some(())
+            .and_then(|()| self.published_messages.get(&event.source_timestamp))
+        {
             Some(published_message) => {
                 message.rmw_take_matched(subscriber.clone(), published_message.clone(), time);
             }
             None => {
+                if event.source_timestamp == 0 {
+                    eprintln!("rmw_take: Missing source timestamp. [{time}] {event:?}");
+                }
                 message.rmw_take_unmatched(subscriber.clone(), event.source_timestamp, time);
             }
         }
@@ -652,10 +658,10 @@ impl Processor {
             if let Some(_old) = subscriber.replace_taken_message(message_arc.clone()) {
                 // TODO: Save message to dropped messages
             }
-        }
 
-        self.received_messages
-            .insert(event.message.into_id(context_id), message_arc.clone());
+            self.received_messages
+                .insert(event.message.into_id(context_id), message_arc.clone());
+        }
 
         processed_events::ros2::RmwTake {
             message: message_arc,
