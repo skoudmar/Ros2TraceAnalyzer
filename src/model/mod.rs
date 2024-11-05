@@ -31,7 +31,7 @@ impl Time {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Name {
     full_name: String,
     namespace_len: usize,

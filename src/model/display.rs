@@ -20,6 +20,21 @@ impl std::fmt::Display for Time {
     }
 }
 
+impl std::fmt::Debug for Name {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Name")
+            .field("namespace", &self.get_namespace())
+            .field("name", &self.get_name())
+            .finish()
+    }
+}
+
+impl std::fmt::Display for Name {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.get_full_name().fmt(f)
+    }
+}
+
 impl std::fmt::Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = self.get_full_name().map(DisplayDebug);
