@@ -1,9 +1,8 @@
 use std::ffi::CStr;
 use std::marker::PhantomData;
-use std::ptr::NonNull;
 use std::str::Utf8Error;
 
-use derive_more::derive::{Deref, DerefMut, From};
+use derive_more::derive::From;
 
 use crate::query::{
     BtQueryError, BtQueryExecutor, SupportInfoParams, SupportInfoResult, SupportInfoResultError,
@@ -14,8 +13,8 @@ use crate::raw_bindings::{
     bt_component_class_get_help, bt_component_class_get_name, bt_component_class_get_type,
     bt_component_class_sink, bt_component_class_sink_as_component_class_const,
     bt_component_class_source, bt_component_class_source_as_component_class_const,
-    bt_component_class_type, bt_component_get_class_type, bt_component_get_ref,
-    bt_component_put_ref,
+    bt_component_class_type, bt_component_filter, bt_component_get_class_type, bt_component_sink,
+    bt_component_source,
 };
 use crate::utils::ConstNonNull;
 use crate::value::{BtValue, BtValueMap};
@@ -41,13 +40,13 @@ impl From<bt_component_class_type> for BtComponentType {
 }
 
 #[derive(From)]
-pub enum BtComponentCasted {
-    Source(BtComponentSource),
-    Filter(BtComponentFilter),
-    Sink(BtComponentSink),
+pub enum BtComponentCasted<'a> {
+    Source(BtComponentSourceConst<'a>),
+    Filter(BtComponentFilterConst<'a>),
+    Sink(BtComponentSinkConst<'a>),
 }
 
-impl BtComponentCasted {
+impl<'a> BtComponentCasted<'a> {
     #[must_use]
     pub fn as_type(&self) -> BtComponentType {
         match self {
@@ -59,55 +58,86 @@ impl BtComponentCasted {
 }
 
 #[repr(transparent)]
-pub struct BtComponent(NonNull<bt_component>);
+#[derive(Clone, Copy)]
+pub struct BtComponentConst<'a>(ConstNonNull<bt_component>, PhantomData<&'a bt_component>);
 
 #[repr(transparent)]
-#[derive(Clone, Deref, DerefMut)]
-pub struct BtComponentSource(BtComponent);
+#[derive(Clone, Copy)]
+pub struct BtComponentSourceConst<'a>(
+    ConstNonNull<bt_component_source>,
+    PhantomData<&'a bt_component_source>,
+);
 
 #[repr(transparent)]
-#[derive(Clone, Deref, DerefMut)]
-pub struct BtComponentFilter(BtComponent);
+#[derive(Clone, Copy)]
+pub struct BtComponentFilterConst<'a>(
+    ConstNonNull<bt_component_filter>,
+    PhantomData<&'a bt_component_filter>,
+);
 
 #[repr(transparent)]
-#[derive(Clone, Deref, DerefMut)]
-pub struct BtComponentSink(BtComponent);
+#[derive(Clone, Copy)]
+pub struct BtComponentSinkConst<'a>(
+    ConstNonNull<bt_component_sink>,
+    PhantomData<&'a bt_component_sink>,
+);
 
-impl BtComponent {
-    pub(crate) fn new(ptr: NonNull<bt_component>) -> Self {
-        Self(ptr)
+impl<'a> BtComponentConst<'a> {
+    pub(crate) unsafe fn new(ptr: *const bt_component) -> Self {
+        Self(ConstNonNull::new_unchecked(ptr), PhantomData)
     }
 
-    fn as_ptr(&self) -> *mut bt_component {
+    fn as_ptr(&self) -> *const bt_component {
+        self.0.as_ptr()
+    }
+
+    pub fn get_type(&self) -> BtComponentType {
+        unsafe { bt_component_get_class_type(self.as_ptr()) }.into()
+    }
+}
+
+impl<'a> BtComponentSourceConst<'a> {
+    pub(crate) unsafe fn new_unchecked(ptr: *const bt_component_source) -> Self {
+        Self(ConstNonNull::new_unchecked(ptr), PhantomData)
+    }
+
+    pub fn as_ptr(&self) -> *const bt_component_source {
         self.0.as_ptr()
     }
 
     #[must_use]
-    pub fn cast(self) -> BtComponentCasted {
-        let comp_type = unsafe { bt_component_get_class_type(self.as_ptr()) }.into();
-        match comp_type {
-            BtComponentType::Source => BtComponentCasted::Source(BtComponentSource(self)),
-            BtComponentType::Filter => BtComponentCasted::Filter(BtComponentFilter(self)),
-            BtComponentType::Sink => BtComponentCasted::Sink(BtComponentSink(self)),
-        }
+    pub fn upcast(self) -> BtComponentConst<'a> {
+        unsafe { BtComponentConst::new(self.as_ptr().cast()) }
     }
 }
 
-impl Clone for BtComponent {
-    fn clone(&self) -> Self {
-        unsafe {
-            bt_component_get_ref(self.as_ptr());
-        }
+impl<'a> BtComponentFilterConst<'a> {
+    pub(crate) unsafe fn new_unchecked(ptr: *const bt_component_filter) -> Self {
+        Self(ConstNonNull::new_unchecked(ptr), PhantomData)
+    }
 
-        Self::new(self.0)
+    pub fn as_ptr(&self) -> *const bt_component_filter {
+        self.0.as_ptr()
+    }
+
+    #[must_use]
+    pub fn upcast(self) -> BtComponentConst<'a> {
+        unsafe { BtComponentConst::new(self.as_ptr().cast()) }
     }
 }
 
-impl Drop for BtComponent {
-    fn drop(&mut self) {
-        unsafe {
-            bt_component_put_ref(self.as_ptr());
-        }
+impl<'a> BtComponentSinkConst<'a> {
+    pub(crate) unsafe fn new_unchecked(ptr: *const bt_component_sink) -> Self {
+        Self(ConstNonNull::new_unchecked(ptr), PhantomData)
+    }
+
+    pub fn as_ptr(&self) -> *const bt_component_sink {
+        self.0.as_ptr()
+    }
+
+    #[must_use]
+    pub fn upcast(self) -> BtComponentConst<'a> {
+        unsafe { BtComponentConst::new(self.as_ptr().cast()) }
     }
 }
 
