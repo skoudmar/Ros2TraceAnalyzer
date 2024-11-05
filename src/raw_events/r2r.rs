@@ -6,31 +6,31 @@ use super::FromBtEvent;
 
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct SpinStart {
-    node_handle: u64,
-    timeout_s: u64,
-    timeout_ns: u32,
+    pub node_handle: u64,
+    pub timeout_s: u64,
+    pub timeout_ns: u32,
 }
 
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct SpinEnd {
-    node_handle: u64,
+    pub node_handle: u64,
 }
 
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct SpinWake {
-    node_handle: u64,
+    pub node_handle: u64,
 }
 
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct SpinTimeout {
-    node_handle: u64,
+    pub node_handle: u64,
 }
 
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct UpdateTime {
-    subscriber: u64,
-    time_s: i32,
-    time_ns: u32,
+    pub subscriber: u64,
+    pub time_s: i32,
+    pub time_ns: u32,
 }
 
 #[derive(Debug, From)]
