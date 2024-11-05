@@ -1,6 +1,7 @@
 mod display;
 
 use std::sync::{Arc, Mutex, Weak};
+use std::time::Duration;
 
 use chrono::{Local, TimeZone};
 use derive_more::derive::Unwrap;
@@ -69,6 +70,8 @@ pub struct Node {
     services: Vec<Arc<Mutex<Service>>>,
     clients: Vec<Arc<Mutex<Client>>>,
     timers: Vec<Arc<Mutex<Timer>>>,
+
+    spin_instance: Option<Arc<Mutex<SpinInstance>>>,
 }
 
 impl Node {
@@ -82,6 +85,7 @@ impl Node {
             services: Vec::new(),
             clients: Vec::new(),
             timers: Vec::new(),
+            spin_instance: None,
         }
     }
 
@@ -145,6 +149,22 @@ impl Node {
 
     pub fn clients(&self) -> &[Arc<Mutex<Client>>] {
         &self.clients
+    }
+
+    pub fn take_spin_instance(&mut self) -> Option<Arc<Mutex<SpinInstance>>> {
+        self.spin_instance.take()
+    }
+
+    pub fn put_spin_instance(&mut self, spin_instance: Arc<Mutex<SpinInstance>>) {
+        assert!(
+            self.spin_instance.is_none(),
+            "Node spin_instance already set. {self:#?}"
+        );
+        self.spin_instance = Some(spin_instance);
+    }
+
+    pub fn borrow_spin_instance(&self) -> Option<&Arc<Mutex<SpinInstance>>> {
+        self.spin_instance.as_ref()
     }
 
     pub fn print_node_info(&self) {
@@ -851,5 +871,68 @@ impl CallbackInstance {
 
     pub fn get_trigger(&self) -> &CallbackTrigger {
         &self.trigger
+    }
+}
+
+#[derive(Debug)]
+pub struct SpinInstance {
+    start_time: Time,
+    wake_time: Known<Time>,
+    end_time: Known<Time>,
+    timeout: Duration,
+    timeouted: Known<bool>,
+    node: Weak<Mutex<Node>>,
+}
+
+impl SpinInstance {
+    pub fn new(node: &Arc<Mutex<Node>>, start_time: Time, timeout: Duration) -> Arc<Mutex<Self>> {
+        let new = Arc::new(Mutex::new(Self {
+            start_time,
+            wake_time: Known::Unknown,
+            end_time: Known::Unknown,
+            timeout,
+            timeouted: Known::Unknown,
+            node: Arc::downgrade(node),
+        }));
+
+        let mut node = node.lock().unwrap();
+        assert!(
+            node.spin_instance.is_none(),
+            "Node already has a running spin instance. {node:#?}"
+        );
+
+        node.spin_instance = Some(new.clone());
+
+        new
+    }
+
+    pub fn set_wake_time(&mut self, time: Time) {
+        assert!(
+            self.wake_time.is_unknown(),
+            "SpinInstance wake_time already set. {self:#?}"
+        );
+
+        self.timeouted = Known::Known(false);
+        self.wake_time = Known::Known(time);
+    }
+
+    pub fn set_end_time(&mut self, time: Time) {
+        assert!(
+            self.end_time.is_unknown() && (!Option::from(self.timeouted).unwrap_or(false)),
+            "SpinInstance end_time already set. {self:#?}"
+        );
+
+        self.timeouted = Known::Known(false);
+        self.end_time = Known::Known(time);
+    }
+
+    pub fn set_timeouted_on(&mut self, wake_time: Time) {
+        assert!(
+            self.timeouted.is_unknown(),
+            "SpinInstance timeouted already set. {self:#?}"
+        );
+
+        self.timeouted = Known::Known(true);
+        self.wake_time = Known::Known(wake_time);
     }
 }

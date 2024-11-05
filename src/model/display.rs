@@ -1,5 +1,7 @@
 use derive_more::derive::From;
 
+use crate::utils::DisplayLargeDuration;
+
 use super::*;
 
 impl std::fmt::Debug for Time {
@@ -330,6 +332,18 @@ impl std::fmt::Display for CallbackInstance {
             f,
             "(start_time={}, end_time={}, callback={callback})",
             self.start_time, self.end_time,
+        )
+    }
+}
+
+impl std::fmt::Display for SpinInstance {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let node = DisplayWeakMutex::new(&self.node, false);
+        let timeout = DisplayLargeDuration(self.timeout.as_nanos());
+        write!(
+            f,
+            "(node={node}, start_time={}, end_time={}, timeout={timeout})",
+            self.start_time, self.end_time
         )
     }
 }

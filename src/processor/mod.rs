@@ -1,3 +1,5 @@
+mod r2r;
+
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -243,15 +245,6 @@ impl Processor {
                 return Err(event);
             }
         })
-    }
-
-    pub fn process_raw_r2r_event(
-        &mut self,
-        event: raw_events::r2r::Event,
-        context: &Context,
-        time: Time,
-    ) -> Result<processed_events::r2r::Event, raw_events::r2r::Event> {
-        Err(event)
     }
 }
 

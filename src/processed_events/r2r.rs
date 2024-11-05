@@ -1,7 +1,6 @@
 use derive_more::derive::{Display, From};
 
-use crate::model::Node;
-use crate::utils::DisplayLargeDuration;
+use crate::model::{Node, SpinInstance, Subscriber};
 
 use super::RefCount;
 
@@ -20,34 +19,45 @@ pub enum Event {
 }
 
 #[derive(Debug, Clone, Display)]
-#[display("timeout({}), Node({})", DisplayLargeDuration(timeout.as_nanos()), node.lock().unwrap())]
+#[display("Spin({})", spin.lock().unwrap())]
 pub struct SpinStart {
     pub node: RefCount<Node>,
-    pub timeout: std::time::Duration,
+    pub spin: RefCount<SpinInstance>,
 }
 
-#[derive(Debug, Clone, Display)]
-#[display("Node({})", node.lock().unwrap())]
+#[derive(Debug, Clone)]
 pub struct SpinEnd {
     pub node: RefCount<Node>,
+    pub spin: Option<RefCount<SpinInstance>>,
+}
+
+impl std::fmt::Display for SpinEnd {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.spin {
+            Some(spin) => write!(f, "Spin({})", spin.lock().unwrap()),
+            None => write!(f, "Node({})", self.node.lock().unwrap()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Display)]
 #[display("Node({})", node.lock().unwrap())]
 pub struct SpinWake {
     pub node: RefCount<Node>,
+    pub spin: Option<RefCount<SpinInstance>>,
 }
 
 #[derive(Debug, Clone, Display)]
 #[display("Node({})", node.lock().unwrap())]
 pub struct SpinTimeout {
     pub node: RefCount<Node>,
+    pub spin: Option<RefCount<SpinInstance>>,
 }
 
 #[derive(Debug, Clone, Display)]
-#[display("subscriber: {subscriber}, time: {time_s}.{time_ns:09}")]
+#[display("subscriber: {}, new_time: {time_s}.{time_ns:09}", subscriber.lock().unwrap())]
 pub struct UpdateTime {
-    pub subscriber: u64,
+    pub subscriber: RefCount<Subscriber>,
     pub time_s: i32,
     pub time_ns: u32,
 }
