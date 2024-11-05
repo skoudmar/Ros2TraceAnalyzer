@@ -136,12 +136,14 @@ fn main() -> color_eyre::eyre::Result<()> {
     let mut message_latency_analysis = analysis::MessageLatency::new();
     let mut callback_duration_analysis = analysis::CallbackDuration::new();
     let mut callback_dependency_analysis = analysis::CallbackDependency::new();
+    let mut spin_to_callback_analysis = analysis::MessageTakeToCallbackLatency::new();
 
     let mut iter = ProcessedEventsIter::new(&trace_paths[0]);
 
     iter.add_analysis(&mut message_latency_analysis);
     iter.add_analysis(&mut callback_duration_analysis);
     iter.add_analysis(&mut callback_dependency_analysis);
+    iter.add_analysis(&mut spin_to_callback_analysis);
 
     if args.should_print_unprocessed_events() {
         iter.set_on_unprocessed_event(|event| {
@@ -169,6 +171,9 @@ fn main() -> color_eyre::eyre::Result<()> {
         .get_graph()
         .unwrap()
         .print_graph();
+
+    print_headline(" Analysis ");
+    spin_to_callback_analysis.print_stats();
 
     Ok(())
 }
