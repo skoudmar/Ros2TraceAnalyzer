@@ -145,11 +145,11 @@ impl Display for BtErrorWrapper {
     }
 }
 
-pub(crate) trait IntoResult<T> {
-    fn into_result(self) -> BtResult<T>;
+pub(crate) trait IntoResult<T, E> {
+    fn into_result(self) -> Result<T, E>;
 }
 
-impl IntoResult<()> for bt_message_iterator_next_status {
+impl IntoResult<(), BtError> for bt_message_iterator_next_status {
     fn into_result(self) -> BtResult<()> {
         match self {
             Self::BT_MESSAGE_ITERATOR_NEXT_STATUS_OK => Ok(()),
@@ -165,7 +165,7 @@ impl IntoResult<()> for bt_message_iterator_next_status {
     }
 }
 
-impl IntoResult<MessageIteratorState> for bt_graph_run_once_status {
+impl IntoResult<MessageIteratorState, BtError> for bt_graph_run_once_status {
     fn into_result(self) -> BtResult<MessageIteratorState> {
         match self {
             Self::BT_GRAPH_RUN_ONCE_STATUS_OK => Ok(MessageIteratorState::Running),
