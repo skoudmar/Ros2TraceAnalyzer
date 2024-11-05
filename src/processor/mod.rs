@@ -181,6 +181,9 @@ impl Processor {
             raw_events::ros2::Event::RclcppPublish(event) => {
                 self.process_rclcpp_publish(event, context_id, time).into()
             }
+            raw_events::ros2::Event::RclcppIntraPublish(event) => {
+                self.process_rclcpp_intra_publish(event, context_id).into()
+            }
             raw_events::ros2::Event::RclPublish(event) => {
                 self.process_rcl_publish(event, context_id, time).into()
             }
