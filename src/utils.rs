@@ -131,23 +131,6 @@ where
     }
 }
 
-#[macro_export]
-macro_rules! impl_from_for_enum {
-    ($(#[$attr:meta])* $enum_vis:vis enum $enum:ident { $($var_name:ident($typ:ty),)* }) => {
-        $(#[$attr])*
-        $enum_vis enum $enum {
-            $($var_name($typ),)*
-        }
-        $(
-            impl From<$typ> for $enum {
-                fn from(value: $typ) -> Self {
-                    Self::$var_name(value)
-                }
-            }
-        )*
-    };
-}
-
 pub(crate) struct DisplayArcMutex<'a, T> {
     arc: &'a Arc<Mutex<T>>,
     skip: bool,
