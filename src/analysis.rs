@@ -600,7 +600,6 @@ impl MessageTakeToCallbackLatency {
     }
 
     fn process_callback_start(&mut self, callback: Arc<Mutex<CallbackInstance>>) {
-        let callback_arc = callback.clone();
         let callback_instance = callback.lock().unwrap();
 
         match callback_instance.get_trigger() {
@@ -647,12 +646,8 @@ impl EventAnalysis for MessageTakeToCallbackLatency {
     }
 
     fn process_event(&mut self, full_event: &FullEvent) {
-        match &full_event.event {
-            Event::Ros2(ros2::Event::CallbackStart(event)) => {
-                self.process_callback_start(event.callback.clone());
-            }
-
-            _ => {}
+        if let Event::Ros2(ros2::Event::CallbackStart(event)) = &full_event.event {
+            self.process_callback_start(event.callback.clone());
         }
     }
 
