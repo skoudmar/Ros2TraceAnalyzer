@@ -8,7 +8,7 @@ use super::FromBtEvent;
 pub struct SpinStart {
     node_handle: u64,
     timeout_s: u64,
-    timeout_ns: u64,
+    timeout_ns: u32,
 }
 
 #[derive(Debug, TryFromBtFieldConst)]
