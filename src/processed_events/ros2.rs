@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use derive_more::derive::{Display, From};
 
 use crate::model::{
@@ -9,98 +7,79 @@ use crate::model::{
 
 use super::RefCount;
 
-#[derive(Debug, Clone, From)]
+#[derive(Debug, Clone, From, Display)]
 pub enum Event {
+    #[display("rcl_init({_0})")]
     RclInit(RclInit),
-    RclNodeInit(RclNodeInit),
-    RmwPublisherInit(RmwPublisherInit),
-    RclPublisherInit(RclPublisherInit),
-    RclcppPublish(RclcppPublish),
-    RclcppIntraPublish(RclcppIntraPublish),
-    RclPublish(RclPublish),
-    RmwPublish(RmwPublish),
-    RmwSubscriptionInit(RmwSubscriptionInit),
-    RclSubscriptionInit(RclSubscriptionInit),
-    RclcppSubscriptionInit(RclcppSubscriptionInit),
-    RclcppSubscriptionCallbackAdded(RclcppSubscriptionCallbackAdded),
-    RmwTake(RmwTake),
-    RclTake(RclTake),
-    RclCppTake(RclCppTake),
-    RclServiceInit(RclServiceInit),
-    RclCppServiceCallbackAdded(RclCppServiceCallbackAdded),
-    RclClientInit(RclClientInit),
-    RclTimerInit(RclTimerInit),
-    RclcppTimerCallbackAdded(RclcppTimerCallbackAdded),
-    RclcppTimerLinkNode(RclcppTimerLinkNode),
-    RclcppCallbackRegister(RclcppCallbackRegister),
-    CallbackStart(CallbackStart),
-    CallbackEnd(CallbackEnd),
-}
 
-impl Display for Event {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Event::RclInit(rcl_init) => write!(f, "rcl_init({rcl_init})"),
-            Event::RclNodeInit(rcl_node_init) => write!(f, "rcl_node_init({rcl_node_init})"),
-            Event::RmwPublisherInit(rmw_publisher_init) => {
-                write!(f, "rmw_publisher_init({rmw_publisher_init})")
-            }
-            Event::RclPublisherInit(rcl_publisher_init) => {
-                write!(f, "rcl_publisher_init({rcl_publisher_init})")
-            }
-            Event::RclcppPublish(rclcpp_publish) => write!(f, "rclcpp_publish({rclcpp_publish})"),
-            Event::RclcppIntraPublish(rclcpp_intra_publish) => {
-                write!(f, "rclcpp_intra_publish({rclcpp_intra_publish})")
-            }
-            Event::RclPublish(rcl_publish) => write!(f, "rcl_publish({rcl_publish})"),
-            Event::RmwPublish(rmw_publish) => write!(f, "rmw_publish({rmw_publish})"),
-            Event::RmwSubscriptionInit(rmw_subscription_init) => {
-                write!(f, "rmw_subscription_init({rmw_subscription_init})")
-            }
-            Event::RclSubscriptionInit(rcl_subscription_init) => {
-                write!(f, "rcl_subscription_init({rcl_subscription_init})")
-            }
-            Event::RclcppSubscriptionInit(rclcpp_subscription_init) => {
-                write!(f, "rclcpp_subscription_init({rclcpp_subscription_init})")
-            }
-            Event::RclcppSubscriptionCallbackAdded(rclcpp_subscription_callback_added) => {
-                write!(
-                    f,
-                    "rclcpp_subscription_callback_added({rclcpp_subscription_callback_added})"
-                )
-            }
-            Event::RmwTake(rmw_take) => write!(f, "rmw_take({rmw_take})"),
-            Event::RclTake(rcl_take) => write!(f, "rcl_take({rcl_take})"),
-            Event::RclCppTake(rcl_cpp_take) => write!(f, "rclcpp_take({rcl_cpp_take})"),
-            Event::RclServiceInit(rcl_service_init) => {
-                write!(f, "rcl_service_init({rcl_service_init})")
-            }
-            Event::RclCppServiceCallbackAdded(rcl_cpp_service_callback_added) => {
-                write!(
-                    f,
-                    "rclcpp_service_callback_added({rcl_cpp_service_callback_added})"
-                )
-            }
-            Event::RclClientInit(rcl_client_init) => {
-                write!(f, "rcl_client_init({rcl_client_init})")
-            }
-            Event::RclTimerInit(rcl_timer_init) => write!(f, "rcl_timer_init({rcl_timer_init})"),
-            Event::RclcppTimerCallbackAdded(rclcpp_timer_callback_added) => {
-                write!(
-                    f,
-                    "rclcpp_timer_callback_added({rclcpp_timer_callback_added})"
-                )
-            }
-            Event::RclcppTimerLinkNode(rclcpp_timer_link_node) => {
-                write!(f, "rclcpp_timer_link_node({rclcpp_timer_link_node})")
-            }
-            Event::RclcppCallbackRegister(rclcpp_callback_register) => {
-                write!(f, "rclcpp_callback_register({rclcpp_callback_register})")
-            }
-            Event::CallbackStart(callback_start) => write!(f, "callback_start({callback_start})"),
-            Event::CallbackEnd(callback_end) => write!(f, "callback_end({callback_end})"),
-        }
-    }
+    #[display("rcl_node_init({_0})")]
+    RclNodeInit(RclNodeInit),
+
+    #[display("rmw_publisher_init({_0})")]
+    RmwPublisherInit(RmwPublisherInit),
+
+    #[display("rcl_publisher_init({_0})")]
+    RclPublisherInit(RclPublisherInit),
+
+    #[display("rclcpp_publish({_0})")]
+    RclcppPublish(RclcppPublish),
+
+    #[display("rclcpp_intra_publish({_0})")]
+    RclcppIntraPublish(RclcppIntraPublish),
+
+    #[display("rcl_publish({_0})")]
+    RclPublish(RclPublish),
+
+    #[display("rmw_publish({_0})")]
+    RmwPublish(RmwPublish),
+
+    #[display("rmw_subscription_init({_0})")]
+    RmwSubscriptionInit(RmwSubscriptionInit),
+
+    #[display("rcl_subscription_init({_0})")]
+    RclSubscriptionInit(RclSubscriptionInit),
+
+    #[display("rclcpp_subscription_init({_0})")]
+    RclcppSubscriptionInit(RclcppSubscriptionInit),
+
+    #[display("rclcpp_subscription_callback_added({_0})")]
+    RclcppSubscriptionCallbackAdded(RclcppSubscriptionCallbackAdded),
+
+    #[display("rmw_take({_0})")]
+    RmwTake(RmwTake),
+
+    #[display("rcl_take({_0})")]
+    RclTake(RclTake),
+
+    #[display("rclcpp_take({_0})")]
+    RclCppTake(RclCppTake),
+
+    #[display("rcl_service_init({_0})")]
+    RclServiceInit(RclServiceInit),
+
+    #[display("rclcpp_service_callback_added({_0})")]
+    RclCppServiceCallbackAdded(RclCppServiceCallbackAdded),
+
+    #[display("rcl_client_init({_0})")]
+    RclClientInit(RclClientInit),
+
+    #[display("rcl_timer_init({_0})")]
+    RclTimerInit(RclTimerInit),
+
+    #[display("rclcpp_timer_callback_added({_0})")]
+    RclcppTimerCallbackAdded(RclcppTimerCallbackAdded),
+
+    #[display("rclcpp_timer_link_node({_0})")]
+    RclcppTimerLinkNode(RclcppTimerLinkNode),
+
+    #[display("rclcpp_callback_register({_0})")]
+    RclcppCallbackRegister(RclcppCallbackRegister),
+
+    #[display("callback_start({_0})")]
+    CallbackStart(CallbackStart),
+
+    #[display("callback_end({_0})")]
+    CallbackEnd(CallbackEnd),
 }
 
 #[derive(Debug, Clone, Display)]
