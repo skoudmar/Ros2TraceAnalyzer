@@ -1,7 +1,10 @@
 [package]
 name = "bt2-sys"
+description = "Low-level bindings to the Babeltrace 2 C API"
 version = "0.1.0"
 edition = "2021"
+authors.workspace = true
+repository.workspace = true
 
 [dependencies]
 derive_more = { version = "1.0.0", features = ["deref", "deref_mut", "from", "into"] }

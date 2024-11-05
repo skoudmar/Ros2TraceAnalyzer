@@ -3,6 +3,8 @@ name = "bt2-derive"
 description = "Derive macros for bt2-sys"
 version = "0.1.0"
 edition = "2021"
+authors.workspace = true
+repository.workspace = true
 
 [lib]
 proc-macro = true
