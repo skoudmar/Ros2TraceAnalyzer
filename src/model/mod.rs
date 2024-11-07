@@ -182,22 +182,31 @@ impl Node {
         for subscriber in self.subscribers() {
             println!(
                 "  Subscriber{:#}",
-                display::SubscriberDisplayWithoutNode::from(&*subscriber.lock().unwrap())
+                display::DisplaySubscriberWithoutNode(&subscriber.lock().unwrap())
             );
         }
         for publisher in self.publishers() {
-            println!("  Publisher{:#}", publisher.lock().unwrap());
+            println!(
+                "  Publisher{:#}",
+                display::DisplayPublisherWithoutNode(&publisher.lock().unwrap())
+            );
         }
         for service in self.services() {
-            println!("  Service{:#}", service.lock().unwrap());
+            println!(
+                "  Service{:#}",
+                display::DisplayServiceWithoutNode(&service.lock().unwrap())
+            );
         }
         for client in self.clients() {
-            println!("  Client{:#}", client.lock().unwrap());
+            println!(
+                "  Client{:#}",
+                display::DisplayClientWithoutNode(&client.lock().unwrap())
+            );
         }
         for timer in self.timers() {
             println!(
                 "  Timer{:#}",
-                display::TimerDisplayWithoutNode::from(&*timer.lock().unwrap())
+                display::TimerDisplayWithoutNode(&timer.lock().unwrap())
             );
         }
     }

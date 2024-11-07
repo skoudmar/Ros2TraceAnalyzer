@@ -1,5 +1,3 @@
-use derive_more::derive::From;
-
 use crate::utils::{
     DisplayArcMutex, DisplayDebug, DisplayDuration, DisplayLargeDuration, DisplayWeakMutex, Known,
 };
@@ -66,6 +64,23 @@ impl std::fmt::Display for Publisher {
     }
 }
 
+pub(super) struct DisplayPublisherWithoutNode<'a>(pub &'a Publisher);
+
+impl<'a> std::fmt::Display for DisplayPublisherWithoutNode<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "(topic={}, handles={{dds={:x}, rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={})",
+            self.0.topic_name.as_ref().map(DisplayDebug),
+            self.0.dds_handle,
+            self.0.rmw_handle,
+            self.0.rcl_handle,
+            self.0.rclcpp_handle,
+            self.0.queue_depth
+        )
+    }
+}
+
 impl std::fmt::Display for Subscriber {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let node = self
@@ -83,10 +98,9 @@ impl std::fmt::Display for Subscriber {
     }
 }
 
-#[derive(Debug, From)]
-pub(super) struct SubscriberDisplayWithoutNode<'a>(&'a Subscriber);
+pub(super) struct DisplaySubscriberWithoutNode<'a>(pub &'a Subscriber);
 
-impl<'a> std::fmt::Display for SubscriberDisplayWithoutNode<'a> {
+impl<'a> std::fmt::Display for DisplaySubscriberWithoutNode<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let callback = self
             .0
@@ -111,8 +125,29 @@ impl std::fmt::Display for Service {
             .as_ref()
             .map(|callback| DisplayArcMutex::new(callback, f.alternate()));
 
-        write!(f, "(service={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, node={node} callback={callback:#})",
+        write!(f, "(service={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, node={node}, callback={callback:#})",
             self.name.as_ref().map(DisplayDebug), self.rmw_handle, self.rcl_handle, self.rclcpp_handle,
+        )
+    }
+}
+
+pub(super) struct DisplayServiceWithoutNode<'a>(pub &'a Service);
+
+impl std::fmt::Display for DisplayServiceWithoutNode<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let callback = self
+            .0
+            .callback
+            .as_ref()
+            .map(|callback| DisplayArcMutex::new(callback, false));
+
+        write!(
+            f,
+            "(service={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, callback={callback:#})",
+            self.0.name.as_ref().map(DisplayDebug),
+            self.0.rmw_handle,
+            self.0.rcl_handle,
+            self.0.rclcpp_handle,
         )
     }
 }
@@ -130,6 +165,20 @@ impl std::fmt::Display for Client {
             self.service_name.as_ref().map(DisplayDebug),
             self.rmw_handle,
             self.rcl_handle
+        )
+    }
+}
+
+pub(super) struct DisplayClientWithoutNode<'a>(pub &'a Client);
+
+impl std::fmt::Display for DisplayClientWithoutNode<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "(service={}, handles={{rmw={:x}, rcl={:x}}})",
+            self.0.service_name.as_ref().map(DisplayDebug),
+            self.0.rmw_handle,
+            self.0.rcl_handle
         )
     }
 }
@@ -154,8 +203,7 @@ impl std::fmt::Display for Timer {
     }
 }
 
-#[derive(Debug, From)]
-pub(super) struct TimerDisplayWithoutNode<'a>(&'a Timer);
+pub(super) struct TimerDisplayWithoutNode<'a>(pub &'a Timer);
 
 impl<'a> std::fmt::Display for TimerDisplayWithoutNode<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
