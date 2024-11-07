@@ -658,6 +658,8 @@ impl Processor {
                 // TODO: Save message to dropped messages
             }
 
+            // Override the old message with the new one
+            // TODO: Save old message to procesed messages if needed
             self.received_messages
                 .insert(event.message.into_id(context_id), message_arc.clone());
         }
@@ -679,13 +681,33 @@ impl Processor {
             .get(&event.message.into_id(context_id))
             .unwrap();
 
-        {
+        let create_new = {
             let mut message = message_arc.lock().unwrap();
-            message.rcl_take(time);
-        }
+            message.rcl_take(time).is_err()
+        };
+
+        let message_arc = if create_new {
+            let mut message = SubscriptionMessage::new(event.message);
+            message
+                .rcl_take(time)
+                .expect("The message was just created, rcl_take was not called before.");
+            let message_arc = Arc::new(Mutex::new(message));
+
+            eprintln!(
+                "rcl_take: Mesasge was not taken before. Creating new message. [{time}] {event:?}"
+            );
+
+            self.received_messages
+                .insert(event.message.into_id(context_id), message_arc.clone());
+
+            message_arc
+        } else {
+            message_arc.clone()
+        };
 
         processed_events::ros2::RclTake {
-            message: message_arc.clone(),
+            message: message_arc,
+            is_new: create_new,
         }
     }
 
@@ -700,13 +722,31 @@ impl Processor {
             .get(&event.message.into_id(context_id))
             .unwrap();
 
-        {
+        let create_new = {
             let mut message = message_arc.lock().unwrap();
-            message.rclcpp_take(time);
-        }
+            message.rclcpp_take(time).is_err()
+        };
+
+        let message_arc = if create_new {
+            let mut message = SubscriptionMessage::new(event.message);
+            message
+                .rclcpp_take(time)
+                .expect("The message was just created, rclcpp_take was not called before.");
+            let message_arc = Arc::new(Mutex::new(message));
+
+            eprintln!("rclcpp_take: Mesasge was not taken before. Creating new message. [{time}] {event:?}");
+
+            self.received_messages
+                .insert(event.message.into_id(context_id), message_arc.clone());
+
+            message_arc
+        } else {
+            message_arc.clone()
+        };
 
         processed_events::ros2::RclCppTake {
             message: message_arc.clone(),
+            is_new: create_new,
         }
     }
 

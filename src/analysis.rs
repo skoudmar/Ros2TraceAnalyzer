@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::sync::{Arc, Mutex};
@@ -11,7 +12,7 @@ use crate::model::{
     Subscriber, SubscriptionMessage,
 };
 use crate::processed_events::{ros2, Event, FullEvent};
-use crate::utils::DurationDisplayImprecise;
+use crate::utils::{DurationDisplayImprecise, Known};
 
 pub trait EventAnalysis {
     /// Initialize the analysis
@@ -57,6 +58,70 @@ pub struct MessageLatency {
     latencies: HashMap<SubPubKey, Vec<i64>>,
 }
 
+#[derive(Debug)]
+pub struct MessageLatencyStats {
+    topic: String,
+    subscriber: Arc<Mutex<Subscriber>>,
+    publisher: Option<Arc<Mutex<Publisher>>>,
+    message_count: usize,
+    max_latency: i64,
+    min_latency: i64,
+    avg_latency: i64,
+}
+
+impl PartialEq for MessageLatencyStats {
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_cmp(other) == Some(Ordering::Equal)
+    }
+}
+
+impl PartialOrd for MessageLatencyStats {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.topic.partial_cmp(&other.topic).and_then(|ord| {
+            if ord != Ordering::Equal {
+                return Some(ord);
+            }
+
+            if Arc::ptr_eq(&self.subscriber, &other.subscriber) {
+                return Some(Ordering::Equal);
+            }
+            let sub1 = self.subscriber.lock().unwrap();
+            let sub2 = other.subscriber.lock().unwrap();
+
+            let node1 = sub1.get_node();
+            let node2 = sub2.get_node();
+
+            let (node1, node2) = match (node1, node2) {
+                (Known::Known(_), Known::Unknown) => return Some(Ordering::Greater),
+                (Known::Unknown, Known::Known(_)) => return Some(Ordering::Less),
+                (Known::Unknown, Known::Unknown) => return None,
+                (Known::Known(node1), Known::Known(node2)) => (node1.upgrade(), node2.upgrade()),
+            };
+
+            let (node1, node2) = match (node1, node2) {
+                (Some(_), None) => return Some(Ordering::Greater),
+                (None, Some(_)) => return Some(Ordering::Less),
+                (None, None) => return None,
+                (Some(node1), Some(node2)) => (node1, node2),
+            };
+
+            if Arc::ptr_eq(&node1, &node2) {
+                return Some(Ordering::Equal);
+            }
+
+            let node1 = node1.lock().unwrap();
+            let node2 = node2.lock().unwrap();
+
+            match (node1.get_name(), node2.get_name()) {
+                (Known::Known(_), Known::Unknown) => return Some(Ordering::Greater),
+                (Known::Unknown, Known::Known(_)) => return Some(Ordering::Less),
+                (Known::Unknown, Known::Unknown) => return None,
+                (Known::Known(name1), Known::Known(name2)) => Some(name1.cmp(name2)),
+            }
+        })
+    }
+}
+
 impl MessageLatency {
     pub fn new() -> Self {
         Self {
@@ -71,7 +136,7 @@ impl MessageLatency {
 
     fn calculate_latency_and_get_publisher(
         message: &SubscriptionMessage,
-    ) -> (i64, Option<ArcMutWrapper<Publisher>>) {
+    ) -> (Option<i64>, Option<ArcMutWrapper<Publisher>>) {
         let receive_time = message
             .get_receive_time()
             .expect("Receive time should be known");
@@ -83,16 +148,21 @@ impl MessageLatency {
                     .expect("Publication time should be known");
                 let publisher = publication_message.get_publisher().map(Into::into);
 
-                (send_time, publisher)
+                (Some(send_time), publisher)
             } else if let Some(publication_timestamp) = message.get_sender_timestamp() {
                 // If the publication message is not available, use the sender timestamp
-                (publication_timestamp, None)
+                (Some(publication_timestamp), None)
             } else {
-                panic!("No publication message or timestamp found for message {message:?}");
+                eprintln!("No publication message or timestamp found for message {message:?}");
+                (None, None)
             };
 
-        assert!(receive_time >= send_time);
-        let latency = receive_time.timestamp_nanos() - send_time.timestamp_nanos();
+        send_time.inspect(|send_time| {
+            assert!(*send_time <= receive_time);
+        });
+
+        let latency =
+            send_time.map(|send_time| receive_time.timestamp_nanos() - send_time.timestamp_nanos());
 
         (latency, publisher)
     }
@@ -103,10 +173,15 @@ impl MessageLatency {
             let message = message.0.lock().unwrap();
             let (latency_ns, publisher) = Self::calculate_latency_and_get_publisher(&message);
 
+            if message.get_subscriber().is_none() {
+                // The message is missing the subscriber. The latency series cannot be identified.
+                return;
+            }
+
             self.latencies
                 .entry((message.get_subscriber().unwrap().into(), publisher))
                 .or_default()
-                .push(latency_ns);
+                .push(latency_ns.unwrap());
         }
     }
 
@@ -115,39 +190,73 @@ impl MessageLatency {
             let message = message.0.lock().unwrap();
             let (latency_ns, publisher) = Self::calculate_latency_and_get_publisher(&message);
 
+            if message.get_subscriber().is_none() {
+                // The message is missing the subscriber. The latency series cannot be identified.
+                continue;
+            }
+
             self.latencies
                 .entry((message.get_subscriber().unwrap().into(), publisher))
                 .or_default()
-                .push(latency_ns);
+                .push(latency_ns.unwrap());
         }
+    }
+
+    pub fn calculate_stats(&self) -> Vec<MessageLatencyStats> {
+        self.latencies
+            .iter()
+            .map(|((subscriber_arc, publisher_arc), latencies)| {
+                let subscriber = subscriber_arc.0.lock().unwrap();
+                let topic = subscriber.get_topic();
+                let lat_len = latencies.len();
+                let min_latency = *latencies.iter().min().unwrap();
+                let max_latency = *latencies.iter().max().unwrap();
+                let avg_latency = (latencies.iter().copied().map(i128::from).sum::<i128>()
+                    / lat_len as i128) as i64;
+
+                MessageLatencyStats {
+                    topic: topic.to_string(),
+                    subscriber: subscriber_arc.0.clone(),
+                    publisher: publisher_arc.as_ref().map(|p| p.0.clone()),
+                    message_count: lat_len,
+                    max_latency,
+                    min_latency,
+                    avg_latency,
+                }
+            })
+            .collect()
     }
 
     pub(crate) fn print_stats(&self) {
         println!("Message latency statistics:");
-        for (i, ((subscriber, publisher), latencies)) in self.latencies.iter().enumerate() {
-            let subscriber = subscriber.0.lock().unwrap();
-            let topic = subscriber.get_topic();
-            let publisher = publisher.as_ref().map(|p| p.0.lock().unwrap());
-            let lat_len = latencies.len();
-            let min_latency = *latencies.iter().min().unwrap();
-            let max_latency = *latencies.iter().max().unwrap();
-            let avg_latency =
-                latencies.iter().copied().map(i128::from).sum::<i128>() / lat_len as i128;
+        let mut stats = self.calculate_stats();
+        stats.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+        for (i, stat) in stats.iter().enumerate() {
+            let subscriber = stat.subscriber.lock().unwrap();
+            let topic = &stat.topic;
+            let publisher = stat.publisher.as_ref().map(|p| p.lock().unwrap());
+            let msg_count = stat.message_count;
 
             println!("- [{i:4}] Topic {topic}:");
             println!("    Subscriber: {subscriber:#}");
             if let Some(publisher) = publisher {
-                println!("    Publisher: {publisher:#}");
+                println!("    Publisher: {publisher}");
             } else {
                 println!("    Publisher: Unknown");
             }
-            println!("    Message count: {lat_len}");
-            if lat_len > 0 {
-                println!("    Max latency: {}", DurationDisplayImprecise(max_latency));
-                println!("    Min latency: {}", DurationDisplayImprecise(min_latency));
+            println!("    Message count: {msg_count}");
+            if msg_count > 0 {
+                println!(
+                    "    Max latency: {}",
+                    DurationDisplayImprecise(stat.max_latency)
+                );
+                println!(
+                    "    Min latency: {}",
+                    DurationDisplayImprecise(stat.min_latency)
+                );
                 println!(
                     "    Avg latency: {}",
-                    DurationDisplayImprecise(avg_latency as i64)
+                    DurationDisplayImprecise(stat.avg_latency)
                 );
             }
         }
@@ -167,10 +276,19 @@ impl EventAnalysis for MessageLatency {
             }
             Event::Ros2(ros2::Event::RclTake(event)) => {
                 let message = event.message.clone();
-                assert!(self.messages.contains(&message.into()));
+                if event.is_new {
+                    self.add_message(message);
+                } else {
+                    assert!(self.messages.contains(&message.into()));
+                }
             }
             Event::Ros2(ros2::Event::RclCppTake(event)) => {
-                self.remove_message(event.message.clone());
+                let message = event.message.clone();
+                if event.is_new {
+                    self.add_message(message);
+                } else {
+                    assert!(self.messages.contains(&message.into()));
+                }
             }
 
             _ => {}

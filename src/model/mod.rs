@@ -1,16 +1,26 @@
 mod display;
 
+use std::fmt::Debug;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 use chrono::{Local, TimeZone};
 use derive_more::derive::Unwrap;
+use thiserror::Error;
 
 use crate::raw_events;
 use crate::utils::Known;
 
 const GID_SIZE: usize = 16;
 const GID_SUFFIX_SIZE: usize = 8;
+
+#[derive(Debug, Error)]
+#[error("Already set Error: {msg}\nobject: {object:#?}\nnew_value: {new_value:#?}")]
+pub struct AlreadySetError<T: Debug, U: Debug> {
+    object: T,
+    new_value: U,
+    msg: &'static str,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Time {
@@ -277,6 +287,10 @@ impl Subscriber {
     pub fn get_topic(&self) -> Known<&str> {
         self.topic_name.as_deref()
     }
+
+    pub fn get_node(&self) -> Known<Weak<Mutex<Node>>> {
+        self.node.clone()
+    }
 }
 
 #[derive(Debug, Default)]
@@ -339,6 +353,10 @@ impl Publisher {
 
     pub fn get_topic(&self) -> Option<&str> {
         self.topic_name.as_deref().into()
+    }
+
+    pub fn get_node(&self) -> Option<Weak<Mutex<Node>>> {
+        self.node.clone().into()
     }
 }
 
@@ -707,20 +725,30 @@ impl SubscriptionMessage {
         self.rmw_receive_time = Known::new(time);
     }
 
-    pub fn rcl_take(&mut self, time: Time) {
-        assert!(
-            self.rcl_receive_time.is_unknown(),
-            "SubscriptionMessage rcl_receive_time already set. {self:#?}"
-        );
+    pub fn rcl_take(&mut self, time: Time) -> Result<(), AlreadySetError<&Self, Time>> {
+        if !self.rcl_receive_time.is_unknown() {
+            return Err(AlreadySetError {
+                object: self,
+                new_value: time,
+                msg: "SubscriptionMessage rcl_receive_time already set.",
+            });
+        }
         self.rcl_receive_time = Known::new(time);
+
+        Ok(())
     }
 
-    pub fn rclcpp_take(&mut self, time: Time) {
-        assert!(
-            self.rclcpp_receive_time.is_unknown(),
-            "SubscriptionMessage rclcpp_receive_time already set. {self:#?}"
-        );
+    pub fn rclcpp_take(&mut self, time: Time) -> Result<(), AlreadySetError<&Self, Time>> {
+        if !self.rclcpp_receive_time.is_unknown() {
+            return Err(AlreadySetError {
+                object: self,
+                new_value: time,
+                msg: "SubscriptionMessage rclcpp_receive_time already set.",
+            });
+        }
         self.rclcpp_receive_time = Known::new(time);
+
+        Ok(())
     }
 
     pub fn get_publication_message(&self) -> Option<Arc<Mutex<PublicationMessage>>> {

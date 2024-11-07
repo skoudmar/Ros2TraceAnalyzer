@@ -174,12 +174,16 @@ pub struct RmwTake {
 #[display("Message({})", message.lock().unwrap())]
 pub struct RclTake {
     pub message: RefCount<SubscriptionMessage>,
+    /// Specifies if the message is new, i.e., it was not taken before by RMW.
+    pub is_new: bool,
 }
 
 #[derive(Debug, Clone, Display)]
 #[display("Message({})", message.lock().unwrap())]
 pub struct RclCppTake {
     pub message: RefCount<SubscriptionMessage>,
+    /// Specifies if the message is new, i.e., it was not taken before by RMW or RCL.
+    pub is_new: bool,
 }
 
 // Service
