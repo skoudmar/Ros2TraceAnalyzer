@@ -7,7 +7,7 @@ use chrono::{Local, TimeZone};
 use derive_more::derive::Unwrap;
 
 use crate::raw_events;
-use crate::utils::{DisplayArcMutex, DisplayDebug, DisplayDuration, DisplayWeakMutex, Known};
+use crate::utils::Known;
 
 const GID_SIZE: usize = 16;
 const GID_SUFFIX_SIZE: usize = 8;
