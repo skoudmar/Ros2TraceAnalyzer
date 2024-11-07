@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 derive_more = { version = "1.0.0", features = ["deref", "deref_mut", "from", "into"] }
-thiserror = "1.0.64"
+thiserror = "2.0"
 
 [build-dependencies]
 bindgen = { version = "0.70.1", features = ["experimental"]}
