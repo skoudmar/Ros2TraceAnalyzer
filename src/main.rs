@@ -23,6 +23,12 @@ struct ProcessedEventsIter<'a> {
     on_unprocessed_event: fn(raw_events::FullEvent),
     analyses: Vec<&'a mut dyn analysis::EventAnalysis>,
     processor: processor::Processor,
+
+    // Counters
+    ros_processed_events: usize,
+    ros_unprocessed_events: usize,
+    other_events: usize,
+    other_messages: usize,
 }
 
 impl<'a> ProcessedEventsIter<'a> {
@@ -32,6 +38,11 @@ impl<'a> ProcessedEventsIter<'a> {
             on_unprocessed_event: |_event| {}, // Do nothing by default
             analyses: Vec::new(),
             processor: processor::Processor::new(),
+
+            ros_processed_events: 0,
+            ros_unprocessed_events: 0,
+            other_events: 0,
+            other_messages: 0,
         }
     }
 
@@ -42,6 +53,20 @@ impl<'a> ProcessedEventsIter<'a> {
 
     fn set_on_unprocessed_event(&mut self, on_unprocessed_event: fn(raw_events::FullEvent)) {
         self.on_unprocessed_event = on_unprocessed_event;
+    }
+
+    fn print_counters(&self) {
+        println!(
+            "Ros events:\n\
+            - processed: {}\n\
+            - unprocessed: {}\n\
+            Other events: {}\n\
+            Other messages: {}",
+            self.ros_processed_events,
+            self.ros_unprocessed_events,
+            self.other_events,
+            self.other_messages
+        );
     }
 }
 
@@ -62,6 +87,7 @@ impl<'a> Iterator for ProcessedEventsIter<'a> {
                 | BtMessageType::DiscardedPackets
                 | BtMessageType::MessageIteratorInactivity => {
                     println!("Skipping message of type {:?}", message.get_type());
+                    self.other_messages += 1;
                     continue;
                 }
                 BtMessageType::Event => raw_events::get_full_event(&message.into_event_msg()),
@@ -69,16 +95,19 @@ impl<'a> Iterator for ProcessedEventsIter<'a> {
 
             let Some(event) = event else {
                 // Skip unsupported events
+                self.other_events += 1;
                 continue;
             };
             match self.processor.process_raw_event(event) {
                 processor::MaybeProccessed::Processed(proccessed) => {
+                    self.ros_processed_events += 1;
                     for analysis in &mut self.analyses {
                         (*analysis).process_event(&proccessed);
                     }
                     return Some(proccessed);
                 }
                 processor::MaybeProccessed::Raw(raw) => {
+                    self.ros_unprocessed_events += 1;
                     (self.on_unprocessed_event)(raw);
                     continue;
                 }
@@ -156,6 +185,9 @@ fn main() -> color_eyre::eyre::Result<()> {
             println!("{event}");
         }
     }
+
+    print_headline(" Trace counters ");
+    iter.print_counters();
 
     print_headline(" Objects ");
     iter.processor.print_objects();
