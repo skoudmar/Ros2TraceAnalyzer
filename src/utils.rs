@@ -279,3 +279,17 @@ impl std::fmt::Display for DurationDisplayImprecise {
         write!(f, "{} {}", value, SUFFIX[suffix])
     }
 }
+
+pub struct DebugOptionHex<'a, T>(pub &'a Option<T>);
+
+impl<'a, T: std::fmt::LowerHex> std::fmt::Debug for DebugOptionHex<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            Some(value) => f
+                .debug_tuple("Some")
+                .field(&format_args!("{:#x}", value))
+                .finish(),
+            None => f.debug_struct("None").finish(),
+        }
+    }
+}

@@ -1,11 +1,13 @@
 use bt2_derive::TryFromBtFieldConst;
 use bt2_sys::event::BtEventConst;
 use derive_more::derive::From;
+use derive_more::Debug;
 
 use super::FromBtEvent;
 
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct SpinStart {
+    #[debug("{node_handle:#x}")]
     pub node_handle: u64,
     pub timeout_s: u64,
     pub timeout_ns: u32,
@@ -13,21 +15,25 @@ pub struct SpinStart {
 
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct SpinEnd {
+    #[debug("{node_handle:#x}")]
     pub node_handle: u64,
 }
 
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct SpinWake {
+    #[debug("{node_handle:#x}")]
     pub node_handle: u64,
 }
 
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct SpinTimeout {
+    #[debug("{node_handle:#x}")]
     pub node_handle: u64,
 }
 
 #[derive(Debug, TryFromBtFieldConst)]
 pub struct UpdateTime {
+    #[debug("{subscriber:#x}")]
     pub subscriber: u64,
     pub time_s: i32,
     pub time_ns: u32,
