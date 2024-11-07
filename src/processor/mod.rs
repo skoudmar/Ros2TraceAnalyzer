@@ -317,15 +317,18 @@ impl Processor {
                 publisher.set_rmw_handle(key.id);
                 Arc::new(Mutex::new(publisher))
             });
-        if self
-            .publishers_by_rcl
-            .insert(
-                event.publisher_handle.into_id(context_id),
-                publisher_arc.clone(),
-            )
-            .is_some()
-        {
-            panic!("Publishers by rcl already contains key");
+        if let Some(old) = self.publishers_by_rcl.insert(
+            event.publisher_handle.into_id(context_id),
+            publisher_arc.clone(),
+        ) {
+            // let old_publisher = old.lock().unwrap();
+            // let node_arc = old_publisher.get_node().and_then(|node| node.upgrade());
+            // let node = node_arc.as_ref().map(|node| node.lock().unwrap());
+            panic!(
+                "Publishers by rcl already contains key.\nOld: {}\nNew: {}",
+                old.lock().unwrap(),
+                publisher_arc.lock().unwrap()
+            );
         }
 
         let node_arc = self
