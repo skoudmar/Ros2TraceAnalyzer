@@ -112,8 +112,8 @@ pub fn get_full_event(message: &BtEventMessageConst) -> Option<FullEvent> {
     let provider = full_name.split(':').next().unwrap();
 
     let event = match provider {
-        "ros2" => Event::Ros2(ros2::Event::from_event(&event).unwrap()),
-        "r2r" => Event::R2r(r2r::Event::from_event(&event)?),
+        "ros2" => Event::Ros2(ros2::Event::from_event(&event).expect("Should match all events")),
+        "r2r" => Event::R2r(r2r::Event::from_event(&event).expect("Should match all events")),
         _ => {
             return None;
         }
