@@ -739,7 +739,7 @@ impl MessageTakeToCallbackLatency {
     }
 
     pub(crate) fn print_stats(&self) {
-        println!("Message take to callback latency statistics:");
+        println!("Message take to callback execution latency statistics:");
         for (i, (callback, latencies)) in self.latencies.iter().enumerate() {
             let callback = callback.0.lock().unwrap();
             let dur_len = latencies.len();
