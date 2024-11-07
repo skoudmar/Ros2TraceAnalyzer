@@ -92,9 +92,9 @@ impl<'a> BtEventConst<'a> {
 impl<'a> std::fmt::Debug for BtEventConst<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let class = self.get_class();
-        let name = class.get_name().unwrap_or("Unknown");
         f.debug_struct(stringify!(BtEventConst))
-            .field("name", &name)
+            .field("id", &class.get_id())
+            .field("name", &class.get_name())
             .field("payload", &self.get_payload())
             .field("common_context", &self.get_common_context_field())
             .field("specific_context", &self.get_specific_context_field())

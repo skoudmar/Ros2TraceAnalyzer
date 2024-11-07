@@ -2,12 +2,15 @@ use std::convert::Infallible;
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
 
-use derive_more::derive::Deref;
+use derive_more::derive::{Deref, Into};
 use thiserror::Error;
 
 use crate::raw_bindings::{
     bt_field, bt_field_array_borrow_element_field_by_index_const, bt_field_array_get_length,
     bt_field_bool_get_value, bt_field_borrow_class_const, bt_field_class,
+    bt_field_class_integer_get_field_value_range,
+    bt_field_class_integer_get_preferred_display_base,
+    bt_field_class_integer_preferred_display_base,
     bt_field_class_structure_borrow_member_by_index_const,
     bt_field_class_structure_borrow_member_by_name_const,
     bt_field_class_structure_get_member_count, bt_field_class_structure_member,
@@ -555,6 +558,11 @@ impl BtFieldUnsignedIntegerConst {
     pub fn get_value(&self) -> u64 {
         unsafe { bt_field_integer_unsigned_get_value(self.as_ptr()) }
     }
+
+    #[must_use]
+    pub fn get_class(&self) -> BtFieldIntegerUnsignedClassConst {
+        BtFieldIntegerUnsignedClassConst(BtFieldIntegerClassConst(BtFieldConst::get_class(&self)))
+    }
 }
 
 impl From<BtFieldUnsignedIntegerConst> for u64 {
@@ -564,13 +572,36 @@ impl From<BtFieldUnsignedIntegerConst> for u64 {
     }
 }
 
-impl_debug_and_display_for_scalar_field!(BtFieldUnsignedIntegerConst);
+impl std::fmt::Debug for BtFieldUnsignedIntegerConst {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let class = self.get_class();
+        let display_base = class.get_preferred_display_base();
+
+        f.debug_tuple(stringify!(BtFieldUnsignedIntegerConst))
+            .field(&display_base.wrap(self.get_value()))
+            .finish()
+    }
+}
+
+impl std::fmt::Display for BtFieldUnsignedIntegerConst {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let class = self.get_class();
+        let display_base = class.get_preferred_display_base();
+
+        write!(f, "{}", display_base.wrap(self.get_value()))
+    }
+}
 
 impl BtFieldSignedIntegerConst {
     /// Get the value of the signed integer field.
     #[must_use]
     pub fn get_value(&self) -> i64 {
         unsafe { bt_field_integer_signed_get_value(self.as_ptr()) }
+    }
+
+    #[must_use]
+    pub fn get_class(&self) -> BtFieldIntegerSignedClassConst {
+        BtFieldIntegerSignedClassConst(BtFieldIntegerClassConst(BtFieldConst::get_class(&self)))
     }
 }
 
@@ -581,7 +612,25 @@ impl From<BtFieldSignedIntegerConst> for i64 {
     }
 }
 
-impl_debug_and_display_for_scalar_field!(BtFieldSignedIntegerConst);
+impl std::fmt::Debug for BtFieldSignedIntegerConst {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let class = self.get_class();
+        let display_base = class.get_preferred_display_base();
+
+        f.debug_tuple(stringify!(BtFieldSignedIntegerConst))
+            .field(&display_base.wrap(self.get_value()))
+            .finish()
+    }
+}
+
+impl std::fmt::Display for BtFieldSignedIntegerConst {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let class = self.get_class();
+        let display_base = class.get_preferred_display_base();
+
+        write!(f, "{}", display_base.wrap(self.get_value()))
+    }
+}
 
 impl BtFieldStringConst {
     /// Get the length of the string field.
@@ -942,7 +991,49 @@ impl BtFieldClassConst {
 }
 
 #[repr(transparent)]
-#[derive(Deref)]
+#[derive(Deref, Into)]
+pub struct BtFieldIntegerClassConst(BtFieldClassConst);
+
+impl BtFieldIntegerClassConst {
+    #[must_use]
+    pub fn get_preferred_display_base(&self) -> PreferedDisplayBase {
+        match unsafe { bt_field_class_integer_get_preferred_display_base(self.as_ptr()) } {
+            bt_field_class_integer_preferred_display_base::BT_FIELD_CLASS_INTEGER_PREFERRED_DISPLAY_BASE_BINARY => {
+                PreferedDisplayBase::Binary
+            }
+            bt_field_class_integer_preferred_display_base::BT_FIELD_CLASS_INTEGER_PREFERRED_DISPLAY_BASE_OCTAL => {
+                PreferedDisplayBase::Octal
+            }
+            bt_field_class_integer_preferred_display_base::BT_FIELD_CLASS_INTEGER_PREFERRED_DISPLAY_BASE_DECIMAL => {
+                PreferedDisplayBase::Decimal
+            }
+            bt_field_class_integer_preferred_display_base::BT_FIELD_CLASS_INTEGER_PREFERRED_DISPLAY_BASE_HEXADECIMAL => {
+                PreferedDisplayBase::Hexadecimal
+            }
+            _ => unreachable!("Unspecified preferred display base"),
+        }
+    }
+
+    /// Get the range of the integer field.
+    ///
+    /// - For Unsigned Integer, the range is \[0, 2^N - 1\]
+    /// - For Signed Integer, the range is \[-2^N, 2^N - 1\]
+    #[must_use]
+    pub fn get_field_value_range(&self) -> u64 {
+        unsafe { bt_field_class_integer_get_field_value_range(self.as_ptr()) }
+    }
+}
+
+#[repr(transparent)]
+#[derive(Deref, Into)]
+pub struct BtFieldIntegerUnsignedClassConst(BtFieldIntegerClassConst);
+
+#[repr(transparent)]
+#[derive(Deref, Into)]
+pub struct BtFieldIntegerSignedClassConst(BtFieldIntegerClassConst);
+
+#[repr(transparent)]
+#[derive(Deref, Into)]
 pub struct BtFieldStructClassConst(BtFieldClassConst);
 
 #[repr(transparent)]
@@ -1155,5 +1246,59 @@ impl ArrayConversionError {
 impl From<Infallible> for ArrayConversionError {
     fn from(_: Infallible) -> Self {
         unreachable!()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum PreferedDisplayBase {
+    Binary = 2,
+    Octal = 8,
+    Decimal = 10,
+    Hexadecimal = 16,
+}
+
+impl PreferedDisplayBase {
+    fn wrap<T>(self, value: T) -> DebugWithBase<T> {
+        match self {
+            Self::Binary => DebugWithBase::Binary(value),
+            Self::Octal => DebugWithBase::Octal(value),
+            Self::Decimal => DebugWithBase::Decimal(value),
+            Self::Hexadecimal => DebugWithBase::Hexadecimal(value),
+        }
+    }
+}
+
+enum DebugWithBase<T> {
+    Binary(T),
+    Octal(T),
+    Decimal(T),
+    Hexadecimal(T),
+}
+
+impl<T> std::fmt::Debug for DebugWithBase<T>
+where
+    T: std::fmt::Binary + std::fmt::Octal + std::fmt::Display + std::fmt::LowerHex,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Binary(value) => write!(f, "{:#b}", value),
+            Self::Octal(value) => write!(f, "{:#o}", value),
+            Self::Decimal(value) => write!(f, "{}", value),
+            Self::Hexadecimal(value) => write!(f, "{:#x}", value),
+        }
+    }
+}
+
+impl<T> std::fmt::Display for DebugWithBase<T>
+where
+    T: std::fmt::Binary + std::fmt::Octal + std::fmt::Display + std::fmt::LowerHex,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Binary(value) => write!(f, "{:#b}", value),
+            Self::Octal(value) => write!(f, "{:#o}", value),
+            Self::Decimal(value) => write!(f, "{}", value),
+            Self::Hexadecimal(value) => write!(f, "{:#x}", value),
+        }
     }
 }
