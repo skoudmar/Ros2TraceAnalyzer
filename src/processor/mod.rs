@@ -23,14 +23,12 @@ impl MaybeProccessed<processed_events::Event, raw_events::Event> {
         time: Time,
     ) -> MaybeProccessed<processed_events::FullEvent, raw_events::FullEvent> {
         match self {
-            MaybeProccessed::Processed(event) => {
-                MaybeProccessed::Processed(processed_events::FullEvent {
-                    context,
-                    time,
-                    event,
-                })
-            }
-            MaybeProccessed::Raw(event) => MaybeProccessed::Raw(raw_events::FullEvent {
+            Self::Processed(event) => MaybeProccessed::Processed(processed_events::FullEvent {
+                context,
+                time,
+                event,
+            }),
+            Self::Raw(event) => MaybeProccessed::Raw(raw_events::FullEvent {
                 context,
                 time,
                 event,
@@ -46,8 +44,8 @@ where
 {
     fn from(result: Result<P, R>) -> Self {
         match result {
-            Ok(processed) => MaybeProccessed::Processed(processed.into()),
-            Err(raw) => MaybeProccessed::Raw(raw.into()),
+            Ok(processed) => Self::Processed(processed.into()),
+            Err(raw) => Self::Raw(raw.into()),
         }
     }
 }

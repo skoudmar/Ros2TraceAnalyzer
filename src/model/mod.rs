@@ -504,9 +504,9 @@ pub enum CallbackCaller {
 impl From<CallbackCaller> for CallbackType {
     fn from(caller: CallbackCaller) -> Self {
         match caller {
-            CallbackCaller::Subscription(_) => CallbackType::Subscription,
-            CallbackCaller::Service(_) => CallbackType::Service,
-            CallbackCaller::Timer(_) => CallbackType::Timer,
+            CallbackCaller::Subscription(_) => Self::Subscription,
+            CallbackCaller::Service(_) => Self::Service,
+            CallbackCaller::Timer(_) => Self::Timer,
         }
     }
 }
@@ -832,9 +832,9 @@ pub enum CallbackTrigger {
 impl From<CallbackTrigger> for CallbackType {
     fn from(trigger: CallbackTrigger) -> Self {
         match trigger {
-            CallbackTrigger::SubscriptionMessage(_) => CallbackType::Subscription,
-            CallbackTrigger::Service(_) => CallbackType::Service,
-            CallbackTrigger::Timer(_) => CallbackType::Timer,
+            CallbackTrigger::SubscriptionMessage(_) => Self::Subscription,
+            CallbackTrigger::Service(_) => Self::Service,
+            CallbackTrigger::Timer(_) => Self::Timer,
         }
     }
 }

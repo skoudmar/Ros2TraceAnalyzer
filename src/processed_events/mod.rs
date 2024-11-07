@@ -19,8 +19,8 @@ pub enum Event {
 impl std::fmt::Display for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Event::Ros2(e) => write!(f, "ros2:{e}"),
-            Event::R2r(e) => write!(f, "r2r:{e}"),
+            Self::Ros2(e) => write!(f, "ros2:{e}"),
+            Self::R2r(e) => write!(f, "r2r:{e}"),
         }
     }
 }
