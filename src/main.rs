@@ -90,10 +90,17 @@ impl<'a> Iterator for ProcessedEventsIter<'a> {
                     self.other_messages += 1;
                     continue;
                 }
-                BtMessageType::Event => raw_events::get_full_event(&message.into_event_msg()),
+                BtMessageType::Event => {
+                    let event_msg = message.into_event_msg();
+                    raw_events::get_full_event(&event_msg).ok_or(event_msg)
+                }
             };
 
-            let Some(event) = event else {
+            let Ok(event) = event else {
+                let event_msg = event.unwrap_err();
+                let event = event_msg.get_event();
+                eprintln!("Unsupported event: {:?}", event);
+
                 // Skip unsupported events
                 self.other_events += 1;
                 continue;
