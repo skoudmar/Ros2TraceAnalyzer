@@ -21,9 +21,18 @@ pub mod plugin;
 #[repr(transparent)]
 pub struct BtGraphBuilder(NonNull<bt_graph>);
 
+#[repr(transparent)]
+pub struct BtGraph(NonNull<bt_graph>);
+
 impl BtGraphBuilder {
     const MIP_VERSION: u64 = 0;
 
+    /// Create a new graph builder.
+    ///
+    /// Use this builder to create a graph and then call [`build`](Self::build) to get the graph.
+    ///
+    /// # Errors
+    /// If the memory allocation fails.
     pub fn new() -> Result<Self, OutOfMemory> {
         let graph = unsafe { bt_graph_create(Self::MIP_VERSION) };
         Ok(Self(NonNull::new(graph).ok_or(OutOfMemory)?))
@@ -124,6 +133,11 @@ impl BtGraphBuilder {
         let component = unsafe { BtComponentSinkConst::new_unchecked(component_ptr) };
 
         Ok(component)
+    }
+
+    #[must_use]
+    pub fn build(self) -> BtGraph {
+        BtGraph(self.0)
     }
 }
 

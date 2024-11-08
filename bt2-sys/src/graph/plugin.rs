@@ -45,6 +45,15 @@ impl BtPlugin {
         self.0.as_ptr()
     }
 
+    /// Find a plugin by name.
+    ///
+    /// # Errors
+    /// - [`BtPluginLoadError::NotFound`] if the plugin is not found.
+    /// - [`BtPluginLoadError::Memory`] if the memory allocation fails.
+    /// - [`BtPluginLoadError::Other`] if an unknown error occurs.
+    ///
+    /// # Panics
+    /// If Babeltrace2 C API does not uphold its guarantees.
     pub fn find_anywhere(name: &CStr) -> Result<Self, BtPluginLoadError> {
         let mut plugin = ptr::null();
         unsafe {
@@ -61,7 +70,8 @@ impl BtPlugin {
                     Err(BtPluginLoadError::Memory(OutOfMemory))
                 }
                 bt_plugin_find_status::BT_PLUGIN_FIND_STATUS_ERROR => {
-                    let error = BtErrorWrapper::get().unwrap();
+                    let error =
+                        BtErrorWrapper::get().expect("Error should be provided by the C API");
                     Err(BtPluginLoadError::Other(error))
                 }
                 _ => unreachable!("Unknown bt_plugin_find_status = {}", status.0),

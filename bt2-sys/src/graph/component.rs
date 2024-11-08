@@ -178,6 +178,10 @@ impl<'a> BtComponentClassConst<'a> {
         Self(ConstNonNull::new_unchecked(ptr), PhantomData)
     }
 
+    /// Get the name of the component class.
+    ///
+    /// # Errors
+    /// If the name is not valid UTF-8, this function will return an error.
     pub fn name(&self) -> Result<&str, Utf8Error> {
         unsafe {
             let ptr = bt_component_class_get_name(self.as_ptr());
@@ -185,6 +189,11 @@ impl<'a> BtComponentClassConst<'a> {
         }
     }
 
+    /// Get the description of the component class.
+    ///
+    /// # Errors
+    /// If the description is not valid UTF-8, this function will return an error.
+    #[must_use]
     pub fn description(&self) -> Option<Result<&str, Utf8Error>> {
         unsafe {
             let ptr = bt_component_class_get_description(self.as_ptr());
@@ -196,6 +205,11 @@ impl<'a> BtComponentClassConst<'a> {
         }
     }
 
+    /// Get the help text of the component class.
+    ///
+    /// # Errors
+    /// If the help text is not valid UTF-8, this function will return an error.
+    #[must_use]
     pub fn help_text(&self) -> Option<Result<&str, Utf8Error>> {
         unsafe {
             let ptr = bt_component_class_get_help(self.as_ptr());
