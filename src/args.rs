@@ -13,8 +13,8 @@ pub struct Args {
     /// Path to a directory containing the trace to analyze
     ///
     /// Can be a superdirectory of the trace directory.
-    #[arg(value_parser = PathBufValueParser::new().try_map(to_directory_path_buf))]
-    trace_path: PathBuf,
+    #[arg(value_parser = PathBufValueParser::new().try_map(to_directory_path_buf), num_args = 1.., required = true)]
+    trace_paths: Vec<PathBuf>,
 
     /// If set to true, only the directory specified by `trace-path` is searched for traces, not its subdirectories.
     #[arg(long)]
@@ -30,28 +30,34 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn trace_path(&self) -> &Path {
-        &self.trace_path
+    pub fn trace_paths(&self) -> &[PathBuf] {
+        &self.trace_paths
     }
 
-    pub fn trace_path_cstring(&self) -> CString {
-        CString::new(self.trace_path.to_str().unwrap()).unwrap()
+    pub fn trace_paths_cstring(&self) -> Vec<CString> {
+        self.trace_paths
+            .iter()
+            .map(|p| CString::new(p.to_str().unwrap()).unwrap())
+            .collect::<Vec<_>>()
     }
 
-    pub fn is_exact_path(&self) -> bool {
+    pub const fn is_exact_path(&self) -> bool {
         self.exact_path
     }
 
-    pub fn should_print_events(&self) -> bool {
+    pub const fn should_print_events(&self) -> bool {
         self.print_events
     }
 
-    pub fn should_print_unprocessed_events(&self) -> bool {
+    pub const fn should_print_unprocessed_events(&self) -> bool {
         self.print_unprocessed_events
     }
 }
 
 fn to_directory_path_buf(path: PathBuf) -> Result<PathBuf, &'static str> {
+    CString::new(path.to_str().ok_or("Path must be encoded as UTF-8")?)
+        .map_err(|_| "Path must not contain null bytes")?;
+
     if path.is_dir() {
         Ok(path)
     } else {

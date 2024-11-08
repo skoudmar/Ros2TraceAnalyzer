@@ -138,10 +138,8 @@ fn main() -> color_eyre::eyre::Result<()> {
 
     let args = Args::parse();
 
-    let trace_path = args.trace_path_cstring();
-
-    let trace_paths = if args.is_exact_path() {
-        [trace_path]
+    let trace_paths: Vec<_> = if args.is_exact_path() {
+        args.trace_paths_cstring()
             .into_iter()
             .filter_map(|path| {
                 if is_trace_path(&path) {
@@ -152,7 +150,11 @@ fn main() -> color_eyre::eyre::Result<()> {
             })
             .collect()
     } else {
-        find_trace_paths(args.trace_path())
+        args.trace_paths()
+            .iter()
+            .map(AsRef::as_ref)
+            .flat_map(find_trace_paths)
+            .collect()
     };
 
     ensure!(
