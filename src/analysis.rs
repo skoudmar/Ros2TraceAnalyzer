@@ -113,9 +113,9 @@ impl PartialOrd for MessageLatencyStats {
             let node2 = node2.lock().unwrap();
 
             match (node1.get_name(), node2.get_name()) {
-                (Known::Known(_), Known::Unknown) => return Some(Ordering::Greater),
-                (Known::Unknown, Known::Known(_)) => return Some(Ordering::Less),
-                (Known::Unknown, Known::Unknown) => return None,
+                (Known::Known(_), Known::Unknown) => Some(Ordering::Greater),
+                (Known::Unknown, Known::Known(_)) => Some(Ordering::Less),
+                (Known::Unknown, Known::Unknown) => None,
                 (Known::Known(name1), Known::Known(name2)) => Some(name1.cmp(name2)),
             }
         })
@@ -212,7 +212,9 @@ impl MessageLatency {
                 let min_latency = *latencies.iter().min().unwrap();
                 let max_latency = *latencies.iter().max().unwrap();
                 let avg_latency = (latencies.iter().copied().map(i128::from).sum::<i128>()
-                    / lat_len as i128) as i64;
+                    / lat_len as i128)
+                    .try_into()
+                    .expect("Average of i64 values should fit into i64");
 
                 MessageLatencyStats {
                     topic: topic.to_string(),
@@ -463,13 +465,12 @@ impl PublicationInCallback {
         };
 
         if let Some(old) = self.active_callbacks.remove(&id) {
-            if !Arc::ptr_eq(&old.0, &callback) {
-                panic!(
-                    "Callback {old:?} is not active on vtid {} on host {}",
-                    context.vtid(),
-                    context.hostname(),
-                );
-            }
+            assert!(
+                Arc::ptr_eq(&old.0, &callback),
+                "Callback {old:?} is not active on vtid {} on host {}",
+                context.vtid(),
+                context.hostname(),
+            );
         } else {
             panic!(
                 "No callback is being executed on vtid {} on host {}",

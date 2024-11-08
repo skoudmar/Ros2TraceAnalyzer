@@ -561,7 +561,7 @@ impl BtFieldUnsignedIntegerConst {
 
     #[must_use]
     pub fn get_class(&self) -> BtFieldIntegerUnsignedClassConst {
-        BtFieldIntegerUnsignedClassConst(BtFieldIntegerClassConst(BtFieldConst::get_class(&self)))
+        BtFieldIntegerUnsignedClassConst(BtFieldIntegerClassConst(BtFieldConst::get_class(self)))
     }
 }
 
@@ -601,7 +601,7 @@ impl BtFieldSignedIntegerConst {
 
     #[must_use]
     pub fn get_class(&self) -> BtFieldIntegerSignedClassConst {
-        BtFieldIntegerSignedClassConst(BtFieldIntegerClassConst(BtFieldConst::get_class(&self)))
+        BtFieldIntegerSignedClassConst(BtFieldIntegerClassConst(BtFieldConst::get_class(self)))
     }
 }
 
