@@ -828,7 +828,7 @@ where
 
     fn try_from(bt_array: BtFieldArrayConst) -> Result<Self, Self::Error> {
         let len = bt_array.get_length();
-        let mut vec = Vec::with_capacity(
+        let mut vec = Self::with_capacity(
             len.try_into()
                 .map_err(|_| ArrayConversionError::LengthTooLarge(len))?,
         );

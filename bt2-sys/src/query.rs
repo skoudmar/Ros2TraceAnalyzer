@@ -181,7 +181,7 @@ impl TryFrom<Const<BtValue>> for SupportInfoResult {
     fn try_from(value: Const<BtValue>) -> Result<Self, Self::Error> {
         let value = value.as_const();
         match value.cast() {
-            BtValueTypedConst::Real(real) => Ok(SupportInfoResult {
+            BtValueTypedConst::Real(real) => Ok(Self {
                 weight: real.get(),
                 group: None,
             }),
@@ -203,7 +203,7 @@ impl TryFrom<Const<BtValue>> for SupportInfoResult {
                     .map(|v| v.get().map(ToString::to_string))
                     .transpose()?;
 
-                Ok(SupportInfoResult { weight, group })
+                Ok(Self { weight, group })
             }
             _ => Err(SupportInfoResultError::IncorrectLayout),
         }

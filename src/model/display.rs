@@ -317,8 +317,8 @@ impl std::fmt::Debug for RmwGid {
 impl std::fmt::Display for Gid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Gid::DdsGid(gid) => write!(f, "{gid}"),
-            Gid::RmwGid(gid) => write!(f, "{gid}"),
+            Self::DdsGid(gid) => write!(f, "{gid}"),
+            Self::RmwGid(gid) => write!(f, "{gid}"),
         }
     }
 }
@@ -326,8 +326,8 @@ impl std::fmt::Display for Gid {
 impl std::fmt::Debug for Gid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Gid::DdsGid(gid) => std::fmt::Debug::fmt(gid, f),
-            Gid::RmwGid(gid) => std::fmt::Debug::fmt(gid, f),
+            Self::DdsGid(gid) => std::fmt::Debug::fmt(gid, f),
+            Self::RmwGid(gid) => std::fmt::Debug::fmt(gid, f),
         }
     }
 }

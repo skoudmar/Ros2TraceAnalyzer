@@ -152,15 +152,11 @@ pub enum AddComponentError {
 impl IntoResult<(), AddComponentError> for bt_graph_add_component_status {
     fn into_result(self) -> Result<(), AddComponentError> {
         match self {
-            bt_graph_add_component_status::BT_GRAPH_ADD_COMPONENT_STATUS_OK => Ok(()),
-            bt_graph_add_component_status::BT_GRAPH_ADD_COMPONENT_STATUS_MEMORY_ERROR => {
-                Err(OutOfMemory.into())
-            }
-            bt_graph_add_component_status::BT_GRAPH_ADD_COMPONENT_STATUS_ERROR => {
-                Err(BtErrorWrapper::get()
-                    .expect("Error should be provided by the C API")
-                    .into())
-            }
+            Self::BT_GRAPH_ADD_COMPONENT_STATUS_OK => Ok(()),
+            Self::BT_GRAPH_ADD_COMPONENT_STATUS_MEMORY_ERROR => Err(OutOfMemory.into()),
+            Self::BT_GRAPH_ADD_COMPONENT_STATUS_ERROR => Err(BtErrorWrapper::get()
+                .expect("Error should be provided by the C API")
+                .into()),
             _ => unreachable!("Unknown bt_graph_add_component_status value: {:?}", self),
         }
     }
