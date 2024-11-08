@@ -9,7 +9,7 @@ use walkdir::WalkDir;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
-pub(crate) struct Args {
+pub struct Args {
     /// Path to a directory containing the trace to analyze
     ///
     /// Can be a superdirectory of the trace directory.
@@ -61,7 +61,7 @@ fn to_directory_path_buf(path: PathBuf) -> Result<PathBuf, &'static str> {
 
 const TRACE_PATH_LIKELIHOOD_THRESHOLD: f64 = 0.5;
 
-pub(crate) fn is_trace_path(path: &CStr) -> bool {
+pub fn is_trace_path(path: &CStr) -> bool {
     let support_info_query =
         support_info::Query::new_prepared("ctf", "fs", BtComponentType::Source)
             .expect("Failed to prepare support info query");
@@ -75,7 +75,7 @@ pub(crate) fn is_trace_path(path: &CStr) -> bool {
     result.weight() > TRACE_PATH_LIKELIHOOD_THRESHOLD
 }
 
-pub(crate) fn find_trace_paths(search_path: &Path) -> Vec<CString> {
+pub fn find_trace_paths(search_path: &Path) -> Vec<CString> {
     let support_info_query =
         support_info::Query::new_prepared("ctf", "fs", BtComponentType::Source)
             .expect("Failed to prepare support info query");

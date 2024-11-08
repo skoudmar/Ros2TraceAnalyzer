@@ -21,7 +21,7 @@ macro_rules! impl_deref {
 
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone)]
-pub(crate) struct ConstNonNull<T>(NonNull<T>);
+pub struct ConstNonNull<T>(NonNull<T>);
 
 impl<T> ConstNonNull<T> {
     pub(crate) fn new(ptr: *const T) -> Option<Self> {
@@ -79,7 +79,7 @@ impl<T> Const<T> {
     }
 }
 
-pub(crate) enum BtProperyAvailabilty {
+pub enum BtProperyAvailabilty {
     Available,
     NotAvailable,
 }
