@@ -828,7 +828,10 @@ where
 
     fn try_from(bt_array: BtFieldArrayConst) -> Result<Self, Self::Error> {
         let len = bt_array.get_length();
-        let mut vec = Vec::with_capacity(len as usize);
+        let mut vec = Vec::with_capacity(
+            len.try_into()
+                .map_err(|_| ArrayConversionError::LengthTooLarge(len))?,
+        );
         for i in 0..len {
             let elem = bt_array.get_value(i).try_into().map_err(
                 |e: <T as TryFrom<BtFieldConst>>::Error| {
@@ -1224,6 +1227,9 @@ pub enum ArrayConversionError {
 
     #[error("Array length mismatch: expected {expected}, got {actual}")]
     LengthMismatch { expected: u64, actual: u64 },
+
+    #[error("Array length could not fit in usize: {0}")]
+    LengthTooLarge(u64),
 }
 
 impl ArrayConversionError {
