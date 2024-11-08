@@ -37,11 +37,11 @@ pub enum BtPluginLoadError {
 pub struct BtPlugin(ConstNonNull<bt_plugin>);
 
 impl BtPlugin {
-    pub(crate) unsafe fn new_unchecked(ptr: ConstNonNull<bt_plugin>) -> Self {
+    pub(crate) const unsafe fn new_unchecked(ptr: ConstNonNull<bt_plugin>) -> Self {
         Self(ptr)
     }
 
-    pub(crate) fn as_ptr(&self) -> *const bt_plugin {
+    pub(crate) const fn as_ptr(&self) -> *const bt_plugin {
         self.0.as_ptr()
     }
 

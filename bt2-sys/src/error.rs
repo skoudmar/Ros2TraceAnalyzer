@@ -105,7 +105,7 @@ impl BtErrorWrapper {
     }
 
     #[inline]
-    pub(crate) fn as_ptr(&self) -> *const bt_error {
+    pub(crate) const fn as_ptr(&self) -> *const bt_error {
         self.0.as_ptr()
     }
 }

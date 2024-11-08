@@ -985,7 +985,7 @@ impl BtFieldClassConst {
         Self(ConstNonNull::new_unchecked(field_class))
     }
 
-    fn as_ptr(&self) -> *const bt_field_class {
+    const fn as_ptr(&self) -> *const bt_field_class {
         self.0.as_ptr()
     }
 }
@@ -1118,7 +1118,7 @@ impl BtFieldStructMemberClassConst {
         Self(ConstNonNull::new_unchecked(field_class))
     }
 
-    fn as_ptr(&self) -> *const bt_field_class_structure_member {
+    const fn as_ptr(&self) -> *const bt_field_class_structure_member {
         self.0.as_ptr()
     }
 
@@ -1258,7 +1258,7 @@ pub enum PreferedDisplayBase {
 }
 
 impl PreferedDisplayBase {
-    fn wrap<T>(self, value: T) -> DebugWithBase<T> {
+    const fn wrap<T>(self, value: T) -> DebugWithBase<T> {
         match self {
             Self::Binary => DebugWithBase::Binary(value),
             Self::Octal => DebugWithBase::Octal(value),

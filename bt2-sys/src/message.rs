@@ -100,7 +100,7 @@ impl BtMessageConst {
     }
 
     #[inline]
-    pub(crate) fn as_ptr(&self) -> *const bt_message {
+    pub(crate) const fn as_ptr(&self) -> *const bt_message {
         self.0.as_ptr()
     }
 

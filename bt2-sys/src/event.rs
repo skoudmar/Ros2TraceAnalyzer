@@ -25,7 +25,7 @@ impl<'a> BtEventConst<'a> {
     }
 
     #[inline]
-    pub(crate) fn get_ptr(&self) -> *const bt_event {
+    pub(crate) const fn get_ptr(&self) -> *const bt_event {
         self.0.as_ptr()
     }
 
@@ -110,7 +110,7 @@ impl BtEventClassConst {
     }
 
     #[inline]
-    pub(crate) fn get_ptr(&self) -> *const bt_event_class {
+    pub(crate) const fn get_ptr(&self) -> *const bt_event_class {
         self.0.as_ptr()
     }
 

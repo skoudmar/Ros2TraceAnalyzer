@@ -48,7 +48,7 @@ pub enum BtComponentCasted<'a> {
 
 impl<'a> BtComponentCasted<'a> {
     #[must_use]
-    pub fn as_type(&self) -> BtComponentType {
+    pub const fn as_type(&self) -> BtComponentType {
         match self {
             Self::Source(_) => BtComponentType::Source,
             Self::Filter(_) => BtComponentType::Filter,
@@ -87,7 +87,7 @@ impl<'a> BtComponentConst<'a> {
         Self(ConstNonNull::new_unchecked(ptr), PhantomData)
     }
 
-    fn as_ptr(&self) -> *const bt_component {
+    const fn as_ptr(&self) -> *const bt_component {
         self.0.as_ptr()
     }
 
@@ -101,7 +101,7 @@ impl<'a> BtComponentSourceConst<'a> {
         Self(ConstNonNull::new_unchecked(ptr), PhantomData)
     }
 
-    pub fn as_ptr(&self) -> *const bt_component_source {
+    pub(crate) const fn as_ptr(&self) -> *const bt_component_source {
         self.0.as_ptr()
     }
 
@@ -116,7 +116,7 @@ impl<'a> BtComponentFilterConst<'a> {
         Self(ConstNonNull::new_unchecked(ptr), PhantomData)
     }
 
-    pub fn as_ptr(&self) -> *const bt_component_filter {
+    pub(crate) const fn as_ptr(&self) -> *const bt_component_filter {
         self.0.as_ptr()
     }
 
@@ -131,7 +131,7 @@ impl<'a> BtComponentSinkConst<'a> {
         Self(ConstNonNull::new_unchecked(ptr), PhantomData)
     }
 
-    pub fn as_ptr(&self) -> *const bt_component_sink {
+    pub(crate) const fn as_ptr(&self) -> *const bt_component_sink {
         self.0.as_ptr()
     }
 
@@ -221,7 +221,7 @@ impl<'a> BtComponentClassConst<'a> {
         }
     }
 
-    pub(crate) fn as_ptr(&self) -> *const bt_component_class {
+    pub(crate) const fn as_ptr(&self) -> *const bt_component_class {
         self.0.as_ptr()
     }
 
@@ -277,7 +277,7 @@ impl<'a> BtComponentClassSourceConst<'a> {
         Self(ConstNonNull::new_unchecked(ptr), PhantomData)
     }
 
-    pub(crate) fn as_ptr(&self) -> *const bt_component_class_source {
+    pub(crate) const fn as_ptr(&self) -> *const bt_component_class_source {
         self.0.as_ptr()
     }
 
@@ -298,7 +298,7 @@ impl<'a> BtComponentClassFilterConst<'a> {
     }
 
     #[inline]
-    pub(crate) fn as_ptr(&self) -> *const bt_component_class_filter {
+    pub(crate) const fn as_ptr(&self) -> *const bt_component_class_filter {
         self.0.as_ptr()
     }
 
@@ -319,7 +319,7 @@ impl<'a> BtComponentClassSinkConst<'a> {
     }
 
     #[inline]
-    pub(crate) fn as_ptr(&self) -> *const bt_component_class_sink {
+    pub(crate) const fn as_ptr(&self) -> *const bt_component_class_sink {
         self.0.as_ptr()
     }
 

@@ -73,7 +73,7 @@ pub enum BtValueTypedConst<'a> {
 
 impl<'a> BtValueTypedConst<'a> {
     #[must_use]
-    pub fn get_type(&self) -> BtValueType {
+    pub const fn get_type(&self) -> BtValueType {
         match self {
             Self::Null(_) => BtValueType::Null,
             Self::Bool(_) => BtValueType::Bool,
@@ -124,7 +124,7 @@ pub struct BtValueMapConst<'a>(BtValueConst<'a>);
 
 impl BtValueType {
     #[must_use]
-    pub fn from_raw(raw: bt_value_type) -> Option<Self> {
+    pub const fn from_raw(raw: bt_value_type) -> Option<Self> {
         match raw {
             bt_value_type::BT_VALUE_TYPE_NULL => Some(Self::Null),
             bt_value_type::BT_VALUE_TYPE_BOOL => Some(Self::Bool),
@@ -144,12 +144,12 @@ impl<'a> BtValueConst<'a> {
         Self(ConstNonNull::new_unchecked(ptr), PhantomData)
     }
 
-    pub(crate) unsafe fn new(ptr: ConstNonNull<bt_value>) -> Self {
+    pub(crate) const unsafe fn new(ptr: ConstNonNull<bt_value>) -> Self {
         Self(ptr, PhantomData)
     }
 
     #[inline]
-    pub(crate) fn as_ptr(&self) -> *const bt_value {
+    pub(crate) const fn as_ptr(&self) -> *const bt_value {
         self.0.as_ptr()
     }
 
@@ -276,7 +276,7 @@ pub enum BtValueTyped {
 
 impl BtValueTyped {
     #[must_use]
-    pub fn get_type(&self) -> BtValueType {
+    pub const fn get_type(&self) -> BtValueType {
         match self {
             Self::Null(_) => BtValueType::Null,
             Self::Bool(_) => BtValueType::Bool,
@@ -323,16 +323,16 @@ pub struct BtValueArray(BtValue);
 pub struct BtValueMap(BtValue);
 
 impl BtValue {
-    unsafe fn new_from_inner(ptr: NonNull<bt_value>) -> Self {
+    const unsafe fn new_from_inner(ptr: NonNull<bt_value>) -> Self {
         Self(ptr)
     }
 
-    pub(crate) unsafe fn new_unchecked(ptr: *mut bt_value) -> Self {
+    pub(crate) const unsafe fn new_unchecked(ptr: *mut bt_value) -> Self {
         Self(NonNull::new_unchecked(ptr))
     }
 
     #[inline]
-    pub(crate) fn as_ptr(&self) -> *mut bt_value {
+    pub(crate) const fn as_ptr(&self) -> *mut bt_value {
         self.0.as_ptr()
     }
 

@@ -20,7 +20,7 @@ impl BtStreamConst {
     }
 
     #[inline]
-    pub(crate) fn get_ptr(&self) -> *const bt_stream {
+    pub(crate) const fn get_ptr(&self) -> *const bt_stream {
         self.0.as_ptr()
     }
 
@@ -44,7 +44,7 @@ impl BtStreamClassConst {
     }
 
     #[inline]
-    pub(crate) fn get_ptr(&self) -> *const bt_stream_class {
+    pub(crate) const fn get_ptr(&self) -> *const bt_stream_class {
         self.0.as_ptr()
     }
 
@@ -63,7 +63,7 @@ impl BtPacketConst {
     }
 
     #[inline]
-    pub(crate) fn get_ptr(&self) -> *const bt_packet {
+    pub(crate) const fn get_ptr(&self) -> *const bt_packet {
         self.0.as_ptr()
     }
 

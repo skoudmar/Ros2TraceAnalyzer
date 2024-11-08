@@ -38,7 +38,7 @@ impl BtGraphBuilder {
         Ok(Self(NonNull::new(graph).ok_or(OutOfMemory)?))
     }
 
-    fn as_ptr(&mut self) -> *mut bt_graph {
+    const fn as_ptr(&self) -> *mut bt_graph {
         self.0.as_ptr()
     }
 
@@ -136,7 +136,7 @@ impl BtGraphBuilder {
     }
 
     #[must_use]
-    pub fn build(self) -> BtGraph {
+    pub const fn build(self) -> BtGraph {
         BtGraph(self.0)
     }
 }

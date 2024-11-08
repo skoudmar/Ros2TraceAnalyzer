@@ -39,7 +39,7 @@ impl<T> ConstNonNull<T> {
     }
 
     #[must_use]
-    pub(crate) fn as_ptr(&self) -> *const T {
+    pub(crate) const fn as_ptr(&self) -> *const T {
         self.0.as_ptr()
     }
 }

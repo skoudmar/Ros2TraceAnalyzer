@@ -18,7 +18,7 @@ impl BtTraceConst {
         Self(ConstNonNull::new_unchecked(ptr))
     }
 
-    pub(crate) fn get_ptr(&self) -> *const bt_trace {
+    pub(crate) const fn get_ptr(&self) -> *const bt_trace {
         self.0.as_ptr()
     }
 

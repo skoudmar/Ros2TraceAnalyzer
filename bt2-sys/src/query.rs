@@ -33,11 +33,11 @@ pub enum BtQueryError {
 }
 
 impl BtQueryExecutor {
-    pub(crate) unsafe fn new_unchecked(ptr: NonNull<bt_query_executor>) -> Self {
+    pub(crate) const unsafe fn new_unchecked(ptr: NonNull<bt_query_executor>) -> Self {
         Self(ptr)
     }
 
-    fn as_ptr(&self) -> *mut bt_query_executor {
+    const fn as_ptr(&self) -> *mut bt_query_executor {
         self.0.as_ptr()
     }
 
@@ -113,7 +113,7 @@ pub enum SupportInfoParams<'a> {
 }
 
 impl<'a> SupportInfoParams<'a> {
-    fn input(&self) -> &CStr {
+    const fn input(&self) -> &CStr {
         match self {
             SupportInfoParams::File(s)
             | SupportInfoParams::Directory(s)
@@ -121,7 +121,7 @@ impl<'a> SupportInfoParams<'a> {
         }
     }
 
-    fn typ(&self) -> &'static CStr {
+    const fn typ(&self) -> &'static CStr {
         match self {
             SupportInfoParams::String(_) => c"string",
             SupportInfoParams::File(_) => c"file",
@@ -149,7 +149,7 @@ pub struct SupportInfoResult {
 
 impl SupportInfoResult {
     #[must_use]
-    pub fn weight(&self) -> f64 {
+    pub const fn weight(&self) -> f64 {
         self.weight
     }
 

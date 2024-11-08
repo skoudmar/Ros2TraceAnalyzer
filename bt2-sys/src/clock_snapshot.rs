@@ -13,7 +13,7 @@ impl BtClockSnapshotConst {
         Self(ptr)
     }
 
-    pub(crate) fn as_ptr(&self) -> *const bt_clock_snapshot {
+    pub(crate) const fn as_ptr(&self) -> *const bt_clock_snapshot {
         self.0
     }
 
@@ -50,11 +50,11 @@ impl BtClockSnapshotConst {
 pub struct BtClockClassConst(ConstNonNull<bt_clock_class>);
 
 impl BtClockClassConst {
-    pub(crate) unsafe fn new_unchecked(ptr: ConstNonNull<bt_clock_class>) -> Self {
+    pub(crate) const unsafe fn new_unchecked(ptr: ConstNonNull<bt_clock_class>) -> Self {
         Self(ptr)
     }
 
-    pub(crate) fn as_ptr(&self) -> *const bt_clock_class {
+    pub(crate) const fn as_ptr(&self) -> *const bt_clock_class {
         self.0.as_ptr()
     }
 
