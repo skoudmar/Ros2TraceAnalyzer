@@ -287,10 +287,12 @@ impl EventAnalysis for MessageLatency {
             Event::Ros2(ros2::Event::RclCppTake(event)) => {
                 let message = event.message.clone();
                 if event.is_new {
-                    self.add_message(message);
+                    self.add_message(message.clone());
                 } else {
-                    assert!(self.messages.contains(&message.into()));
+                    assert!(self.messages.contains(&message.clone().into()));
                 }
+
+                self.remove_message(message);
             }
 
             _ => {}
