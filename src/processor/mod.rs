@@ -202,15 +202,15 @@ impl Processor {
             raw_events::ros2::Event::RclcppSubscriptionCallbackAdded(event) => self
                 .process_rclcpp_subscription_callback_added(event, context_id)
                 .into(),
-            raw_events::ros2::Event::RmwTake(event) => {
-                self.process_rmw_take(event, context_id, time).into()
-            }
-            raw_events::ros2::Event::RclTake(event) => {
-                self.process_rcl_take(event, context_id, time).into()
-            }
-            raw_events::ros2::Event::RclcppTake(event) => {
-                self.process_rclcpp_take(event, context_id, time).into()
-            }
+            raw_events::ros2::Event::RmwTake(event) => self
+                .process_rmw_take(event, context_id, context, time)
+                .into(),
+            raw_events::ros2::Event::RclTake(event) => self
+                .process_rcl_take(event, context_id, context, time)
+                .into(),
+            raw_events::ros2::Event::RclcppTake(event) => self
+                .process_rclcpp_take(event, context_id, context, time)
+                .into(),
             raw_events::ros2::Event::RclServiceInit(event) => {
                 self.process_rcl_service_init(event, context_id).into()
             }
@@ -624,6 +624,7 @@ impl Processor {
         &mut self,
         event: raw_events::ros2::RmwTake,
         context_id: ContextId,
+        context: &Context,
         time: Time,
     ) -> processed_events::ros2::RmwTake {
         let subscriber = self
@@ -642,7 +643,7 @@ impl Processor {
             }
             None => {
                 if event.source_timestamp == 0 {
-                    eprintln!("rmw_take: Missing source timestamp. [{time}] {event:?}");
+                    eprintln!("rmw_take: Missing source timestamp. [{time}] {event:?} {context:?}");
                 }
                 message.rmw_take_unmatched(subscriber.clone(), event.source_timestamp, time);
             }
@@ -672,19 +673,22 @@ impl Processor {
         &mut self,
         event: raw_events::ros2::RclTake,
         context_id: ContextId,
+        context: &Context,
         time: Time,
     ) -> processed_events::ros2::RclTake {
         let message_arc = self
             .received_messages
             .get(&event.message.into_id(context_id))
-            .unwrap();
+            .and_then(|message_arc| {
+                let mut message = message_arc.lock().unwrap();
+                message.rcl_take(time).ok().map(|()| message_arc)
+            });
 
-        let create_new = {
-            let mut message = message_arc.lock().unwrap();
-            message.rcl_take(time).is_err()
-        };
+        let is_new = message_arc.is_none();
 
-        let message_arc = if create_new {
+        let message_arc = if let Some(message_arc) = message_arc {
+            message_arc.clone()
+        } else {
             let mut message = SubscriptionMessage::new(event.message);
             message
                 .rcl_take(time)
@@ -692,20 +696,18 @@ impl Processor {
             let message_arc = Arc::new(Mutex::new(message));
 
             eprintln!(
-                "rcl_take: Mesasge was not taken before. Creating new message. [{time}] {event:?}"
+                "rcl_take: Message was not taken before. Creating new message. [{time}] {event:?} {context:?}"
             );
 
             self.received_messages
                 .insert(event.message.into_id(context_id), message_arc.clone());
 
             message_arc
-        } else {
-            message_arc.clone()
         };
 
         processed_events::ros2::RclTake {
             message: message_arc,
-            is_new: create_new,
+            is_new,
         }
     }
 
@@ -713,38 +715,39 @@ impl Processor {
         &mut self,
         event: raw_events::ros2::RclcppTake,
         context_id: ContextId,
+        context: &Context,
         time: Time,
     ) -> processed_events::ros2::RclCppTake {
         let message_arc = self
             .received_messages
             .get(&event.message.into_id(context_id))
-            .unwrap();
+            .and_then(|message_arc| {
+                let mut message = message_arc.lock().unwrap();
+                message.rclcpp_take(time).ok().map(|()| message_arc)
+            });
 
-        let create_new = {
-            let mut message = message_arc.lock().unwrap();
-            message.rclcpp_take(time).is_err()
-        };
+        let is_new = message_arc.is_none();
 
-        let message_arc = if create_new {
+        let message_arc = if let Some(message_arc) = message_arc {
+            message_arc.clone()
+        } else {
             let mut message = SubscriptionMessage::new(event.message);
             message
                 .rclcpp_take(time)
                 .expect("The message was just created, rclcpp_take was not called before.");
             let message_arc = Arc::new(Mutex::new(message));
 
-            eprintln!("rclcpp_take: Mesasge was not taken before. Creating new message. [{time}] {event:?}");
+            eprintln!("rclcpp_take: Message was not taken before. Creating new message. [{time}] {event:?} {context:?}");
 
             self.received_messages
                 .insert(event.message.into_id(context_id), message_arc.clone());
 
             message_arc
-        } else {
-            message_arc.clone()
         };
 
         processed_events::ros2::RclCppTake {
             message: message_arc.clone(),
-            is_new: create_new,
+            is_new,
         }
     }
 
