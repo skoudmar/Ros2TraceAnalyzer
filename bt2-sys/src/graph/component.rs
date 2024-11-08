@@ -91,6 +91,7 @@ impl<'a> BtComponentConst<'a> {
         self.0.as_ptr()
     }
 
+    #[must_use]
     pub fn get_type(&self) -> BtComponentType {
         unsafe { bt_component_get_class_type(self.as_ptr()) }.into()
     }
@@ -225,10 +226,12 @@ impl<'a> BtComponentClassConst<'a> {
         self.0.as_ptr()
     }
 
+    #[must_use]
     pub fn get_type(&self) -> BtComponentType {
         unsafe { bt_component_class_get_type(self.as_ptr()) }.into()
     }
 
+    #[must_use]
     pub fn cast(self) -> BtComponentClassCastedConst<'a> {
         match self.get_type() {
             BtComponentType::Source => BtComponentClassCastedConst::Source(unsafe {

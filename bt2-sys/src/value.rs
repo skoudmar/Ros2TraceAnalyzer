@@ -358,6 +358,7 @@ impl BtValue {
             .expect("Unknown bt_value_type")
     }
 
+    #[must_use]
     pub fn as_const(&self) -> BtValueConst<'_> {
         unsafe { BtValueConst::new_unchecked(self.as_ptr()) }
     }
@@ -458,6 +459,7 @@ impl BtValueSignedInteger {
         unsafe { bt_value_integer_signed_set(self.as_ptr(), value) }
     }
 
+    #[must_use]
     pub fn as_const(&self) -> BtValueSignedIntegerConst<'_> {
         BtValueSignedIntegerConst(self.0.as_const())
     }
@@ -484,6 +486,7 @@ impl BtValueReal {
         unsafe { bt_value_real_set(self.as_ptr(), value) }
     }
 
+    #[must_use]
     pub fn as_const(&self) -> BtValueRealConst<'_> {
         BtValueRealConst(self.0.as_const())
     }
@@ -526,6 +529,7 @@ impl BtValueString {
         }
     }
 
+    #[must_use]
     pub fn as_const(&self) -> BtValueStringConst<'_> {
         BtValueStringConst(self.0.as_const())
     }
@@ -547,16 +551,19 @@ impl BtValueArray {
     }
 
     #[inline]
+    #[must_use]
     pub fn length(&self) -> u64 {
         self.as_const().length()
     }
 
     #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.as_const().is_empty()
     }
 
     #[inline]
+    #[must_use]
     pub fn as_const(&self) -> BtValueArrayConst<'_> {
         BtValueArrayConst(self.0.as_const())
     }
@@ -652,14 +659,17 @@ impl BtValueMap {
             .into_result()
     }
 
+    #[must_use]
     pub fn as_const(&self) -> BtValueMapConst<'_> {
         BtValueMapConst(self.0.as_const())
     }
 
+    #[must_use]
     pub fn get<'a>(&'a self, key: &str) -> Option<BtValueConst<'a>> {
         self.as_const().get(key)
     }
 
+    #[must_use]
     pub fn get_with_cstr_key<'a>(&'a self, key: &CStr) -> Option<BtValueConst<'a>> {
         self.as_const().get_with_cstr_key(key)
     }
