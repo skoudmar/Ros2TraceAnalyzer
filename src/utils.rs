@@ -287,7 +287,7 @@ impl<'a, T: std::fmt::LowerHex> std::fmt::Debug for DebugOptionHex<'a, T> {
         match &self.0 {
             Some(value) => f
                 .debug_tuple("Some")
-                .field(&format_args!("{:#x}", value))
+                .field(&format_args!("{value:#x}"))
                 .finish(),
             None => f.debug_struct("None").finish(),
         }

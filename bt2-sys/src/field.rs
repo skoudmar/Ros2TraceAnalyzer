@@ -1287,10 +1287,10 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Binary(value) => write!(f, "{:#b}", value),
-            Self::Octal(value) => write!(f, "{:#o}", value),
-            Self::Decimal(value) => write!(f, "{}", value),
-            Self::Hexadecimal(value) => write!(f, "{:#x}", value),
+            Self::Binary(value) => write!(f, "{value:#b}"),
+            Self::Octal(value) => write!(f, "{value:#o}"),
+            Self::Decimal(value) => write!(f, "{value}"),
+            Self::Hexadecimal(value) => write!(f, "{value:#x}"),
         }
     }
 }
@@ -1301,10 +1301,10 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Binary(value) => write!(f, "{:#b}", value),
-            Self::Octal(value) => write!(f, "{:#o}", value),
-            Self::Decimal(value) => write!(f, "{}", value),
-            Self::Hexadecimal(value) => write!(f, "{:#x}", value),
+            Self::Binary(value) => write!(f, "{value:#b}"),
+            Self::Octal(value) => write!(f, "{value:#o}"),
+            Self::Decimal(value) => write!(f, "{value}"),
+            Self::Hexadecimal(value) => write!(f, "{value:#x}"),
         }
     }
 }

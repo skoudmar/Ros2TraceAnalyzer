@@ -99,7 +99,7 @@ impl<'a> Iterator for ProcessedEventsIter<'a> {
             let Ok(event) = event else {
                 let event_msg = event.unwrap_err();
                 let event = event_msg.get_event();
-                eprintln!("Unsupported event: {:?}", event);
+                eprintln!("Unsupported event: {event:?}");
 
                 // Skip unsupported events
                 self.other_events += 1;
