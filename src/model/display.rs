@@ -59,8 +59,15 @@ impl std::fmt::Display for Publisher {
             .as_ref()
             .map(|node| DisplayWeakMutex::new(node, f.alternate()));
 
-        write!(f, "(topic={}, handles={{dds={:x}, rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node})",
-        self.topic_name.as_ref().map(DisplayDebug), self.dds_handle, self.rmw_handle, self.rcl_handle, self.rclcpp_handle, self.queue_depth)
+        write!(
+            f,
+            "(topic={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node})",
+            self.topic_name.as_ref().map(DisplayDebug),
+            self.rmw_handle,
+            self.rcl_handle,
+            self.rclcpp_handle,
+            self.queue_depth
+        )
     }
 }
 
@@ -70,9 +77,8 @@ impl<'a> std::fmt::Display for DisplayPublisherWithoutNode<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "(topic={}, handles={{dds={:x}, rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={})",
+            "(topic={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={})",
             self.0.topic_name.as_ref().map(DisplayDebug),
-            self.0.dds_handle,
             self.0.rmw_handle,
             self.0.rcl_handle,
             self.0.rclcpp_handle,
@@ -92,8 +98,8 @@ impl std::fmt::Display for Subscriber {
             .as_ref()
             .map(|callback| DisplayArcMutex::new(callback, f.alternate()));
 
-        write!(f, "(topic={}, handles={{dds={:x}, rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node} callback={callback:#})",
-            self.topic_name.as_ref().map(DisplayDebug), self.dds_handle, self.rmw_handle, self.rcl_handle, self.rclcpp_handle, self.queue_depth,
+        write!(f, "(topic={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node} callback={callback:#})",
+            self.topic_name.as_ref().map(DisplayDebug), self.rmw_handle, self.rcl_handle, self.rclcpp_handle, self.queue_depth,
         )
     }
 }
@@ -108,8 +114,8 @@ impl<'a> std::fmt::Display for DisplaySubscriberWithoutNode<'a> {
             .as_ref()
             .map(|callback| DisplayArcMutex::new(callback, false));
 
-        write!(f, "(topic={}, handles={{dds={:x}, rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, callback={callback:#})",
-            self.0.topic_name.as_ref().map(DisplayDebug), self.0.dds_handle, self.0.rmw_handle, self.0.rcl_handle, self.0.rclcpp_handle, self.0.queue_depth,
+        write!(f, "(topic={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, callback={callback:#})",
+            self.0.topic_name.as_ref().map(DisplayDebug), self.0.rmw_handle, self.0.rcl_handle, self.0.rclcpp_handle, self.0.queue_depth,
         )
     }
 }
