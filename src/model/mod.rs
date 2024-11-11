@@ -1,4 +1,4 @@
-mod display;
+pub(crate) mod display;
 
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex, Weak};

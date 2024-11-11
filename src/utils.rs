@@ -131,13 +131,13 @@ where
     }
 }
 
-pub(crate) struct DisplayArcMutex<'a, T> {
+pub struct DisplayArcMutex<'a, T> {
     arc: &'a Arc<Mutex<T>>,
     skip: bool,
 }
 
 impl<'a, T: Display> DisplayArcMutex<'a, T> {
-    pub fn new(arc: &'a Arc<Mutex<T>>, skip: bool) -> Self {
+    pub const fn new(arc: &'a Arc<Mutex<T>>, skip: bool) -> Self {
         Self { arc, skip }
     }
 }
@@ -162,13 +162,13 @@ impl<'a, T: Debug> Debug for DisplayArcMutex<'a, T> {
     }
 }
 
-pub(crate) struct DisplayWeakMutex<'a, T> {
+pub struct DisplayWeakMutex<'a, T> {
     weak: &'a Weak<Mutex<T>>,
     skip: bool,
 }
 
 impl<'a, T> DisplayWeakMutex<'a, T> {
-    pub fn new(weak: &'a Weak<Mutex<T>>, skip: bool) -> Self {
+    pub const fn new(weak: &'a Weak<Mutex<T>>, skip: bool) -> Self {
         Self { weak, skip }
     }
 }
@@ -200,7 +200,7 @@ impl<'a, T: Debug> Debug for DisplayWeakMutex<'a, T> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct DisplayDebug<T>(pub(crate) T);
+pub struct DisplayDebug<T>(pub(crate) T);
 
 impl<T: Debug> Display for DisplayDebug<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -209,7 +209,7 @@ impl<T: Debug> Display for DisplayDebug<T> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct DisplayDuration(pub(crate) i64);
+pub struct DisplayDuration(pub(crate) i64);
 
 impl std::fmt::Display for DisplayDuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -230,7 +230,7 @@ impl std::fmt::Display for DisplayDuration {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct DisplayLargeDuration(pub(crate) u128);
+pub struct DisplayLargeDuration(pub(crate) u128);
 
 impl std::fmt::Display for DisplayLargeDuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -256,7 +256,7 @@ impl std::fmt::Display for DisplayLargeDuration {
 ///
 /// Note: The display of years is assuming every year has 365 days.
 #[derive(Debug, Clone, Copy, From)]
-pub(crate) struct DurationDisplayImprecise(pub i64);
+pub struct DurationDisplayImprecise(pub i64);
 
 impl std::fmt::Display for DurationDisplayImprecise {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
