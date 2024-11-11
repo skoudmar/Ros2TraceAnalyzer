@@ -1,7 +1,10 @@
+use std::fs::File;
 use std::hash::Hash;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use crate::processed_events::FullEvent;
+use csv::{Writer, WriterBuilder};
 use derive_more::derive::From;
 
 pub mod message_latency;
@@ -32,6 +35,20 @@ pub trait EventAnalysis {
     ///
     /// This method is called after all events have been processed
     fn finalize(&mut self);
+}
+
+pub trait AnalysisOutput {
+    const FILE_NAME: &'static str;
+
+    fn write_csv(&self, writer: &mut Writer<File>) -> csv::Result<()>;
+
+    fn write_csv_to_output_dir(&self, output_dir: &PathBuf) -> csv::Result<()> {
+        let out_file = output_dir.join(Self::FILE_NAME).with_extension("csv");
+        let mut wrt = WriterBuilder::new()
+            .has_headers(true)
+            .from_path(&out_file)?;
+        self.write_csv(&mut wrt)
+    }
 }
 
 #[derive(Debug, From)]
