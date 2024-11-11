@@ -4,8 +4,15 @@ use std::path::{Path, PathBuf};
 use bt2_sys::graph::component::BtComponentType;
 use bt2_sys::query::support_info;
 use clap::builder::{PathBufValueParser, TypedValueParser};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use walkdir::WalkDir;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, ValueEnum)]
+pub enum OutputFormat {
+    #[default]
+    Text,
+    Csv,
+}
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -18,7 +25,7 @@ pub struct Args {
 
     /// If set to true, only the directory specified by `trace-path` is searched for traces, not its subdirectories.
     #[arg(long)]
-    exact_path: bool,
+    exact_trace_path: bool,
 
     /// Print proccessed events
     #[arg(long, short = 'p')]
@@ -27,6 +34,14 @@ pub struct Args {
     /// Print unprocessed events
     #[arg(long, short = 'u')]
     print_unprocessed_events: bool,
+
+    /// Path to a directory where the output files will be written
+    #[arg(long, short = 'o', value_parser = PathBufValueParser::new().try_map(to_directory_path_buf))]
+    output: Option<PathBuf>,
+
+    /// Output format
+    #[arg(long, short = 'f', value_enum, default_value_t = Default::default())]
+    output_format: OutputFormat,
 }
 
 impl Args {
@@ -42,7 +57,7 @@ impl Args {
     }
 
     pub const fn is_exact_path(&self) -> bool {
-        self.exact_path
+        self.exact_trace_path
     }
 
     pub const fn should_print_events(&self) -> bool {
@@ -51,6 +66,14 @@ impl Args {
 
     pub const fn should_print_unprocessed_events(&self) -> bool {
         self.print_unprocessed_events
+    }
+
+    pub fn output_dir(&self) -> Option<&PathBuf> {
+        self.output.as_ref()
+    }
+
+    pub const fn output_format(&self) -> OutputFormat {
+        self.output_format
     }
 }
 
@@ -105,4 +128,16 @@ pub fn find_trace_paths(search_path: &Path) -> Vec<CString> {
     }
 
     trace_paths
+}
+
+#[cfg(test)]
+mod test {
+    use clap::CommandFactory;
+
+    use super::*;
+
+    #[test]
+    fn verify_cli() {
+        Args::command().debug_assert();
+    }
 }
