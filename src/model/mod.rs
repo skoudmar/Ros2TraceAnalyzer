@@ -591,15 +591,8 @@ impl Callback {
         matches!(self.caller, Known::Known(CallbackCaller::Subscription(_)))
     }
 
-    pub fn get_type(&self) -> Option<CallbackType> {
-        self.caller
-            .as_ref()
-            .map(|caller| match caller {
-                CallbackCaller::Subscription(_) => CallbackType::Subscription,
-                CallbackCaller::Service(_) => CallbackType::Service,
-                CallbackCaller::Timer(_) => CallbackType::Timer,
-            })
-            .into()
+    pub fn get_type(&self) -> Known<CallbackType> {
+        self.caller.as_ref().map(|caller| caller.into())
     }
 
     pub fn get_name(&self) -> Option<&str> {
