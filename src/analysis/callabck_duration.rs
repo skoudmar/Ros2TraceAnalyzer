@@ -80,7 +80,10 @@ impl CallbackDuration {
             let dur_len = durations.len();
             let min_duration = durations.iter().min().copied().unwrap();
             let max_duration = durations.iter().max().copied().unwrap();
-            let avg_duration = durations.iter().sum::<i64>() / dur_len as i64;
+            let avg_duration = (durations.iter().copied().map(i128::from).sum::<i128>()
+                / i128::try_from(dur_len).expect("Callback execution count should fit into i128"))
+            .try_into()
+            .expect("Average of i64 values should fit into i64");
 
             println!("- [{i:4}] Callback {callback}:");
             println!("    Call count: {dur_len}");
