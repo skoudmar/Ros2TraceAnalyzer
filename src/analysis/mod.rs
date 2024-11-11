@@ -7,8 +7,8 @@ use derive_more::derive::From;
 pub mod message_latency;
 pub use message_latency::MessageLatency;
 
-pub mod callabck_duration;
-pub use callabck_duration::CallbackDuration;
+pub mod callback_duration;
+pub use callback_duration::CallbackDuration;
 
 pub mod publication_in_callback;
 pub use publication_in_callback::PublicationInCallback;
