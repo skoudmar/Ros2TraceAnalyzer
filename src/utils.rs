@@ -10,17 +10,17 @@ pub enum Known<T> {
     Unknown,
 }
 impl<T> Known<T> {
-    pub fn new(value: T) -> Self {
+    pub const fn new(value: T) -> Self {
         Self::Known(value)
     }
 
     #[inline]
-    pub fn is_known(&self) -> bool {
+    pub const fn is_known(&self) -> bool {
         matches!(self, Self::Known(_))
     }
 
     #[inline]
-    pub fn is_unknown(&self) -> bool {
+    pub const fn is_unknown(&self) -> bool {
         !self.is_known()
     }
 
@@ -51,7 +51,7 @@ impl<T> Known<T> {
     }
 
     #[inline]
-    pub fn as_ref(&self) -> Known<&T> {
+    pub const fn as_ref(&self) -> Known<&T> {
         match *self {
             Self::Known(ref value) => Known::Known(value),
             Self::Unknown => Known::Unknown,

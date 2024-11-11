@@ -29,11 +29,11 @@ pub struct Time {
 }
 
 impl Time {
-    pub fn from_nanos(nanos: i64) -> Self {
+    pub const fn from_nanos(nanos: i64) -> Self {
         Self { timestamp: nanos }
     }
 
-    pub fn timestamp_nanos(self) -> i64 {
+    pub const fn timestamp_nanos(self) -> i64 {
         self.timestamp
     }
 
