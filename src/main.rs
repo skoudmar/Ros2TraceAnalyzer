@@ -11,11 +11,12 @@ mod utils;
 
 use std::ffi::CStr;
 
-use args::{find_trace_paths, is_trace_path, Args};
+use analysis::{callback_duration, AnalysisOutput};
+use args::{find_trace_paths, is_trace_path, Args, OutputFormat};
 use bt2_sys::iterator::MessageIterator;
 use bt2_sys::message::BtMessageType;
 use clap::Parser;
-use color_eyre::eyre::{bail, ensure};
+use color_eyre::eyre::{bail, ensure, Context, OptionExt};
 use color_eyre::owo_colors::OwoColorize;
 
 struct ProcessedEventsIter<'a> {
@@ -198,23 +199,41 @@ fn main() -> color_eyre::eyre::Result<()> {
     print_headline(" Trace counters ");
     iter.print_counters();
 
-    print_headline(" Objects ");
-    iter.processor.print_objects();
+    if args.output_format() == OutputFormat::Text {
+        print_headline(" Objects ");
+        iter.processor.print_objects();
 
-    print_headline(" Analysis ");
-    message_latency_analysis.print_stats();
+        print_headline(" Analysis ");
+        message_latency_analysis.print_stats();
 
-    print_headline(" Analysis ");
-    callback_duration_analysis.print_stats();
+        print_headline(" Analysis ");
+        callback_duration_analysis.print_stats();
 
-    print_headline(" Analysis ");
-    callback_dependency_analysis
-        .get_graph()
-        .unwrap()
-        .print_graph();
+        print_headline(" Analysis ");
+        callback_dependency_analysis
+            .get_graph()
+            .unwrap()
+            .print_graph();
 
-    print_headline(" Analysis ");
-    spin_to_callback_analysis.print_stats();
+        print_headline(" Analysis ");
+        callback_dependency_analysis
+            .get_publication_in_callback_analysis()
+            .print_stats();
+
+        print_headline(" Analysis ");
+        spin_to_callback_analysis.print_stats();
+    } else if args.output_format() == OutputFormat::Csv {
+        let output_dir = args
+            .output_dir()
+            .ok_or_eyre("Output directory not specified")?;
+
+        callback_duration_analysis
+            .write_csv_to_output_dir(output_dir)
+            .wrap_err("Failed to write CSV")
+            .wrap_err("Callback duration analysis serialization error")?;
+
+        todo!("Not all analysis are serialized yet");
+    }
 
     Ok(())
 }
