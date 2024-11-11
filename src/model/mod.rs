@@ -493,8 +493,8 @@ impl Timer {
         self.node = Known::new(Arc::downgrade(node));
     }
 
-    pub fn get_period(&self) -> Option<i64> {
-        self.period.into()
+    pub fn get_period(&self) -> Known<i64> {
+        self.period
     }
 
     pub fn get_node(&self) -> Known<Weak<Mutex<Node>>> {
