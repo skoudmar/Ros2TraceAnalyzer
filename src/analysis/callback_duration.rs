@@ -1,18 +1,39 @@
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use crate::model::display::DisplayCallbackSummary;
+use crate::model::display::{get_node_name_from_weak, DisplayCallbackSummary};
 use crate::model::{Callback, CallbackInstance};
 use crate::processed_events::{ros2, Event, FullEvent};
-use crate::utils::DurationDisplayImprecise;
+use crate::utils::{DurationDisplayImprecise, WeakKnown};
 
-use super::{ArcMutWrapper, EventAnalysis};
+use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};
 
 #[derive(Debug)]
 pub struct CallbackDuration {
     durations: HashMap<ArcMutWrapper<Callback>, Vec<i64>>,
     started_callbacks: HashSet<ArcMutWrapper<CallbackInstance>>,
     not_ended_callbacks: Vec<ArcMutWrapper<CallbackInstance>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Record {
+    node: String,
+    callback_type: String,
+    callback_caller: String,
+
+    call_count: usize,
+    max_duration: i64,
+    min_duration: i64,
+    avg_duration: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordSummary {
+    pub(crate) call_count: usize,
+    pub(crate) max_duration: i64,
+    pub(crate) min_duration: i64,
+    pub(crate) avg_duration: i64,
 }
 
 impl CallbackDuration {
@@ -74,32 +95,83 @@ impl CallbackDuration {
             .collect();
     }
 
+    fn calculate_duration_summary(
+        &self,
+        callback: &ArcMutWrapper<Callback>,
+    ) -> Option<RecordSummary> {
+        let durations = self.durations.get(callback)?;
+        debug_assert!(
+            !durations.is_empty(),
+            "Callback should have at least one duration"
+        );
+
+        let dur_len = durations.len();
+        let min_duration = durations.iter().copied().min().unwrap();
+        let max_duration = durations.iter().copied().max().unwrap();
+        let avg_duration = (durations.iter().copied().map(i128::from).sum::<i128>()
+            / i128::try_from(dur_len).expect("Callback execution count should fit into i128"))
+        .try_into()
+        .expect("Average of i64 values should fit into i64");
+
+        Some(RecordSummary {
+            call_count: dur_len,
+            max_duration,
+            min_duration,
+            avg_duration,
+        })
+    }
+
+    pub fn get_records(&self) -> Vec<Record> {
+        self.durations
+            .keys()
+            .map(|callback_arc| {
+                let callback = callback_arc.0.lock().unwrap();
+                let node_name = callback.get_node().map_or(WeakKnown::Unknown, |node_weak| {
+                    get_node_name_from_weak(&node_weak)
+                });
+                let callback_type = callback.get_type();
+                let callback_caller = callback.get_caller().unwrap().get_caller_as_string();
+                drop(callback);
+
+                let summary = self
+                    .calculate_duration_summary(callback_arc)
+                    .expect("Callback key should exist.");
+
+                Record {
+                    node: node_name.to_string(),
+                    callback_type: callback_type.to_string(),
+                    callback_caller: callback_caller.to_string(),
+                    call_count: summary.call_count,
+                    max_duration: summary.max_duration,
+                    min_duration: summary.min_duration,
+                    avg_duration: summary.avg_duration,
+                }
+            })
+            .collect()
+    }
+
     pub(crate) fn print_stats(&self) {
         println!("Callback duration statistics:");
-        for (i, (callback, durations)) in self.durations.iter().enumerate() {
-            let callback = callback.0.lock().unwrap();
-            let dur_len = durations.len();
-            let min_duration = durations.iter().min().copied().unwrap();
-            let max_duration = durations.iter().max().copied().unwrap();
-            let avg_duration = (durations.iter().copied().map(i128::from).sum::<i128>()
-                / i128::try_from(dur_len).expect("Callback execution count should fit into i128"))
-            .try_into()
-            .expect("Average of i64 values should fit into i64");
+        for (i, callback_arc) in self.durations.keys().enumerate() {
+            let callback = callback_arc.0.lock().unwrap();
+            let summary = self
+                .calculate_duration_summary(callback_arc)
+                .expect("Callback key should exist.");
 
             println!("- [{i:4}] Callback {}:", DisplayCallbackSummary(&callback));
-            println!("    Call count: {dur_len}");
-            if dur_len > 0 {
+            println!("    Call count: {}", summary.call_count);
+            if summary.call_count > 0 {
                 println!(
                     "    Max duration: {}",
-                    DurationDisplayImprecise(max_duration)
+                    DurationDisplayImprecise(summary.max_duration)
                 );
                 println!(
                     "    Min duration: {}",
-                    DurationDisplayImprecise(min_duration)
+                    DurationDisplayImprecise(summary.min_duration)
                 );
                 println!(
                     "    Avg duration: {}",
-                    DurationDisplayImprecise(avg_duration)
+                    DurationDisplayImprecise(summary.avg_duration)
                 );
             }
         }
@@ -130,5 +202,18 @@ impl EventAnalysis for CallbackDuration {
         // Make sure all started callbacks are ended. The remaining callbacks are
         // missing the CallbackEnd event.
         self.end_remaining_callbacks();
+    }
+}
+
+impl AnalysisOutput for CallbackDuration {
+    const FILE_NAME: &'static str = "callback_duration";
+
+    fn write_csv(&self, writer: &mut csv::Writer<std::fs::File>) -> csv::Result<()> {
+        let records = self.get_records();
+        for record in records {
+            writer.serialize(record)?;
+        }
+
+        Ok(())
     }
 }
