@@ -6,10 +6,13 @@ use std::time::Duration;
 
 use chrono::{Local, TimeZone};
 use derive_more::derive::Unwrap;
+use display::{
+    get_service_name_from_weak, get_subscriber_topic_from_weak, get_timer_period_from_weak,
+};
 use thiserror::Error;
 
 use crate::raw_events;
-use crate::utils::Known;
+use crate::utils::{DisplayDuration, Known, WeakKnown};
 
 const GID_SIZE: usize = 16;
 const GID_SUFFIX_SIZE: usize = 8;
@@ -515,6 +518,23 @@ pub enum CallbackCaller {
     Subscription(Weak<Mutex<Subscriber>>),
     Service(Weak<Mutex<Service>>),
     Timer(Weak<Mutex<Timer>>),
+}
+
+impl CallbackCaller {
+    /// Returns the main information about the caller of the callback.
+    ///
+    /// For subscriptions, it returns the topic name.
+    /// For services, it returns the service name.
+    /// For timers, it returns the period.
+    pub fn get_caller_as_string(&self) -> WeakKnown<String> {
+        match self {
+            CallbackCaller::Subscription(sub) => get_subscriber_topic_from_weak(sub),
+            CallbackCaller::Service(service) => get_service_name_from_weak(service),
+            CallbackCaller::Timer(timer) => {
+                get_timer_period_from_weak(timer).map(|period| DisplayDuration(period).to_string())
+            }
+        }
+    }
 }
 
 impl From<CallbackCaller> for CallbackType {
