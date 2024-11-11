@@ -128,6 +128,125 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum WeakKnown<T> {
+    Known(T),
+    Unknown,
+    Droped,
+}
+
+impl<T> WeakKnown<T> {
+    pub const fn new(value: T) -> Self {
+        Self::Known(value)
+    }
+
+    #[inline]
+    pub const fn is_known(&self) -> bool {
+        matches!(self, Self::Known(_))
+    }
+
+    #[inline]
+    pub const fn is_unknown(&self) -> bool {
+        matches!(self, Self::Unknown)
+    }
+
+    #[inline]
+    pub const fn is_droped(&self) -> bool {
+        matches!(self, Self::Droped)
+    }
+
+    #[inline]
+    pub fn unwrap(self) -> T {
+        match self {
+            Self::Known(value) => value,
+            Self::Unknown => panic!("Called `WeakKnown::unwrap()` on an `Unknown` value"),
+            Self::Droped => panic!("Called `WeakKnown::unwrap()` on a `Droped` value"),
+        }
+    }
+
+    #[inline]
+    pub fn unwrap_or(self, default: T) -> T {
+        match self {
+            Self::Known(value) => value,
+            Self::Unknown => default,
+            Self::Droped => default,
+        }
+    }
+
+    pub fn eq_inner(&self, other: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        match self {
+            Self::Known(a) => a == other,
+            Self::Unknown => false,
+            Self::Droped => false,
+        }
+    }
+
+    #[inline]
+    pub const fn as_ref(&self) -> WeakKnown<&T> {
+        match *self {
+            Self::Known(ref value) => WeakKnown::Known(value),
+            Self::Unknown => WeakKnown::Unknown,
+            Self::Droped => WeakKnown::Droped,
+        }
+    }
+
+    #[inline]
+    pub fn as_deref(&self) -> WeakKnown<&T::Target>
+    where
+        T: std::ops::Deref,
+    {
+        match self {
+            Self::Known(value) => WeakKnown::Known(value),
+            Self::Unknown => WeakKnown::Unknown,
+            Self::Droped => WeakKnown::Droped,
+        }
+    }
+
+    pub fn map<U, F>(self, f: F) -> WeakKnown<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Self::Known(x) => WeakKnown::Known(f(x)),
+            Self::Unknown => WeakKnown::Unknown,
+            Self::Droped => WeakKnown::Droped,
+        }
+    }
+}
+
+impl<T> From<Known<T>> for WeakKnown<T> {
+    #[inline]
+    fn from(value: Known<T>) -> Self {
+        match value {
+            Known::Known(value) => WeakKnown::Known(value),
+            Known::Unknown => WeakKnown::Unknown,
+        }
+    }
+}
+
+impl<T> From<T> for WeakKnown<T> {
+    #[inline]
+    fn from(value: T) -> Self {
+        WeakKnown::Known(value)
+    }
+}
+
+impl<T> std::fmt::Display for WeakKnown<T>
+where
+    T: std::fmt::Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WeakKnown::Known(value) => write!(f, "{value}"),
+            WeakKnown::Unknown => write!(f, "Unknown"),
+            WeakKnown::Droped => write!(f, "Droped"),
+        }
+    }
+}
+
 pub struct DisplayArcMutex<'a, T> {
     arc: &'a Arc<Mutex<T>>,
     skip: bool,
