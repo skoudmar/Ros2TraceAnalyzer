@@ -1,5 +1,8 @@
+use std::sync::{Mutex, Weak};
+
 use crate::utils::{
     DisplayArcMutex, DisplayDebug, DisplayDuration, DisplayLargeDuration, DisplayWeakMutex, Known,
+    WeakKnown,
 };
 
 use super::{
@@ -50,6 +53,14 @@ impl std::fmt::Display for Node {
             self.rmw_handle, self.rcl_handle
         )
     }
+}
+
+pub fn get_node_name_from_weak(node_weak: &Weak<Mutex<Node>>) -> WeakKnown<String> {
+    let Some(node) = node_weak.upgrade() else {
+        return WeakKnown::Droped;
+    };
+    let node = node.lock().unwrap();
+    node.get_full_name().map(|s| s.to_string()).into()
 }
 
 impl std::fmt::Display for Publisher {
@@ -104,6 +115,16 @@ impl std::fmt::Display for Subscriber {
     }
 }
 
+pub fn get_subscriber_topic_from_weak(
+    subscriber_weak: &Weak<Mutex<Subscriber>>,
+) -> WeakKnown<String> {
+    let Some(node) = subscriber_weak.upgrade() else {
+        return WeakKnown::Droped;
+    };
+    let subscriber = node.lock().unwrap();
+    subscriber.get_topic().map(|s| s.to_string()).into()
+}
+
 pub(super) struct DisplaySubscriberWithoutNode<'a>(pub &'a Subscriber);
 
 impl<'a> std::fmt::Display for DisplaySubscriberWithoutNode<'a> {
@@ -135,6 +156,14 @@ impl std::fmt::Display for Service {
             self.name.as_ref().map(DisplayDebug), self.rmw_handle, self.rcl_handle, self.rclcpp_handle,
         )
     }
+}
+
+pub fn get_service_name_from_weak(service_weak: &Weak<Mutex<Service>>) -> WeakKnown<String> {
+    let Some(service) = service_weak.upgrade() else {
+        return WeakKnown::Droped;
+    };
+    let service = service.lock().unwrap();
+    service.get_name().map(|s| s.to_string()).into()
 }
 
 pub(super) struct DisplayServiceWithoutNode<'a>(pub &'a Service);
@@ -207,6 +236,14 @@ impl std::fmt::Display for Timer {
             self.rcl_handle,
         )
     }
+}
+
+pub fn get_timer_period_from_weak(timer_weak: &Weak<Mutex<Timer>>) -> WeakKnown<i64> {
+    let Some(timer) = timer_weak.upgrade() else {
+        return WeakKnown::Droped;
+    };
+    let timer = timer.lock().unwrap();
+    timer.get_period().into()
 }
 
 pub(super) struct TimerDisplayWithoutNode<'a>(pub &'a Timer);
@@ -324,6 +361,16 @@ impl std::fmt::Display for DisplayCallbackSummary<'_> {
 
                 write!(f, "(node={node_name}, Timer({period})")
             }
+        }
+    }
+}
+
+impl std::fmt::Display for CallbackType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Timer => write!(f, "Timer"),
+            Self::Subscription => write!(f, "Subscription"),
+            Self::Service => write!(f, "Service"),
         }
     }
 }
