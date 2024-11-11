@@ -83,10 +83,7 @@ impl<T> Known<T> {
 impl<T> From<Option<T>> for Known<T> {
     #[inline]
     fn from(value: Option<T>) -> Self {
-        match value {
-            Some(value) => Self::Known(value),
-            None => Self::Unknown,
-        }
+        value.map_or_else(|| Self::Unknown, |value| Self::Known(value))
     }
 }
 
