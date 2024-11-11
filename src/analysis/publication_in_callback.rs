@@ -2,8 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::events_common::Context;
+use crate::model::display::DisplayCallbackSummary;
 use crate::model::{Callback, CallbackInstance, PublicationMessage, Publisher};
 use crate::processed_events::{ros2, Event, FullEvent};
+use crate::utils::DisplayDebug;
 
 use super::{ArcMutWrapper, EventAnalysis};
 
@@ -92,7 +94,11 @@ impl PublicationInCallback {
         for (i, (publisher, callback)) in self.dependency.iter().enumerate() {
             let publisher = publisher.0.lock().unwrap();
             let callback = callback.0.lock().unwrap();
-            println!("- [{i:4}] Callback {callback} -> Publisher {publisher}");
+            println!(
+                "- [{i:4}] Callback {}\n\t-> Publisher {}",
+                DisplayCallbackSummary(&callback),
+                DisplayDebug(publisher.get_topic())
+            );
         }
     }
 }

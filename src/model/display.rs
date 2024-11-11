@@ -3,9 +3,9 @@ use crate::utils::{
 };
 
 use super::{
-    Callback, CallbackCaller, CallbackInstance, Client, DdsGid, Gid, Name, Node, PartiallyKnown,
-    PublicationMessage, Publisher, RmwGid, Service, SpinInstance, Subscriber, SubscriptionMessage,
-    Time, Timer,
+    Callback, CallbackCaller, CallbackInstance, CallbackType, Client, DdsGid, Gid, Name, Node,
+    PartiallyKnown, PublicationMessage, Publisher, RmwGid, Service, SpinInstance, Subscriber,
+    SubscriptionMessage, Time, Timer,
 };
 
 impl std::fmt::Debug for Time {
@@ -269,6 +269,54 @@ impl std::fmt::Display for Callback {
                         self.name.as_ref().map(DisplayDebug)
                     )
                 }
+            }
+        }
+    }
+}
+
+pub struct DisplayCallbackSummary<'a>(pub &'a Callback);
+
+impl std::fmt::Display for DisplayCallbackSummary<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let this = self.0;
+        let Some(caller) = this.get_caller() else {
+            return write!(f, "(UNKNOWN)");
+        };
+        let Some(node) = this.get_node() else {
+            let typ = CallbackType::from(caller);
+            return write!(f, "({typ:?})");
+        };
+
+        let node_name = node.upgrade().map_or_else(
+            || Known::Known(DisplayDebug("DROPED".to_owned())),
+            |node_arc| {
+                let node = node_arc.lock().unwrap();
+                node.get_full_name()
+                    .map(std::borrow::ToOwned::to_owned)
+                    .map(DisplayDebug)
+            },
+        );
+
+        match caller {
+            CallbackCaller::Subscription(sub) => {
+                let sub = sub.upgrade().unwrap();
+                let sub = sub.lock().unwrap();
+                let topic = sub.get_topic().map(DisplayDebug);
+                write!(f, "(node={node_name}, Subscriber({topic}))")
+            }
+            CallbackCaller::Service(service) => {
+                let service = service.upgrade().unwrap();
+                let service = service.lock().unwrap();
+                let name = service.get_name().map(DisplayDebug);
+
+                write!(f, "(node={node_name}, Service({name})")
+            }
+            CallbackCaller::Timer(timer) => {
+                let timer = timer.upgrade().unwrap();
+                let timer = timer.lock().unwrap();
+                let period = Known::from(timer.get_period()).map(DisplayDuration);
+
+                write!(f, "(node={node_name}, Timer({period})")
             }
         }
     }

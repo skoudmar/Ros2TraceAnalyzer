@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use crate::model::display::DisplayCallbackSummary;
 use crate::model::{Callback, CallbackInstance, CallbackTrigger};
 use crate::processed_events::{ros2, Event, FullEvent};
 use crate::utils::DurationDisplayImprecise;
@@ -47,7 +48,7 @@ impl MessageTakeToCallbackLatency {
             let max_latency = *latencies.iter().max().unwrap();
             let avg_latency = latencies.iter().sum::<i64>() / dur_len as i64;
 
-            println!("- [{i:4}] Callback {callback}:");
+            println!("- [{i:4}] Callback {}:", DisplayCallbackSummary(&callback));
             println!("    Call count: {dur_len}");
             if dur_len > 0 {
                 println!("    Max latency: {}", DurationDisplayImprecise(max_latency));

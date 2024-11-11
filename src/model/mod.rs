@@ -360,12 +360,12 @@ impl Publisher {
         self.rcl_handle = Known::new(rcl_publisher_handle);
     }
 
-    pub fn get_topic(&self) -> Option<&str> {
-        self.topic_name.as_deref().into()
+    pub fn get_topic(&self) -> Known<&str> {
+        self.topic_name.as_deref()
     }
 
-    pub fn get_node(&self) -> Option<Weak<Mutex<Node>>> {
-        self.node.clone().into()
+    pub fn get_node(&self) -> Known<Weak<Mutex<Node>>> {
+        self.node.clone()
     }
 }
 
@@ -409,6 +409,14 @@ impl Service {
         );
 
         self.callback = Known::new(callback);
+    }
+
+    pub fn get_node(&self) -> Known<Weak<Mutex<Node>>> {
+        self.node.clone()
+    }
+
+    pub fn get_name(&self) -> Known<&str> {
+        self.name.as_deref()
     }
 }
 
@@ -484,6 +492,14 @@ impl Timer {
 
         self.node = Known::new(Arc::downgrade(node));
     }
+
+    pub fn get_period(&self) -> Option<i64> {
+        self.period.into()
+    }
+
+    pub fn get_node(&self) -> Known<Weak<Mutex<Node>>> {
+        self.node.clone().into()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -503,6 +519,12 @@ pub enum CallbackCaller {
 
 impl From<CallbackCaller> for CallbackType {
     fn from(caller: CallbackCaller) -> Self {
+        (&caller).into()
+    }
+}
+
+impl<'a> From<&'a CallbackCaller> for CallbackType {
+    fn from(caller: &'a CallbackCaller) -> Self {
         match caller {
             CallbackCaller::Subscription(_) => Self::Subscription,
             CallbackCaller::Service(_) => Self::Service,
@@ -586,6 +608,20 @@ impl Callback {
 
     pub fn get_caller(&self) -> Option<&CallbackCaller> {
         self.caller.as_ref().into()
+    }
+
+    pub fn get_node(&self) -> Option<Weak<Mutex<Node>>> {
+        let caller = Option::<&CallbackCaller>::from(self.caller.as_ref())?;
+
+        match caller {
+            CallbackCaller::Subscription(subscriber) => {
+                subscriber.upgrade()?.lock().unwrap().get_node().into()
+            }
+            CallbackCaller::Service(service) => {
+                service.upgrade()?.lock().unwrap().get_node().into()
+            }
+            CallbackCaller::Timer(timer) => timer.upgrade()?.lock().unwrap().get_node().into(),
+        }
     }
 }
 

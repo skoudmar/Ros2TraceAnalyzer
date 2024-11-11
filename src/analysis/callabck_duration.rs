@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use crate::model::display::DisplayCallbackSummary;
 use crate::model::{Callback, CallbackInstance};
 use crate::processed_events::{ros2, Event, FullEvent};
 use crate::utils::DurationDisplayImprecise;
@@ -85,7 +86,7 @@ impl CallbackDuration {
             .try_into()
             .expect("Average of i64 values should fit into i64");
 
-            println!("- [{i:4}] Callback {callback}:");
+            println!("- [{i:4}] Callback {}:", DisplayCallbackSummary(&callback));
             println!("    Call count: {dur_len}");
             if dur_len > 0 {
                 println!(

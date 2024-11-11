@@ -9,6 +9,7 @@ use crate::processed_events::{ros2, Event, FullEvent};
 use super::{ArcMutWrapper, EventAnalysis, PublicationInCallback};
 
 pub mod graph {
+    use crate::model::display::DisplayCallbackSummary;
     use crate::model::Callback;
     use std::sync::{Arc, Mutex};
 
@@ -53,11 +54,11 @@ pub mod graph {
             println!("  Nodes:");
             for (i, node) in self.nodes().iter().enumerate() {
                 let callback = node.callback().lock().unwrap();
-                println!("    [{i:4}] {callback}");
+                println!("    [{i:4}] Callback{}", DisplayCallbackSummary(&callback));
             }
 
             println!("  Edges:");
-            for (src, dst) in self.edges().iter() {
+            for (src, dst) in self.edges() {
                 println!("    {src} -> {dst}");
             }
 
