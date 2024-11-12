@@ -168,12 +168,11 @@ impl Node {
         self.spin_instance.take()
     }
 
-    pub fn put_spin_instance(&mut self, spin_instance: Arc<Mutex<SpinInstance>>) {
-        assert!(
-            self.spin_instance.is_none(),
-            "Node spin_instance already set. {self:#?}"
-        );
-        self.spin_instance = Some(spin_instance);
+    pub fn replace_spin_instance(
+        &mut self,
+        spin_instance: Arc<Mutex<SpinInstance>>,
+    ) -> Option<Arc<Mutex<SpinInstance>>> {
+        self.spin_instance.replace(spin_instance)
     }
 
     pub fn borrow_spin_instance(&self) -> Option<&Arc<Mutex<SpinInstance>>> {

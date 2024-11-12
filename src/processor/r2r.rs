@@ -49,6 +49,14 @@ impl super::Processor {
             .clone();
 
         let spin_instance = SpinInstance::new(&node, time, timeout);
+        {
+            let mut node = node.lock().unwrap();
+            let old = node.replace_spin_instance(spin_instance.clone());
+
+            if let Some(old) = old {
+                eprintln!("Node {node} has a spin instance already set: {old:?}");
+            }
+        }
 
         processed_events::r2r::SpinStart {
             node,
