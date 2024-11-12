@@ -1,3 +1,4 @@
+use std::string::ToString;
 use std::sync::{Mutex, Weak};
 
 use crate::utils::{
@@ -60,7 +61,7 @@ pub fn get_node_name_from_weak(node_weak: &Weak<Mutex<Node>>) -> WeakKnown<Strin
         return WeakKnown::Droped;
     };
     let node = node.lock().unwrap();
-    node.get_full_name().map(|s| s.to_string()).into()
+    node.get_full_name().map(ToString::to_string).into()
 }
 
 impl std::fmt::Display for Publisher {
@@ -122,7 +123,7 @@ pub fn get_subscriber_topic_from_weak(
         return WeakKnown::Droped;
     };
     let subscriber = node.lock().unwrap();
-    subscriber.get_topic().map(|s| s.to_string()).into()
+    subscriber.get_topic().map(ToString::to_string).into()
 }
 
 pub(super) struct DisplaySubscriberWithoutNode<'a>(pub &'a Subscriber);
@@ -163,7 +164,7 @@ pub fn get_service_name_from_weak(service_weak: &Weak<Mutex<Service>>) -> WeakKn
         return WeakKnown::Droped;
     };
     let service = service.lock().unwrap();
-    service.get_name().map(|s| s.to_string()).into()
+    service.get_name().map(ToString::to_string).into()
 }
 
 pub(super) struct DisplayServiceWithoutNode<'a>(pub &'a Service);
@@ -357,7 +358,7 @@ impl std::fmt::Display for DisplayCallbackSummary<'_> {
             CallbackCaller::Timer(timer) => {
                 let timer = timer.upgrade().unwrap();
                 let timer = timer.lock().unwrap();
-                let period = Known::from(timer.get_period()).map(DisplayDuration);
+                let period = timer.get_period().map(DisplayDuration);
 
                 write!(f, "(node={node_name}, Timer({period})")
             }

@@ -181,7 +181,7 @@ impl Node {
     }
 
     pub fn print_node_info(&self) {
-        println!("Node{}", self);
+        println!("Node{self}");
         for subscriber in self.subscribers() {
             println!(
                 "  Subscriber{:#}",
@@ -528,9 +528,9 @@ impl CallbackCaller {
     /// For timers, it returns the period.
     pub fn get_caller_as_string(&self) -> WeakKnown<String> {
         match self {
-            CallbackCaller::Subscription(sub) => get_subscriber_topic_from_weak(sub),
-            CallbackCaller::Service(service) => get_service_name_from_weak(service),
-            CallbackCaller::Timer(timer) => {
+            Self::Subscription(sub) => get_subscriber_topic_from_weak(sub),
+            Self::Service(service) => get_service_name_from_weak(service),
+            Self::Timer(timer) => {
                 get_timer_period_from_weak(timer).map(|period| DisplayDuration(period).to_string())
             }
         }
