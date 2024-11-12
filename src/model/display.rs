@@ -58,7 +58,7 @@ impl std::fmt::Display for Node {
 
 pub fn get_node_name_from_weak(node_weak: &Weak<Mutex<Node>>) -> WeakKnown<String> {
     let Some(node) = node_weak.upgrade() else {
-        return WeakKnown::Droped;
+        return WeakKnown::Dropped;
     };
     let node = node.lock().unwrap();
     node.get_full_name().map(ToString::to_string).into()
@@ -120,7 +120,7 @@ pub fn get_subscriber_topic_from_weak(
     subscriber_weak: &Weak<Mutex<Subscriber>>,
 ) -> WeakKnown<String> {
     let Some(node) = subscriber_weak.upgrade() else {
-        return WeakKnown::Droped;
+        return WeakKnown::Dropped;
     };
     let subscriber = node.lock().unwrap();
     subscriber.get_topic().map(ToString::to_string).into()
@@ -161,7 +161,7 @@ impl std::fmt::Display for Service {
 
 pub fn get_service_name_from_weak(service_weak: &Weak<Mutex<Service>>) -> WeakKnown<String> {
     let Some(service) = service_weak.upgrade() else {
-        return WeakKnown::Droped;
+        return WeakKnown::Dropped;
     };
     let service = service.lock().unwrap();
     service.get_name().map(ToString::to_string).into()
@@ -241,7 +241,7 @@ impl std::fmt::Display for Timer {
 
 pub fn get_timer_period_from_weak(timer_weak: &Weak<Mutex<Timer>>) -> WeakKnown<i64> {
     let Some(timer) = timer_weak.upgrade() else {
-        return WeakKnown::Droped;
+        return WeakKnown::Dropped;
     };
     let timer = timer.lock().unwrap();
     timer.get_period().into()
@@ -332,7 +332,7 @@ impl std::fmt::Display for DisplayCallbackSummary<'_> {
         };
 
         let node_name = node.upgrade().map_or_else(
-            || Known::Known(DisplayDebug("DROPED".to_owned())),
+            || Known::Known(DisplayDebug("DROPPED".to_owned())),
             |node_arc| {
                 let node = node_arc.lock().unwrap();
                 node.get_full_name()

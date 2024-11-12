@@ -11,24 +11,24 @@ use crate::model::{
 };
 use crate::{processed_events, raw_events};
 
-pub enum MaybeProccessed<P, R> {
+pub enum MaybeProcessed<P, R> {
     Processed(P),
     Raw(R),
 }
 
-impl MaybeProccessed<processed_events::Event, raw_events::Event> {
+impl MaybeProcessed<processed_events::Event, raw_events::Event> {
     pub fn into_full_event(
         self,
         context: Context,
         time: Time,
-    ) -> MaybeProccessed<processed_events::FullEvent, raw_events::FullEvent> {
+    ) -> MaybeProcessed<processed_events::FullEvent, raw_events::FullEvent> {
         match self {
-            Self::Processed(event) => MaybeProccessed::Processed(processed_events::FullEvent {
+            Self::Processed(event) => MaybeProcessed::Processed(processed_events::FullEvent {
                 context,
                 time,
                 event,
             }),
-            Self::Raw(event) => MaybeProccessed::Raw(raw_events::FullEvent {
+            Self::Raw(event) => MaybeProcessed::Raw(raw_events::FullEvent {
                 context,
                 time,
                 event,
@@ -37,7 +37,7 @@ impl MaybeProccessed<processed_events::Event, raw_events::Event> {
     }
 }
 
-impl<P, R> From<Result<P, R>> for MaybeProccessed<processed_events::Event, raw_events::Event>
+impl<P, R> From<Result<P, R>> for MaybeProcessed<processed_events::Event, raw_events::Event>
 where
     P: Into<processed_events::Event>,
     R: Into<raw_events::Event>,
@@ -144,14 +144,14 @@ impl Processor {
     pub fn process_raw_event(
         &mut self,
         full_event: raw_events::FullEvent,
-    ) -> MaybeProccessed<processed_events::FullEvent, raw_events::FullEvent> {
+    ) -> MaybeProcessed<processed_events::FullEvent, raw_events::FullEvent> {
         match full_event.event {
-            raw_events::Event::Ros2(event) => MaybeProccessed::from(self.process_raw_ros2_event(
+            raw_events::Event::Ros2(event) => MaybeProcessed::from(self.process_raw_ros2_event(
                 event,
                 &full_event.context,
                 full_event.time,
             )),
-            raw_events::Event::R2r(event) => MaybeProccessed::from(self.process_raw_r2r_event(
+            raw_events::Event::R2r(event) => MaybeProcessed::from(self.process_raw_r2r_event(
                 event,
                 &full_event.context,
                 full_event.time,
@@ -440,7 +440,7 @@ impl Processor {
             });
         event.timestamp.map_or_else(
             || {
-                eprintln!("Missing timestamp for RMW publish event. Subscribtion messages will not match it: [{time}] {event:?}");
+                eprintln!("Missing timestamp for RMW publish event. Subscription messages will not match it: [{time}] {event:?}");
 
                 let mut message = message_arc.lock().unwrap();
                 message.rmw_publish_old(time);
@@ -657,7 +657,7 @@ impl Processor {
             drop(subscriber);
 
             // Override the old message with the new one
-            // TODO: Save old message to procesed messages if needed
+            // TODO: Save old message to processed messages if needed
             self.received_messages
                 .insert(event.message.into_id(context_id), message_arc.clone());
         }
@@ -963,10 +963,10 @@ impl Processor {
             .get(&event.callback.into_id(context_id))
             .expect("Callback not found. Missing rclcpp_*_callback_added event?");
 
-        let calback_instance = CallbackInstance::new(callback_arc.clone(), time);
+        let callback_instance = CallbackInstance::new(callback_arc.clone(), time);
 
         processed_events::ros2::CallbackStart {
-            callback: calback_instance,
+            callback: callback_instance,
             is_intra_process: event.is_intra_process,
         }
     }

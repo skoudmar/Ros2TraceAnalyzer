@@ -1,4 +1,4 @@
-#![forbid(unsafe_code, reason = "It shoudn't be needed")]
+#![forbid(unsafe_code, reason = "It shouldn't be needed")]
 
 mod analysis;
 mod args;
@@ -107,14 +107,14 @@ impl<'a> Iterator for ProcessedEventsIter<'a> {
                 continue;
             };
             match self.processor.process_raw_event(event) {
-                processor::MaybeProccessed::Processed(proccessed) => {
+                processor::MaybeProcessed::Processed(processed) => {
                     self.ros_processed_events += 1;
                     for analysis in &mut self.analyses {
-                        (*analysis).process_event(&proccessed);
+                        (*analysis).process_event(&processed);
                     }
-                    return Some(proccessed);
+                    return Some(processed);
                 }
-                processor::MaybeProccessed::Raw(raw) => {
+                processor::MaybeProcessed::Raw(raw) => {
                     self.ros_unprocessed_events += 1;
                     (self.on_unprocessed_event)(raw);
                     continue;
@@ -232,7 +232,7 @@ fn main() -> color_eyre::eyre::Result<()> {
             .wrap_err("Failed to write CSV")
             .wrap_err("Callback duration analysis serialization error")?;
 
-        todo!("Not all analysis are serialized yet");
+        todo!("Not all analyses are serialized yet");
     }
 
     Ok(())

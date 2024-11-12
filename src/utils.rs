@@ -132,7 +132,7 @@ where
 pub enum WeakKnown<T> {
     Known(T),
     Unknown,
-    Droped,
+    Dropped,
 }
 
 impl<T> WeakKnown<T> {
@@ -152,7 +152,7 @@ impl<T> WeakKnown<T> {
 
     #[inline]
     pub const fn is_droped(&self) -> bool {
-        matches!(self, Self::Droped)
+        matches!(self, Self::Dropped)
     }
 
     #[inline]
@@ -160,7 +160,7 @@ impl<T> WeakKnown<T> {
         match self {
             Self::Known(value) => value,
             Self::Unknown => panic!("Called `WeakKnown::unwrap()` on an `Unknown` value"),
-            Self::Droped => panic!("Called `WeakKnown::unwrap()` on a `Droped` value"),
+            Self::Dropped => panic!("Called `WeakKnown::unwrap()` on a `Dropped` value"),
         }
     }
 
@@ -168,8 +168,7 @@ impl<T> WeakKnown<T> {
     pub fn unwrap_or(self, default: T) -> T {
         match self {
             Self::Known(value) => value,
-            Self::Unknown => default,
-            Self::Droped => default,
+            Self::Unknown | Self::Dropped => default,
         }
     }
 
@@ -179,8 +178,7 @@ impl<T> WeakKnown<T> {
     {
         match self {
             Self::Known(a) => a == other,
-            Self::Unknown => false,
-            Self::Droped => false,
+            Self::Unknown | Self::Dropped => false,
         }
     }
 
@@ -189,7 +187,7 @@ impl<T> WeakKnown<T> {
         match *self {
             Self::Known(ref value) => WeakKnown::Known(value),
             Self::Unknown => WeakKnown::Unknown,
-            Self::Droped => WeakKnown::Droped,
+            Self::Dropped => WeakKnown::Dropped,
         }
     }
 
@@ -201,7 +199,7 @@ impl<T> WeakKnown<T> {
         match self {
             Self::Known(value) => WeakKnown::Known(value),
             Self::Unknown => WeakKnown::Unknown,
-            Self::Droped => WeakKnown::Droped,
+            Self::Dropped => WeakKnown::Dropped,
         }
     }
 
@@ -212,7 +210,7 @@ impl<T> WeakKnown<T> {
         match self {
             Self::Known(x) => WeakKnown::Known(f(x)),
             Self::Unknown => WeakKnown::Unknown,
-            Self::Droped => WeakKnown::Droped,
+            Self::Dropped => WeakKnown::Dropped,
         }
     }
 }
@@ -240,9 +238,9 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WeakKnown::Known(value) => write!(f, "{value}"),
-            WeakKnown::Unknown => write!(f, "Unknown"),
-            WeakKnown::Droped => write!(f, "Droped"),
+            Self::Known(value) => write!(f, "{value}"),
+            Self::Unknown => write!(f, "Unknown"),
+            Self::Dropped => write!(f, "Dropped"),
         }
     }
 }
@@ -295,7 +293,7 @@ impl<'a, T: Display> Display for DisplayWeakMutex<'a, T> {
             return write!(f, "...");
         }
         let Some(strong) = self.weak.upgrade() else {
-            return write!(f, "DROPED");
+            return write!(f, "DROPPED");
         };
         let inner = strong.lock().unwrap();
         write!(f, "{inner:#}")
@@ -308,7 +306,7 @@ impl<'a, T: Debug> Debug for DisplayWeakMutex<'a, T> {
             return write!(f, "...");
         }
         let Some(strong) = self.weak.upgrade() else {
-            return write!(f, "DROPED");
+            return write!(f, "DROPPED");
         };
         let inner = strong.lock().unwrap();
         write!(f, "{inner:#?}")

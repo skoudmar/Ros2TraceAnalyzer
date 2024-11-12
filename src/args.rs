@@ -19,7 +19,7 @@ pub enum OutputFormat {
 pub struct Args {
     /// Path to a directory containing the trace to analyze
     ///
-    /// Can be a superdirectory of the trace directory.
+    /// Can be a super-directory of the trace directory.
     #[arg(value_parser = PathBufValueParser::new().try_map(to_directory_path_buf), num_args = 1.., required = true)]
     trace_paths: Vec<PathBuf>,
 
@@ -27,7 +27,7 @@ pub struct Args {
     #[arg(long)]
     exact_trace_path: bool,
 
-    /// Print proccessed events
+    /// Print processed events
     #[arg(long, short = 'p')]
     print_events: bool,
 
