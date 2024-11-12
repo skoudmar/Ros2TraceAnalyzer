@@ -11,7 +11,7 @@ mod utils;
 
 use std::ffi::CStr;
 
-use analysis::{callback_duration, AnalysisOutput};
+use analysis::AnalysisOutput;
 use args::{find_trace_paths, is_trace_path, Args, OutputFormat};
 use bt2_sys::iterator::MessageIterator;
 use bt2_sys::message::BtMessageType;
