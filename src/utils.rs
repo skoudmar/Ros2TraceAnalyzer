@@ -219,8 +219,8 @@ impl<T> From<Known<T>> for WeakKnown<T> {
     #[inline]
     fn from(value: Known<T>) -> Self {
         match value {
-            Known::Known(value) => WeakKnown::Known(value),
-            Known::Unknown => WeakKnown::Unknown,
+            Known::Known(value) => Self::Known(value),
+            Known::Unknown => Self::Unknown,
         }
     }
 }
@@ -228,7 +228,7 @@ impl<T> From<Known<T>> for WeakKnown<T> {
 impl<T> From<T> for WeakKnown<T> {
     #[inline]
     fn from(value: T) -> Self {
-        WeakKnown::Known(value)
+        Self::Known(value)
     }
 }
 
