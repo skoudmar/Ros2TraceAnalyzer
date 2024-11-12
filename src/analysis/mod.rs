@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::hash::Hash;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use crate::processed_events::FullEvent;
@@ -8,6 +8,7 @@ use csv::{Writer, WriterBuilder};
 use derive_more::derive::From;
 
 pub mod message_latency;
+mod utils;
 pub use message_latency::MessageLatency;
 
 pub mod callback_duration;
@@ -42,7 +43,7 @@ pub trait AnalysisOutput {
 
     fn write_csv(&self, writer: &mut Writer<File>) -> csv::Result<()>;
 
-    fn write_csv_to_output_dir(&self, output_dir: &PathBuf) -> csv::Result<()> {
+    fn write_csv_to_output_dir(&self, output_dir: &Path) -> csv::Result<()> {
         let out_file = output_dir.join(Self::FILE_NAME).with_extension("csv");
         let mut wrt = WriterBuilder::new()
             .has_headers(true)

@@ -2,6 +2,7 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use crate::analysis::utils::calculate_min_max_avg;
 use crate::model::display::{get_node_name_from_weak, DisplayCallbackSummary};
 use crate::model::{Callback, CallbackInstance};
 use crate::processed_events::{ros2, Event, FullEvent};
@@ -106,12 +107,7 @@ impl CallbackDuration {
         );
 
         let dur_len = durations.len();
-        let min_duration = durations.iter().copied().min().unwrap();
-        let max_duration = durations.iter().copied().max().unwrap();
-        let avg_duration = (durations.iter().copied().map(i128::from).sum::<i128>()
-            / i128::try_from(dur_len).expect("Callback execution count should fit into i128"))
-        .try_into()
-        .expect("Average of i64 values should fit into i64");
+        let (min_duration, max_duration, avg_duration) = calculate_min_max_avg(durations)?;
 
         Some(RecordSummary {
             call_count: dur_len,

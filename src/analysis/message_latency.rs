@@ -6,6 +6,7 @@ use crate::model::{Publisher, Subscriber, SubscriptionMessage};
 use crate::processed_events::{ros2, Event, FullEvent};
 use crate::utils::{DurationDisplayImprecise, Known};
 
+use super::utils::calculate_min_max_avg;
 use super::{ArcMutWrapper, EventAnalysis};
 
 type SubPubKey = (ArcMutWrapper<Subscriber>, Option<ArcMutWrapper<Publisher>>);
@@ -164,19 +165,14 @@ impl MessageLatency {
             .map(|((subscriber_arc, publisher_arc), latencies)| {
                 let subscriber = subscriber_arc.0.lock().unwrap();
                 let topic = subscriber.get_topic();
-                let lat_len = latencies.len();
-                let min_latency = *latencies.iter().min().unwrap();
-                let max_latency = *latencies.iter().max().unwrap();
-                let avg_latency = (latencies.iter().copied().map(i128::from).sum::<i128>()
-                    / lat_len as i128)
-                    .try_into()
-                    .expect("Average of i64 values should fit into i64");
+                let (min_latency, max_latency, avg_latency) =
+                    calculate_min_max_avg(latencies).expect("Latency series should not be empty");
 
                 MessageLatencyStats {
                     topic: topic.to_string(),
                     subscriber: subscriber_arc.0.clone(),
                     publisher: publisher_arc.as_ref().map(|p| p.0.clone()),
-                    message_count: lat_len,
+                    message_count: latencies.len(),
                     max_latency,
                     min_latency,
                     avg_latency,
