@@ -197,7 +197,7 @@ impl Processor {
                 self.process_rcl_subscription_init(event, context_id).into()
             }
             raw_events::ros2::Event::RclcppSubscriptionInit(event) => self
-                .process_rclcpp_subscription_init(event, context_id)
+                .process_rclcpp_subscription_init(event, context_id, context)
                 .into(),
             raw_events::ros2::Event::RclcppSubscriptionCallbackAdded(event) => self
                 .process_rclcpp_subscription_callback_added(event, context_id)
@@ -562,6 +562,7 @@ impl Processor {
         &mut self,
         event: raw_events::ros2::RclcppSubscriptionInit,
         context_id: ContextId,
+        context: &Context,
     ) -> processed_events::ros2::RclcppSubscriptionInit {
         let subscriber_arc = self
             .subscribers_by_rcl
@@ -582,7 +583,7 @@ impl Processor {
             )
             .is_some()
         {
-            panic!("Subscriber already exists for id: {event:?}");
+            panic!("Subscriber already exists for id: {event:?} {context:?}");
         }
 
         processed_events::ros2::RclcppSubscriptionInit {
