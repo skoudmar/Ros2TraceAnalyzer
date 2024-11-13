@@ -514,7 +514,7 @@ impl Timer {
     }
 
     pub fn get_node(&self) -> Known<Weak<Mutex<Node>>> {
-        self.node.clone().into()
+        self.node.clone()
     }
 }
 
