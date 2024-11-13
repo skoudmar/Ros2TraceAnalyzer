@@ -121,7 +121,6 @@ impl Drop for BatchMessageIterator {
         let _ = self.internal.0.borrow_mut().take();
 
         unsafe {
-            // FIXME: This might be dropped before the BtMessageArrayConst during panic
             destroy_trace_context(self.trace_context);
         }
     }
@@ -147,8 +146,8 @@ impl Iterator for BatchMessageIterator {
 }
 
 pub struct MessageIterator {
-    batch_iterator: BatchMessageIterator,
     current_batch: Option<BtMessageArrayConst>,
+    batch_iterator: BatchMessageIterator,
     current_index: usize,
 }
 
@@ -195,5 +194,12 @@ impl Iterator for MessageIterator {
 
             return message;
         }
+    }
+}
+
+impl Drop for MessageIterator {
+    fn drop(&mut self) {
+        // Drop the current batch before any other resources
+        let _ = self.current_batch.take();
     }
 }
