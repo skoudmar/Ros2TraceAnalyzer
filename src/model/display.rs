@@ -110,7 +110,7 @@ impl std::fmt::Display for Subscriber {
             .as_ref()
             .map(|callback| DisplayArcMutex::new(callback, f.alternate()));
 
-        write!(f, "(topic={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node} callback={callback:#})",
+        write!(f, "(topic={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node}, callback={callback:#})",
             self.topic_name.as_ref().map(DisplayDebug), self.rmw_handle, self.rcl_handle, self.rclcpp_handle, self.queue_depth,
         )
     }
