@@ -8,14 +8,14 @@ use super::FromBtEvent;
 
 pub const GID_SIZE: usize = 24;
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclInit {
     #[debug("{context_handle:#x}")]
     pub context_handle: u64,
     pub version: String,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclNodeInit {
     #[debug("{node_handle:#x}")]
     pub node_handle: u64,
@@ -25,14 +25,14 @@ pub struct RclNodeInit {
     pub namespace: String,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RmwPublisherInit {
     #[debug("{rmw_publisher_handle:#x}")]
     pub rmw_publisher_handle: u64,
     pub gid: [u8; GID_SIZE],
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclPublisherInit {
     #[debug("{publisher_handle:#x}")]
     pub publisher_handle: u64,
@@ -44,13 +44,13 @@ pub struct RclPublisherInit {
     pub queue_depth: usize,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclcppPublish {
     #[debug("{message:#x}")]
     pub message: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclcppIntraPublish {
     #[debug("{publisher_handle:#x}")]
     pub publisher_handle: u64,
@@ -58,7 +58,7 @@ pub struct RclcppIntraPublish {
     pub message: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclPublish {
     #[debug("{publisher_handle:#x}")]
     pub publisher_handle: u64,
@@ -66,7 +66,7 @@ pub struct RclPublish {
     pub message: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RmwPublish {
     #[debug("{:?}", DebugOptionHex(rmw_publisher_handle))]
     pub rmw_publisher_handle: Option<u64>,
@@ -75,14 +75,14 @@ pub struct RmwPublish {
     pub timestamp: Option<i64>,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RmwSubscriptionInit {
     #[debug("{rmw_subscription_handle:#x}")]
     pub rmw_subscription_handle: u64,
     pub gid: [u8; GID_SIZE],
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclSubscriptionInit {
     #[debug("{subscription_handle:#x}")]
     pub subscription_handle: u64,
@@ -94,7 +94,7 @@ pub struct RclSubscriptionInit {
     pub queue_depth: usize,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclcppSubscriptionInit {
     #[debug("{subscription_handle:#x}")]
     pub subscription_handle: u64,
@@ -102,7 +102,7 @@ pub struct RclcppSubscriptionInit {
     pub subscription: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclcppSubscriptionCallbackAdded {
     #[debug("{subscription:#x}")]
     pub subscription: u64,
@@ -110,7 +110,7 @@ pub struct RclcppSubscriptionCallbackAdded {
     pub callback: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RmwTake {
     #[debug("{rmw_subscription_handle:#x}")]
     pub rmw_subscription_handle: u64,
@@ -121,19 +121,19 @@ pub struct RmwTake {
     pub taken: bool,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclTake {
     #[debug("{message:#x}")]
     pub message: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclcppTake {
     #[debug("{message:#x}")]
     pub message: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclServiceInit {
     #[debug("{service_handle:#x}")]
     pub service_handle: u64,
@@ -144,7 +144,7 @@ pub struct RclServiceInit {
     pub service_name: String,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclcppServiceCallbackAdded {
     #[debug("{service_handle:#x}")]
     pub service_handle: u64,
@@ -152,7 +152,7 @@ pub struct RclcppServiceCallbackAdded {
     pub callback: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclClientInit {
     #[debug("{client_handle:#x}")]
     pub client_handle: u64,
@@ -163,21 +163,21 @@ pub struct RclClientInit {
     pub service_name: String,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclTimerInit {
     #[debug("{timer_handle:#x}")]
     pub timer_handle: u64,
     pub period: i64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclcppTimerCallbackAdded {
     #[debug("{timer_handle:#x}")]
     pub timer_handle: u64,
     pub callback: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclcppTimerLinkNode {
     #[debug("{timer_handle:#x}")]
     pub timer_handle: u64,
@@ -185,14 +185,14 @@ pub struct RclcppTimerLinkNode {
     pub node_handle: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclcppCallbackRegister {
     #[debug("{callback:#x}")]
     pub callback: u64,
     pub symbol: String,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct CallbackStart {
     #[debug("{callback:#x}")]
     pub callback: u64,
@@ -200,13 +200,13 @@ pub struct CallbackStart {
     pub is_intra_process: bool,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct CallbackEnd {
     #[debug("{callback:#x}")]
     pub callback: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclLifecycleStateMachineInit {
     #[debug("{node_handle:#x}")]
     pub node_handle: u64,
@@ -214,7 +214,7 @@ pub struct RclLifecycleStateMachineInit {
     pub state_machine: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclLifecycleTransition {
     #[debug("{state_machine:#x}")]
     pub state_machine: u64,
@@ -222,21 +222,21 @@ pub struct RclLifecycleTransition {
     pub goal_label: String,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclCppExecutorGetNextReady;
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclCppExecutorWaitForWork {
     pub timeout: i64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclCppExecutorExecute {
     #[debug("{handle:#x}")]
     pub handle: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclCppIpbToSubscription {
     #[debug("{ipb:#x}")]
     pub ipb: u64,
@@ -244,7 +244,7 @@ pub struct RclCppIpbToSubscription {
     pub subscription: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclCppBufferToIpb {
     #[debug("{buffer:#x}")]
     pub buffer: u64,
@@ -252,14 +252,14 @@ pub struct RclCppBufferToIpb {
     pub ipb: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclCppConstructRingBuffer {
     #[debug("{buffer:#x}")]
     pub buffer: u64,
     pub capacity: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclCppRingBufferEnqueue {
     #[debug("{buffer:#x}")]
     pub buffer: u64,
@@ -269,7 +269,7 @@ pub struct RclCppRingBufferEnqueue {
     pub overwritten: bool,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclCppRingBufferDequeue {
     #[debug("{buffer:#x}")]
     pub buffer: u64,
@@ -277,13 +277,13 @@ pub struct RclCppRingBufferDequeue {
     pub size: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclCppRingBufferClear {
     #[debug("{buffer:#x}")]
     pub buffer: u64,
 }
 
-#[derive(Debug, From)]
+#[derive(Debug, From, Clone)]
 pub enum Event {
     RclInit(RclInit),
     RclNodeInit(RclNodeInit),

@@ -5,7 +5,7 @@ use derive_more::Debug;
 
 use super::FromBtEvent;
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct SpinStart {
     #[debug("{node_handle:#x}")]
     pub node_handle: u64,
@@ -13,25 +13,25 @@ pub struct SpinStart {
     pub timeout_ns: u32,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct SpinEnd {
     #[debug("{node_handle:#x}")]
     pub node_handle: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct SpinWake {
     #[debug("{node_handle:#x}")]
     pub node_handle: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct SpinTimeout {
     #[debug("{node_handle:#x}")]
     pub node_handle: u64,
 }
 
-#[derive(Debug, TryFromBtFieldConst)]
+#[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct UpdateTime {
     #[debug("{subscriber:#x}")]
     pub subscriber: u64,
@@ -39,7 +39,7 @@ pub struct UpdateTime {
     pub time_ns: u32,
 }
 
-#[derive(Debug, From)]
+#[derive(Debug, From, Clone)]
 pub enum Event {
     SpinStart(SpinStart),
     SpinEnd(SpinEnd),

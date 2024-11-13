@@ -89,14 +89,14 @@ pub fn context_from_event(event: &BtEventConst) -> Context {
     Context::new(cpu_id, vpid, vtid, procname, hostname)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FullEvent {
     pub context: Context,
     pub time: Time,
     pub event: Event,
 }
 
-#[derive(Debug, From)]
+#[derive(Debug, From, Clone)]
 pub enum Event {
     Ros2(ros2::Event),
     R2r(r2r::Event),
