@@ -18,7 +18,7 @@ const GID_SIZE: usize = 16;
 const GID_SUFFIX_SIZE: usize = 8;
 
 #[derive(Debug, Error)]
-#[error("Already set Error: {msg}\nobject: {object:#?}\nnew_value: {new_value:#?}")]
+#[error("Object parameter already set: {msg}\nobject: {object:#?}\nnew_value: {new_value:#?}")]
 pub struct AlreadySetError<T: Debug, U: Debug> {
     object: T,
     new_value: U,
@@ -394,14 +394,28 @@ impl Service {
         }
     }
 
-    pub fn rcl_init(&mut self, rmw_handle: u64, name: String, node: &Arc<Mutex<Node>>) {
-        assert!(
-            self.name.is_unknown() && self.node.is_unknown(),
-            "Service already initialized with rcl_service_init. {self:#?}"
-        );
+    pub fn rcl_init(
+        &mut self,
+        rmw_handle: u64,
+        name: String,
+        node: &Arc<Mutex<Node>>,
+    ) -> Result<(), AlreadySetError<&Self, (String, Arc<Mutex<Node>>, u64)>> {
+        if !self.name.is_unknown()
+            || !self.node.is_unknown()
+            || !self.rmw_handle.is_unknown_or_eq(&rmw_handle)
+        {
+            return Err(AlreadySetError {
+                object: self,
+                new_value: (name, node.clone(), rmw_handle),
+                msg: "Service already initialized with rcl_service_init.",
+            });
+        }
+
         self.rmw_handle = Known::new(rmw_handle);
         self.name = Known::new(name);
         self.node = Known::new(Arc::downgrade(node));
+
+        Ok(())
     }
 
     pub fn set_callback(&mut self, callback: Arc<Mutex<Callback>>) {

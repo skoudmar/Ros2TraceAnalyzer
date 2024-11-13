@@ -78,6 +78,16 @@ impl<T> Known<T> {
             Self::Unknown => Known::Unknown,
         }
     }
+
+    pub(crate) fn is_unknown_or_eq<U>(&self, other: &U) -> bool
+    where
+        T: PartialEq<U>,
+    {
+        match self {
+            Self::Known(value) => value == other,
+            Self::Unknown => true,
+        }
+    }
 }
 
 impl<T> From<Option<T>> for Known<T> {

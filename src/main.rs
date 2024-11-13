@@ -16,7 +16,7 @@ use args::{find_trace_paths, is_trace_path, Args, OutputFormat};
 use bt2_sys::iterator::MessageIterator;
 use bt2_sys::message::BtMessageType;
 use clap::Parser;
-use color_eyre::eyre::{bail, ensure, Context, OptionExt};
+use color_eyre::eyre::{bail, ensure, Context, OptionExt, Result};
 use color_eyre::owo_colors::OwoColorize;
 
 struct ProcessedEventsIter<'a> {
@@ -27,7 +27,8 @@ struct ProcessedEventsIter<'a> {
 
     // Counters
     ros_processed_events: usize,
-    ros_unprocessed_events: usize,
+    ros_unsupported_events: usize,
+    ros_processing_failures: usize,
     other_events: usize,
     other_messages: usize,
 }
@@ -41,7 +42,8 @@ impl<'a> ProcessedEventsIter<'a> {
             processor: processor::Processor::new(),
 
             ros_processed_events: 0,
-            ros_unprocessed_events: 0,
+            ros_unsupported_events: 0,
+            ros_processing_failures: 0,
             other_events: 0,
             other_messages: 0,
         }
@@ -60,11 +62,13 @@ impl<'a> ProcessedEventsIter<'a> {
         println!(
             "Ros events:\n\
             - processed: {}\n\
-            - unprocessed: {}\n\
+            - failed to process: {}\n\
+            - unsupported: {}\n\
             Other events: {}\n\
             Other messages: {}",
             self.ros_processed_events,
-            self.ros_unprocessed_events,
+            self.ros_processing_failures,
+            self.ros_unsupported_events,
             self.other_events,
             self.other_messages
         );
@@ -72,7 +76,7 @@ impl<'a> ProcessedEventsIter<'a> {
 }
 
 impl<'a> Iterator for ProcessedEventsIter<'a> {
-    type Item = processed_events::FullEvent;
+    type Item = Result<processed_events::FullEvent>;
 
     fn next(&mut self) -> Option<Self::Item> {
         for message in self.iter.by_ref() {
@@ -107,17 +111,21 @@ impl<'a> Iterator for ProcessedEventsIter<'a> {
                 continue;
             };
             match self.processor.process_raw_event(event) {
-                processor::MaybeProcessed::Processed(processed) => {
+                Ok(processor::MaybeProcessed::Processed(processed)) => {
                     self.ros_processed_events += 1;
                     for analysis in &mut self.analyses {
                         (*analysis).process_event(&processed);
                     }
-                    return Some(processed);
+                    return Some(Ok(processed));
                 }
-                processor::MaybeProcessed::Raw(raw) => {
-                    self.ros_unprocessed_events += 1;
+                Ok(processor::MaybeProcessed::Raw(raw)) => {
+                    self.ros_unsupported_events += 1;
                     (self.on_unprocessed_event)(raw);
                     continue;
+                }
+                Err(err) => {
+                    self.ros_processing_failures += 1;
+                    return Some(Err(err));
                 }
             }
         }
@@ -191,6 +199,7 @@ fn main() -> color_eyre::eyre::Result<()> {
     }
 
     for event in &mut iter {
+        let event = event.wrap_err("Failed to process event")?;
         if args.should_print_events() {
             println!("{event}");
         }
