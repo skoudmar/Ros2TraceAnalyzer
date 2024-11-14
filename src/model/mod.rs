@@ -771,7 +771,7 @@ impl Callback {
     }
 
     pub fn get_type(&self) -> Known<CallbackType> {
-        self.caller.as_ref().map(|caller| caller.into())
+        self.caller.as_ref().map(Into::into)
     }
 
     pub fn get_name(&self) -> Option<&str> {
