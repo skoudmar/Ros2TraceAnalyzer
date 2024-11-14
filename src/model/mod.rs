@@ -228,6 +228,8 @@ pub struct Subscriber {
 
     callback: Known<Arc<Mutex<Callback>>>,
     taken_message: Option<Arc<Mutex<SubscriptionMessage>>>,
+
+    removed: bool,
 }
 
 impl Subscriber {
@@ -287,6 +289,7 @@ impl Subscriber {
         &mut self,
         message: Arc<Mutex<SubscriptionMessage>>,
     ) -> Option<Arc<Mutex<SubscriptionMessage>>> {
+        assert!(!self.is_removed());
         self.taken_message.replace(message)
     }
 
@@ -300,6 +303,18 @@ impl Subscriber {
 
     pub fn get_node(&self) -> Known<ArcWeak<Mutex<Node>>> {
         self.node.clone()
+    }
+
+    pub fn get_callback(&self) -> Known<Arc<Mutex<Callback>>> {
+        self.callback.clone()
+    }
+
+    pub fn mark_removed(&mut self) {
+        self.removed = true;
+    }
+
+    pub fn is_removed(&self) -> bool {
+        self.removed
     }
 }
 
@@ -327,6 +342,8 @@ pub struct Publisher {
     topic_name: Known<String>,
     node: Known<ArcWeak<Mutex<Node>>>,
     queue_depth: Known<usize>,
+
+    removed: bool,
 }
 
 impl Publisher {
@@ -380,6 +397,14 @@ impl Publisher {
     pub fn get_node(&self) -> Known<ArcWeak<Mutex<Node>>> {
         self.node.clone()
     }
+
+    pub fn mark_removed(&mut self) {
+        self.removed = true;
+    }
+
+    pub fn is_removed(&self) -> bool {
+        self.removed
+    }
 }
 
 impl CyclicDependency for Publisher {
@@ -404,6 +429,8 @@ pub struct Service {
     name: Known<String>,
     node: Known<ArcWeak<Mutex<Node>>>,
     callback: Known<Arc<Mutex<Callback>>>,
+
+    removed: bool,
 }
 
 impl Service {
@@ -415,6 +442,7 @@ impl Service {
             name: Known::Unknown,
             node: Known::Unknown,
             callback: Known::Unknown,
+            removed: false,
         }
     }
 
@@ -458,6 +486,14 @@ impl Service {
     pub fn get_name(&self) -> Known<&str> {
         self.name.as_deref()
     }
+
+    pub fn mark_removed(&mut self) {
+        self.removed = true;
+    }
+
+    pub fn is_removed(&self) -> bool {
+        self.removed
+    }
 }
 
 impl CyclicDependency for Service {
@@ -479,6 +515,8 @@ pub struct Client {
     rmw_handle: Known<u64>,
     node: Known<ArcWeak<Mutex<Node>>>,
     service_name: Known<String>,
+
+    removed: bool,
 }
 
 impl Client {
@@ -488,6 +526,7 @@ impl Client {
             rmw_handle: Known::Unknown,
             node: Known::Unknown,
             service_name: Known::Unknown,
+            removed: false,
         }
     }
 
@@ -501,6 +540,14 @@ impl Client {
         self.rmw_handle = Known::new(rmw_handle);
         self.node = Known::new(Arc::downgrade(node).into());
         self.service_name = Known::new(service_name);
+    }
+
+    pub fn mark_removed(&mut self) {
+        self.removed = true;
+    }
+
+    pub fn is_removed(&self) -> bool {
+        self.removed
     }
 }
 
@@ -524,6 +571,8 @@ pub struct Timer {
 
     callback: Known<Arc<Mutex<Callback>>>,
     node: Known<ArcWeak<Mutex<Node>>>,
+
+    removed: bool,
 }
 
 impl Timer {
@@ -533,6 +582,7 @@ impl Timer {
             period: Known::Unknown,
             callback: Known::Unknown,
             node: Known::Unknown,
+            removed: false,
         }
     }
 
@@ -565,6 +615,14 @@ impl Timer {
 
     pub fn get_node(&self) -> Known<ArcWeak<Mutex<Node>>> {
         self.node.clone()
+    }
+
+    pub fn mark_removed(&mut self) {
+        self.removed = true;
+    }
+
+    pub fn is_removed(&self) -> bool {
+        self.removed
     }
 }
 
@@ -608,6 +666,14 @@ impl CallbackCaller {
             Self::Service(service) => get_service_name_from_weak(&service.get_weak()),
             Self::Timer(timer) => get_timer_period_from_weak(&timer.get_weak())
                 .map(|period| DisplayDuration(period).to_string()),
+        }
+    }
+
+    pub fn is_removed(&self) -> Option<bool> {
+        match self {
+            Self::Subscription(sub) => Some(sub.get_arc()?.lock().unwrap().is_removed()),
+            Self::Service(service) => Some(service.get_arc()?.lock().unwrap().is_removed()),
+            Self::Timer(timer) => Some(timer.get_arc()?.lock().unwrap().is_removed()),
         }
     }
 }
