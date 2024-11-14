@@ -17,6 +17,8 @@ use crate::model::{
 };
 use crate::{processed_events, raw_events};
 
+use super::model::CallbackCaller;
+
 pub enum MaybeProcessed<P, R> {
     Processed(P),
     Raw(R),
@@ -591,7 +593,8 @@ impl Processor {
 
         // TODO: check if event has rcl handle, rclcpp handle or other.
         let publisher_arc = self
-            .get_publisher_by_rcl_handle(event.publisher_handle.into_id(context_id))?
+            .get_publisher_by_rcl_handle(event.publisher_handle.into_id(context_id))
+            .map_err(|e| e.with_ros2_event(&event, time, context))?
             .clone();
 
         message_arc.lock().unwrap().set_publisher(publisher_arc);
@@ -700,6 +703,23 @@ impl Processor {
                 event.subscription.into_id(context_id),
                 subscriber_arc.clone(),
             )
+            .and_then(|old_arc| {
+                if Arc::ptr_eq(&old_arc, &subscriber_arc) {
+                    unreachable!(
+                        "The subscriber was already added to the map but without initialization."
+                    );
+                }
+                let mut old = old_arc.lock().unwrap();
+                let new = subscriber_arc.lock().unwrap();
+                if old.get_topic() == new.get_topic() {
+                    // Subscriber with same topic on the same address means it was destroyed and created again.
+                    old.mark_removed();
+                    None
+                } else {
+                    drop(old);
+                    Some(old_arc)
+                }
+            })
             .map_or(Ok(()), |old| {
                 Err(error::AlreadyExists::by_rclcpp_handle(
                     event.subscription,
@@ -730,6 +750,19 @@ impl Processor {
 
         self.callbacks_by_id
             .insert(event.callback.into_id(context_id), callback_arc.clone())
+            .and_then(|old_arc| {
+                let old = old_arc.lock().unwrap();
+                if old
+                    .get_caller()
+                    .and_then(CallbackCaller::is_removed)
+                    .unwrap_or(true)
+                {
+                    None
+                } else {
+                    drop(old);
+                    Some(old_arc)
+                }
+            })
             .map_or(Ok(()), |old: Arc<Mutex<Callback>>| {
                 Err(
                     error::AlreadyExists::with_id(event.callback, &callback_arc, old)
