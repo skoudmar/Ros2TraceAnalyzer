@@ -1147,24 +1147,14 @@ pub struct SpinInstance {
 
 impl SpinInstance {
     pub fn new(node: &Arc<Mutex<Node>>, start_time: Time, timeout: Duration) -> Arc<Mutex<Self>> {
-        let new = Arc::new(Mutex::new(Self {
+        Arc::new(Mutex::new(Self {
             start_time,
             wake_time: Known::Unknown,
             end_time: Known::Unknown,
             timeout,
             timeouted: Known::Unknown,
             node: Arc::downgrade(node).into(),
-        }));
-
-        let mut node = node.lock().unwrap();
-        assert!(
-            node.spin_instance.is_none(),
-            "Node already has a running spin instance. {node:#?}"
-        );
-
-        node.spin_instance = Some(new.clone());
-
-        new
+        }))
     }
 
     pub fn set_wake_time(&mut self, time: Time) {
