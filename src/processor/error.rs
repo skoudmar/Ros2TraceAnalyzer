@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use derive_more::derive::{Display, From};
+use derive_more::derive::Display;
 use thiserror::Error;
 
 use crate::events_common::Context;
@@ -9,8 +9,9 @@ use crate::model::{
     SubscriptionMessage, Time, Timer,
 };
 use crate::raw_events;
+use crate::utils::CyclicDependency;
 
-#[derive(Debug, From, Display)]
+#[derive(Debug, Display)]
 pub enum Object {
     #[display("Node{}", _0.lock().unwrap())]
     Node(Arc<Mutex<Node>>),
@@ -56,6 +57,66 @@ impl Object {
     }
 }
 
+impl From<Arc<Mutex<Node>>> for Object {
+    fn from(node_arc: Arc<Mutex<Node>>) -> Self {
+        Self::Node(node_arc)
+    }
+}
+
+impl From<Arc<Mutex<Subscriber>>> for Object {
+    fn from(subscriber_arc: Arc<Mutex<Subscriber>>) -> Self {
+        subscriber_arc.lock().unwrap().create_cycle();
+        Self::Subscriber(subscriber_arc)
+    }
+}
+
+impl From<Arc<Mutex<Publisher>>> for Object {
+    fn from(publisher_arc: Arc<Mutex<Publisher>>) -> Self {
+        publisher_arc.lock().unwrap().create_cycle();
+        Self::Publisher(publisher_arc)
+    }
+}
+
+impl From<Arc<Mutex<Service>>> for Object {
+    fn from(service_arc: Arc<Mutex<Service>>) -> Self {
+        service_arc.lock().unwrap().create_cycle();
+        Self::Service(service_arc)
+    }
+}
+
+impl From<Arc<Mutex<Client>>> for Object {
+    fn from(client_arc: Arc<Mutex<Client>>) -> Self {
+        client_arc.lock().unwrap().create_cycle();
+        Self::Client(client_arc)
+    }
+}
+
+impl From<Arc<Mutex<Timer>>> for Object {
+    fn from(timer_arc: Arc<Mutex<Timer>>) -> Self {
+        timer_arc.lock().unwrap().create_cycle();
+        Self::Timer(timer_arc)
+    }
+}
+
+impl From<Arc<Mutex<Callback>>> for Object {
+    fn from(callback_arc: Arc<Mutex<Callback>>) -> Self {
+        callback_arc.lock().unwrap().create_cycle();
+        Self::Callback(callback_arc)
+    }
+}
+
+impl From<Arc<Mutex<PublicationMessage>>> for Object {
+    fn from(publication_arc: Arc<Mutex<PublicationMessage>>) -> Self {
+        Self::PublishedMessage(publication_arc)
+    }
+}
+
+impl From<Arc<Mutex<SubscriptionMessage>>> for Object {
+    fn from(subscription_arc: Arc<Mutex<SubscriptionMessage>>) -> Self {
+        Self::SubscribedMessage(subscription_arc)
+    }
+}
+
 impl<T> From<&T> for Object
 where
     T: Into<Self> + Clone,
@@ -71,6 +132,38 @@ where
 {
     fn from(value: &mut T) -> Self {
         value.clone().into()
+    }
+}
+
+impl Drop for Object {
+    fn drop(&mut self) {
+        match self {
+            Self::Subscriber(subscriber) => {
+                let mut subscriber = subscriber.lock().unwrap();
+                subscriber.break_cycle();
+            }
+            Self::Publisher(publisher) => {
+                let mut publisher = publisher.lock().unwrap();
+                publisher.break_cycle();
+            }
+            Self::Service(service) => {
+                let mut service = service.lock().unwrap();
+                service.break_cycle();
+            }
+            Self::Client(client) => {
+                let mut client = client.lock().unwrap();
+                client.break_cycle();
+            }
+            Self::Timer(timer) => {
+                let mut timer = timer.lock().unwrap();
+                timer.break_cycle();
+            }
+            Self::Callback(callback) => {
+                let mut callback = callback.lock().unwrap();
+                callback.break_cycle();
+            }
+            _ => {}
+        }
     }
 }
 
