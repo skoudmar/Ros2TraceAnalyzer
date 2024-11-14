@@ -42,7 +42,9 @@ pub trait AnalysisOutput {
     const FILE_NAME: &'static str;
 
     fn write_csv(&self, writer: &mut Writer<File>) -> csv::Result<()>;
+}
 
+pub trait AnalysisOutputExt: AnalysisOutput {
     fn write_csv_to_output_dir(&self, output_dir: &Path) -> csv::Result<()> {
         let out_file = output_dir.join(Self::FILE_NAME).with_extension("csv");
         let mut wrt = WriterBuilder::new()
@@ -51,6 +53,8 @@ pub trait AnalysisOutput {
         self.write_csv(&mut wrt)
     }
 }
+
+impl<T: AnalysisOutput> AnalysisOutputExt for T {}
 
 #[derive(Debug, From)]
 struct ArcMutWrapper<T>(Arc<Mutex<T>>);
