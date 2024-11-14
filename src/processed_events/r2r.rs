@@ -31,28 +31,34 @@ pub struct SpinEnd {
     pub spin: Option<RefCount<SpinInstance>>,
 }
 
-impl std::fmt::Display for SpinEnd {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.spin {
-            Some(spin) => write!(f, "Spin({})", spin.lock().unwrap()),
-            None => write!(f, "Node({})", self.node.lock().unwrap()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Display)]
-#[display("Node({})", node.lock().unwrap())]
+#[derive(Debug, Clone)]
 pub struct SpinWake {
     pub node: RefCount<Node>,
     pub spin: Option<RefCount<SpinInstance>>,
 }
 
-#[derive(Debug, Clone, Display)]
-#[display("Node({})", node.lock().unwrap())]
+#[derive(Debug, Clone)]
 pub struct SpinTimeout {
     pub node: RefCount<Node>,
     pub spin: Option<RefCount<SpinInstance>>,
 }
+
+macro_rules! impl_display_for_spin_events {
+    ($($event:ident),*) => {
+        $(
+            impl std::fmt::Display for $event {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match &self.spin {
+                        Some(spin) => write!(f, "Spin({})", spin.lock().unwrap()),
+                        None => write!(f, "Node({})", self.node.lock().unwrap()),
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_display_for_spin_events!(SpinEnd, SpinWake, SpinTimeout);
 
 #[derive(Debug, Clone, Display)]
 #[display("subscriber: {}, new_time: {time_s}.{time_ns:09}", subscriber.lock().unwrap())]
