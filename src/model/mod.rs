@@ -216,7 +216,6 @@ impl Node {
 
 #[derive(Debug, Default)]
 pub struct Subscriber {
-    dds_handle: Known<u64>,
     rmw_handle: Known<u64>,
     rcl_handle: Known<u64>,
     rclcpp_handle: Known<u64>,
@@ -319,7 +318,6 @@ impl CyclicDependency for Subscriber {
 
 #[derive(Debug, Default)]
 pub struct Publisher {
-    dds_handle: Known<u64>,
     rmw_handle: Known<u64>,
     rcl_handle: Known<u64>,
     rclcpp_handle: Known<u64>,
