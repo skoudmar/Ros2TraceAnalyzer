@@ -123,7 +123,7 @@ impl CallbackDuration {
             .map(|callback_arc| {
                 let callback = callback_arc.0.lock().unwrap();
                 let node_name = callback.get_node().map_or(WeakKnown::Unknown, |node_weak| {
-                    get_node_name_from_weak(&node_weak)
+                    get_node_name_from_weak(&node_weak.get_weak())
                 });
                 let callback_type = callback.get_type();
                 let callback_caller = callback.get_caller().unwrap().get_caller_as_string();

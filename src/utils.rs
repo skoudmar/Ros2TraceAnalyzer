@@ -59,6 +59,14 @@ impl<T> Known<T> {
     }
 
     #[inline]
+    pub fn as_mut(&mut self) -> Known<&mut T> {
+        match self {
+            Self::Known(value) => Known::Known(value),
+            Self::Unknown => Known::Unknown,
+        }
+    }
+
+    #[inline]
     pub fn as_deref(&self) -> Known<&T::Target>
     where
         T: std::ops::Deref,
@@ -286,23 +294,26 @@ impl<'a, T: Debug> Debug for DisplayArcMutex<'a, T> {
     }
 }
 
-pub struct DisplayWeakMutex<'a, T> {
-    weak: &'a Weak<Mutex<T>>,
+pub struct DisplayArcWeakMutex<'a, T> {
+    arc_weak: &'a ArcWeak<Mutex<T>>,
     skip: bool,
 }
 
-impl<'a, T> DisplayWeakMutex<'a, T> {
-    pub const fn new(weak: &'a Weak<Mutex<T>>, skip: bool) -> Self {
-        Self { weak, skip }
+impl<'a, T> DisplayArcWeakMutex<'a, T> {
+    pub const fn new(weak: &'a ArcWeak<Mutex<T>>, skip: bool) -> Self {
+        Self {
+            arc_weak: weak,
+            skip,
+        }
     }
 }
 
-impl<'a, T: Display> Display for DisplayWeakMutex<'a, T> {
+impl<'a, T: Display> Display for DisplayArcWeakMutex<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.skip {
             return write!(f, "...");
         }
-        let Some(strong) = self.weak.upgrade() else {
+        let Some(strong) = self.arc_weak.get_arc() else {
             return write!(f, "DROPPED");
         };
         let inner = strong.lock().unwrap();
@@ -310,12 +321,12 @@ impl<'a, T: Display> Display for DisplayWeakMutex<'a, T> {
     }
 }
 
-impl<'a, T: Debug> Debug for DisplayWeakMutex<'a, T> {
+impl<'a, T: Debug> Debug for DisplayArcWeakMutex<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.skip {
             return write!(f, "...");
         }
-        let Some(strong) = self.weak.upgrade() else {
+        let Some(strong) = self.arc_weak.get_arc() else {
             return write!(f, "DROPPED");
         };
         let inner = strong.lock().unwrap();
@@ -416,4 +427,79 @@ impl<'a, T: std::fmt::LowerHex> std::fmt::Debug for DebugOptionHex<'a, T> {
             None => f.debug_struct("None").finish(),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum ArcWeak<T> {
+    Arc(Arc<T>),
+    Weak(Weak<T>),
+}
+
+impl<T> ArcWeak<T> {
+    pub fn get_arc(&self) -> Option<Arc<T>> {
+        match self {
+            Self::Arc(arc) => Some(Arc::clone(arc)),
+            Self::Weak(weak) => weak.upgrade(),
+        }
+    }
+
+    /// Upgrade the `ArcWeak` to an `Arc` in place.
+    pub fn upgrade_in_place(&mut self) -> bool {
+        match self {
+            Self::Arc(_) => true,
+            Self::Weak(weak) => {
+                if let Some(arc) = weak.upgrade() {
+                    *self = Self::Arc(arc);
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+    }
+
+    /// Downgrade the `ArcWeak` to a `Weak` in place.
+    pub fn downgrade_in_place(&mut self) {
+        match self {
+            Self::Arc(arc) => {
+                let weak = Arc::downgrade(arc);
+                *self = Self::Weak(weak);
+            }
+            Self::Weak(_) => {}
+        }
+    }
+
+    pub(crate) fn get_weak(&self) -> Weak<T> {
+        match self {
+            Self::Arc(arc) => Arc::downgrade(arc),
+            Self::Weak(weak) => weak.clone(),
+        }
+    }
+}
+
+impl<T> Clone for ArcWeak<T> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Arc(arc) => Self::Arc(Arc::clone(arc)),
+            Self::Weak(weak) => Self::Weak(Weak::clone(weak)),
+        }
+    }
+}
+
+impl<T> From<Arc<T>> for ArcWeak<T> {
+    fn from(arc: Arc<T>) -> Self {
+        Self::Arc(arc)
+    }
+}
+
+impl<T> From<Weak<T>> for ArcWeak<T> {
+    fn from(weak: Weak<T>) -> Self {
+        Self::Weak(weak)
+    }
+}
+
+pub trait CyclicDependency {
+    fn break_cycle(&mut self);
+
+    fn create_cycle(&mut self) -> bool;
 }

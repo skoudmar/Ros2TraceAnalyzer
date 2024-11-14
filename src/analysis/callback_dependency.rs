@@ -141,7 +141,7 @@ impl CallbackDependency {
             let callback = callback.0.lock().unwrap();
             let subscriber = callback.get_caller().unwrap().unwrap_subscription_ref();
 
-            let subscriber = subscriber.upgrade().expect("Subscriber should be alive");
+            let subscriber = subscriber.get_arc().expect("Subscriber should be alive");
             let subscriber = subscriber.lock().unwrap();
             let topic = subscriber.get_topic().unwrap().to_owned();
 

@@ -12,7 +12,7 @@ use display::{
 use thiserror::Error;
 
 use crate::raw_events;
-use crate::utils::{DisplayDuration, Known, WeakKnown};
+use crate::utils::{ArcWeak, CyclicDependency, DisplayDuration, Known, WeakKnown};
 
 const GID_SIZE: usize = 16;
 const GID_SUFFIX_SIZE: usize = 8;
@@ -25,7 +25,7 @@ pub struct AlreadySetError<T: Debug, U: Debug> {
     msg: &'static str,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Time {
     /// Nanoseconds since the UNIX epoch (1970-01-01 00:00:00 UTC)
     timestamp: i64,
@@ -224,7 +224,7 @@ pub struct Subscriber {
     rmw_gid: Known<RmwGid>,
 
     topic_name: Known<String>,
-    node: Known<Weak<Mutex<Node>>>,
+    node: Known<ArcWeak<Mutex<Node>>>,
     queue_depth: Known<usize>,
 
     callback: Known<Arc<Mutex<Callback>>>,
@@ -256,7 +256,7 @@ impl Subscriber {
         self.rcl_handle = Known::new(rcl_handle);
         self.topic_name = Known::new(topic_name);
         self.queue_depth = Known::new(queue_depth);
-        self.node = Known::new(node);
+        self.node = Known::new(node.into());
     }
 
     pub fn rclcpp_init(&mut self, rclcpp_handle: u64) {
@@ -299,8 +299,21 @@ impl Subscriber {
         self.topic_name.as_deref()
     }
 
-    pub fn get_node(&self) -> Known<Weak<Mutex<Node>>> {
+    pub fn get_node(&self) -> Known<ArcWeak<Mutex<Node>>> {
         self.node.clone()
+    }
+}
+
+impl CyclicDependency for Subscriber {
+    fn break_cycle(&mut self) {
+        self.node.as_mut().map(ArcWeak::downgrade_in_place);
+    }
+
+    fn create_cycle(&mut self) -> bool {
+        self.node
+            .as_mut()
+            .map(ArcWeak::upgrade_in_place)
+            .unwrap_or(true)
     }
 }
 
@@ -314,7 +327,7 @@ pub struct Publisher {
     rmw_gid: Known<RmwGid>,
 
     topic_name: Known<String>,
-    node: Known<Weak<Mutex<Node>>>,
+    node: Known<ArcWeak<Mutex<Node>>>,
     queue_depth: Known<usize>,
 }
 
@@ -343,7 +356,7 @@ impl Publisher {
         self.rcl_handle = Known::new(rcl_handle);
         self.topic_name = Known::new(topic_name);
         self.queue_depth = Known::new(queue_depth);
-        self.node = Known::new(node);
+        self.node = Known::new(node.into());
     }
 
     pub(crate) fn set_rmw_handle(&mut self, rmw_publisher_handle: u64) {
@@ -366,8 +379,21 @@ impl Publisher {
         self.topic_name.as_deref()
     }
 
-    pub fn get_node(&self) -> Known<Weak<Mutex<Node>>> {
+    pub fn get_node(&self) -> Known<ArcWeak<Mutex<Node>>> {
         self.node.clone()
+    }
+}
+
+impl CyclicDependency for Publisher {
+    fn break_cycle(&mut self) {
+        self.node.as_mut().map(ArcWeak::downgrade_in_place);
+    }
+
+    fn create_cycle(&mut self) -> bool {
+        self.node
+            .as_mut()
+            .map(ArcWeak::upgrade_in_place)
+            .unwrap_or(true)
     }
 }
 
@@ -378,7 +404,7 @@ pub struct Service {
     rclcpp_handle: Known<u64>,
 
     name: Known<String>,
-    node: Known<Weak<Mutex<Node>>>,
+    node: Known<ArcWeak<Mutex<Node>>>,
     callback: Known<Arc<Mutex<Callback>>>,
 }
 
@@ -413,7 +439,7 @@ impl Service {
 
         self.rmw_handle = Known::new(rmw_handle);
         self.name = Known::new(name);
-        self.node = Known::new(Arc::downgrade(node));
+        self.node = Known::new(Arc::downgrade(node).into());
 
         Ok(())
     }
@@ -427,7 +453,7 @@ impl Service {
         self.callback = Known::new(callback);
     }
 
-    pub fn get_node(&self) -> Known<Weak<Mutex<Node>>> {
+    pub fn get_node(&self) -> Known<ArcWeak<Mutex<Node>>> {
         self.node.clone()
     }
 
@@ -436,11 +462,24 @@ impl Service {
     }
 }
 
+impl CyclicDependency for Service {
+    fn break_cycle(&mut self) {
+        self.node.as_mut().map(ArcWeak::downgrade_in_place);
+    }
+
+    fn create_cycle(&mut self) -> bool {
+        self.node
+            .as_mut()
+            .map(ArcWeak::upgrade_in_place)
+            .unwrap_or(true)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Client {
     rcl_handle: u64,
     rmw_handle: Known<u64>,
-    node: Known<Weak<Mutex<Node>>>,
+    node: Known<ArcWeak<Mutex<Node>>>,
     service_name: Known<String>,
 }
 
@@ -462,8 +501,21 @@ impl Client {
             "Client already initialized with rcl_client_init. {self:#?}"
         );
         self.rmw_handle = Known::new(rmw_handle);
-        self.node = Known::new(Arc::downgrade(node));
+        self.node = Known::new(Arc::downgrade(node).into());
         self.service_name = Known::new(service_name);
+    }
+}
+
+impl CyclicDependency for Client {
+    fn break_cycle(&mut self) {
+        self.node.as_mut().map(ArcWeak::downgrade_in_place);
+    }
+
+    fn create_cycle(&mut self) -> bool {
+        self.node
+            .as_mut()
+            .map(ArcWeak::upgrade_in_place)
+            .unwrap_or(true)
     }
 }
 
@@ -473,7 +525,7 @@ pub struct Timer {
     period: Known<i64>,
 
     callback: Known<Arc<Mutex<Callback>>>,
-    node: Known<Weak<Mutex<Node>>>,
+    node: Known<ArcWeak<Mutex<Node>>>,
 }
 
 impl Timer {
@@ -506,15 +558,28 @@ impl Timer {
     pub fn link_node(&mut self, node: &Arc<Mutex<Node>>) {
         assert!(self.node.is_unknown(), "Timer node already set. {self:#?}");
 
-        self.node = Known::new(Arc::downgrade(node));
+        self.node = Known::new(Arc::downgrade(node).into());
     }
 
     pub fn get_period(&self) -> Known<i64> {
         self.period
     }
 
-    pub fn get_node(&self) -> Known<Weak<Mutex<Node>>> {
+    pub fn get_node(&self) -> Known<ArcWeak<Mutex<Node>>> {
         self.node.clone()
+    }
+}
+
+impl CyclicDependency for Timer {
+    fn break_cycle(&mut self) {
+        self.node.as_mut().map(ArcWeak::downgrade_in_place);
+    }
+
+    fn create_cycle(&mut self) -> bool {
+        self.node
+            .as_mut()
+            .map(ArcWeak::upgrade_in_place)
+            .unwrap_or(true)
     }
 }
 
@@ -528,9 +593,9 @@ pub enum CallbackType {
 #[derive(Debug, Unwrap)]
 #[unwrap(ref)]
 pub enum CallbackCaller {
-    Subscription(Weak<Mutex<Subscriber>>),
-    Service(Weak<Mutex<Service>>),
-    Timer(Weak<Mutex<Timer>>),
+    Subscription(ArcWeak<Mutex<Subscriber>>),
+    Service(ArcWeak<Mutex<Service>>),
+    Timer(ArcWeak<Mutex<Timer>>),
 }
 
 impl CallbackCaller {
@@ -541,11 +606,28 @@ impl CallbackCaller {
     /// For timers, it returns the period.
     pub fn get_caller_as_string(&self) -> WeakKnown<String> {
         match self {
-            Self::Subscription(sub) => get_subscriber_topic_from_weak(sub),
-            Self::Service(service) => get_service_name_from_weak(service),
-            Self::Timer(timer) => {
-                get_timer_period_from_weak(timer).map(|period| DisplayDuration(period).to_string())
-            }
+            Self::Subscription(sub) => get_subscriber_topic_from_weak(&sub.get_weak()),
+            Self::Service(service) => get_service_name_from_weak(&service.get_weak()),
+            Self::Timer(timer) => get_timer_period_from_weak(&timer.get_weak())
+                .map(|period| DisplayDuration(period).to_string()),
+        }
+    }
+}
+
+impl CyclicDependency for CallbackCaller {
+    fn break_cycle(&mut self) {
+        match self {
+            Self::Subscription(sub) => sub.downgrade_in_place(),
+            Self::Service(service) => service.downgrade_in_place(),
+            Self::Timer(timer) => timer.downgrade_in_place(),
+        }
+    }
+
+    fn create_cycle(&mut self) -> bool {
+        match self {
+            Self::Subscription(sub) => sub.upgrade_in_place(),
+            Self::Service(service) => service.upgrade_in_place(),
+            Self::Timer(timer) => timer.upgrade_in_place(),
         }
     }
 }
@@ -585,17 +667,17 @@ impl Callback {
     }
 
     pub fn new_subscription(handle: u64, caller: &Arc<Mutex<Subscriber>>) -> Arc<Mutex<Self>> {
-        let caller = CallbackCaller::Subscription(Arc::downgrade(caller));
+        let caller = CallbackCaller::Subscription(Arc::downgrade(caller).into());
         Self::new(handle, caller)
     }
 
     pub fn new_service(handle: u64, caller: &Arc<Mutex<Service>>) -> Arc<Mutex<Self>> {
-        let caller = CallbackCaller::Service(Arc::downgrade(caller));
+        let caller = CallbackCaller::Service(Arc::downgrade(caller).into());
         Self::new(handle, caller)
     }
 
     pub fn new_timer(handle: u64, caller: &Arc<Mutex<Timer>>) -> Arc<Mutex<Self>> {
-        let caller = CallbackCaller::Timer(Arc::downgrade(caller));
+        let caller = CallbackCaller::Timer(Arc::downgrade(caller).into());
         Self::new(handle, caller)
     }
 
@@ -636,18 +718,31 @@ impl Callback {
         self.caller.as_ref().into()
     }
 
-    pub fn get_node(&self) -> Option<Weak<Mutex<Node>>> {
+    pub fn get_node(&self) -> Option<ArcWeak<Mutex<Node>>> {
         let caller = Option::<&CallbackCaller>::from(self.caller.as_ref())?;
 
         match caller {
             CallbackCaller::Subscription(subscriber) => {
-                subscriber.upgrade()?.lock().unwrap().get_node().into()
+                subscriber.get_arc()?.lock().unwrap().get_node().into()
             }
             CallbackCaller::Service(service) => {
-                service.upgrade()?.lock().unwrap().get_node().into()
+                service.get_arc()?.lock().unwrap().get_node().into()
             }
-            CallbackCaller::Timer(timer) => timer.upgrade()?.lock().unwrap().get_node().into(),
+            CallbackCaller::Timer(timer) => timer.get_arc()?.lock().unwrap().get_node().into(),
         }
+    }
+}
+
+impl CyclicDependency for Callback {
+    fn break_cycle(&mut self) {
+        self.caller.as_mut().map(CyclicDependency::break_cycle);
+    }
+
+    fn create_cycle(&mut self) -> bool {
+        self.caller
+            .as_mut()
+            .map(CyclicDependency::create_cycle)
+            .unwrap_or(true)
     }
 }
 
@@ -920,17 +1015,17 @@ impl CallbackInstance {
 
         let trigger = match callback.caller.as_ref().unwrap() {
             CallbackCaller::Subscription(weak) => {
-                let subscriber = weak.upgrade().unwrap();
+                let subscriber = weak.get_arc().unwrap();
                 let mut subscriber = subscriber.lock().unwrap();
                 let message = subscriber.take_message().unwrap();
                 CallbackTrigger::SubscriptionMessage(message)
             }
             CallbackCaller::Service(weak) => {
-                let service = weak.upgrade().unwrap();
+                let service = weak.get_arc().unwrap();
                 CallbackTrigger::Service(service)
             }
             CallbackCaller::Timer(weak) => {
-                let timer = weak.upgrade().unwrap();
+                let timer = weak.get_arc().unwrap();
                 CallbackTrigger::Timer(timer)
             }
         };
@@ -980,7 +1075,7 @@ pub struct SpinInstance {
     end_time: Known<Time>,
     timeout: Duration,
     timeouted: Known<bool>,
-    node: Weak<Mutex<Node>>,
+    node: ArcWeak<Mutex<Node>>,
 }
 
 impl SpinInstance {
@@ -991,7 +1086,7 @@ impl SpinInstance {
             end_time: Known::Unknown,
             timeout,
             timeouted: Known::Unknown,
-            node: Arc::downgrade(node),
+            node: Arc::downgrade(node).into(),
         }));
 
         let mut node = node.lock().unwrap();
@@ -1033,5 +1128,15 @@ impl SpinInstance {
 
         self.timeouted = Known::Known(true);
         self.wake_time = Known::Known(wake_time);
+    }
+}
+
+impl CyclicDependency for SpinInstance {
+    fn break_cycle(&mut self) {
+        self.node.downgrade_in_place();
+    }
+
+    fn create_cycle(&mut self) -> bool {
+        self.node.upgrade_in_place()
     }
 }

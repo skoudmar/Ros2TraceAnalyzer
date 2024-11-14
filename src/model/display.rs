@@ -2,8 +2,8 @@ use std::string::ToString;
 use std::sync::{Mutex, Weak};
 
 use crate::utils::{
-    DisplayArcMutex, DisplayDebug, DisplayDuration, DisplayLargeDuration, DisplayWeakMutex, Known,
-    WeakKnown,
+    DisplayArcMutex, DisplayArcWeakMutex, DisplayDebug, DisplayDuration, DisplayLargeDuration,
+    Known, WeakKnown,
 };
 
 use super::{
@@ -69,7 +69,7 @@ impl std::fmt::Display for Publisher {
         let node = self
             .node
             .as_ref()
-            .map(|node| DisplayWeakMutex::new(node, f.alternate()));
+            .map(|node| DisplayArcWeakMutex::new(node, f.alternate()));
 
         write!(
             f,
@@ -104,7 +104,7 @@ impl std::fmt::Display for Subscriber {
         let node = self
             .node
             .as_ref()
-            .map(|node| DisplayWeakMutex::new(node, false));
+            .map(|node| DisplayArcWeakMutex::new(node, false));
         let callback = self
             .callback
             .as_ref()
@@ -147,7 +147,7 @@ impl std::fmt::Display for Service {
         let node = self
             .node
             .as_ref()
-            .map(|node| DisplayWeakMutex::new(node, false));
+            .map(|node| DisplayArcWeakMutex::new(node, false));
         let callback = self
             .callback
             .as_ref()
@@ -193,7 +193,7 @@ impl std::fmt::Display for Client {
         let node = self
             .node
             .as_ref()
-            .map(|node| DisplayWeakMutex::new(node, f.alternate()));
+            .map(|node| DisplayArcWeakMutex::new(node, f.alternate()));
 
         write!(
             f,
@@ -224,7 +224,7 @@ impl std::fmt::Display for Timer {
         let node = self
             .node
             .as_ref()
-            .map(|node| DisplayWeakMutex::new(node, false));
+            .map(|node| DisplayArcWeakMutex::new(node, false));
         let callback = self
             .callback
             .as_ref()
@@ -283,7 +283,7 @@ impl std::fmt::Display for Callback {
                         f,
                         "(handle={:x}, caller=Subscriber{}, name={})",
                         self.handle,
-                        DisplayWeakMutex::new(subscriber, false),
+                        DisplayArcWeakMutex::new(subscriber, false),
                         self.name.as_ref().map(DisplayDebug)
                     )
                 }
@@ -292,7 +292,7 @@ impl std::fmt::Display for Callback {
                         f,
                         "(handle={:x}, caller=Service{}, name={})",
                         self.handle,
-                        DisplayWeakMutex::new(service, false),
+                        DisplayArcWeakMutex::new(service, false),
                         self.name.as_ref().map(DisplayDebug)
                     )
                 }
@@ -301,7 +301,7 @@ impl std::fmt::Display for Callback {
                         f,
                         "(handle={:x}, caller=Timer{}, name={})",
                         self.handle,
-                        DisplayWeakMutex::new(timer, false),
+                        DisplayArcWeakMutex::new(timer, false),
                         self.name.as_ref().map(DisplayDebug)
                     )
                 }
@@ -331,7 +331,7 @@ impl std::fmt::Display for DisplayCallbackSummary<'_> {
             return write!(f, "({typ:?})");
         };
 
-        let node_name = node.upgrade().map_or_else(
+        let node_name = node.get_arc().map_or_else(
             || Known::Known(DisplayDebug("DROPPED".to_owned())),
             |node_arc| {
                 let node = node_arc.lock().unwrap();
@@ -343,20 +343,20 @@ impl std::fmt::Display for DisplayCallbackSummary<'_> {
 
         match caller {
             CallbackCaller::Subscription(sub) => {
-                let sub = sub.upgrade().unwrap();
+                let sub = sub.get_arc().unwrap();
                 let sub = sub.lock().unwrap();
                 let topic = sub.get_topic().map(DisplayDebug);
                 write!(f, "(node={node_name}, Subscriber({topic}))")
             }
             CallbackCaller::Service(service) => {
-                let service = service.upgrade().unwrap();
+                let service = service.get_arc().unwrap();
                 let service = service.lock().unwrap();
                 let name = service.get_name().map(DisplayDebug);
 
                 write!(f, "(node={node_name}, Service({name})")
             }
             CallbackCaller::Timer(timer) => {
-                let timer = timer.upgrade().unwrap();
+                let timer = timer.get_arc().unwrap();
                 let timer = timer.lock().unwrap();
                 let period = timer.get_period().map(DisplayDuration);
 
@@ -494,7 +494,7 @@ impl std::fmt::Display for CallbackInstance {
 
 impl std::fmt::Display for SpinInstance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let node = DisplayWeakMutex::new(&self.node, false);
+        let node = DisplayArcWeakMutex::new(&self.node, false);
         let timeout = DisplayLargeDuration(self.timeout.as_nanos());
         write!(
             f,

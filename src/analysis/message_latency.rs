@@ -52,7 +52,7 @@ impl PartialOrd for MessageLatencyStats {
                 (Known::Known(_), Known::Unknown) => return Some(Ordering::Greater),
                 (Known::Unknown, Known::Known(_)) => return Some(Ordering::Less),
                 (Known::Unknown, Known::Unknown) => return None,
-                (Known::Known(node1), Known::Known(node2)) => (node1.upgrade(), node2.upgrade()),
+                (Known::Known(node1), Known::Known(node2)) => (node1.get_arc(), node2.get_arc()),
             };
 
             let (node1, node2) = match (node1, node2) {
