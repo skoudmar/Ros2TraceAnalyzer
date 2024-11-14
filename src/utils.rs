@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 use derive_more::derive::From;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub enum Known<T> {
     Known(T),
     #[default]

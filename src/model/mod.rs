@@ -1018,15 +1018,18 @@ impl SubscriptionMessage {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Gid {
     DdsGid(DdsGid),
     RmwGid(RmwGid),
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct DdsGid {
     gid: [u8; GID_SIZE],
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct RmwGid {
     gid: DdsGid,
     gid_suffix: [u8; GID_SUFFIX_SIZE],
