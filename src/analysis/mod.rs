@@ -7,8 +7,12 @@ use crate::processed_events::FullEvent;
 use csv::{Writer, WriterBuilder};
 use derive_more::derive::From;
 
-pub mod message_latency;
 mod utils;
+
+pub mod dependency_graph;
+pub use dependency_graph::DependencyGraph;
+
+pub mod message_latency;
 pub use message_latency::MessageLatency;
 
 pub mod callback_duration;

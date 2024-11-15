@@ -11,6 +11,7 @@ mod raw_events;
 mod utils;
 
 use std::ffi::CStr;
+use std::io::Write;
 
 use analysis::AnalysisOutputExt;
 use args::{find_trace_paths, is_trace_path, Args, OutputFormat};
@@ -185,6 +186,7 @@ fn main() -> color_eyre::eyre::Result<()> {
     let mut callback_duration_analysis = analysis::CallbackDuration::new();
     let mut callback_dependency_analysis = analysis::CallbackDependency::new();
     let mut spin_to_callback_analysis = analysis::MessageTakeToCallbackLatency::new();
+    let mut dependency_graph = analysis::DependencyGraph::new();
 
     let mut iter = ProcessedEventsIter::new(&trace_paths[0]);
 
@@ -192,6 +194,7 @@ fn main() -> color_eyre::eyre::Result<()> {
     iter.add_analysis(&mut callback_duration_analysis);
     iter.add_analysis(&mut callback_dependency_analysis);
     iter.add_analysis(&mut spin_to_callback_analysis);
+    iter.add_analysis(&mut dependency_graph);
 
     if args.should_print_unprocessed_events() {
         iter.set_on_unprocessed_event(|event| {
@@ -232,6 +235,16 @@ fn main() -> color_eyre::eyre::Result<()> {
 
         print_headline(" Analysis ");
         spin_to_callback_analysis.print_stats();
+
+        if let Some(out_dir) = args.output_dir() {
+            let out_file_path = out_dir.join("dependency_graph.dot");
+            let mut out_file = std::fs::File::create(&out_file_path)
+                .wrap_err_with(|| format!("Failed to create file: {out_file_path:?}"))?;
+            let dot_output = dependency_graph.display_as_dot();
+            out_file
+                .write_fmt(format_args!("{dot_output}"))
+                .wrap_err_with(|| format!("Failed to write to file: {out_file_path:?}"))?;
+        }
     } else if args.output_format() == OutputFormat::Csv {
         let output_dir = args
             .output_dir()
