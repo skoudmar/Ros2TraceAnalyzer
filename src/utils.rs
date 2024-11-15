@@ -299,6 +299,11 @@ pub struct DisplayArcWeakMutex<'a, T> {
     skip: bool,
 }
 
+pub struct DisplayArcWeakMutexMapped<'a, T, F> {
+    arc_weak: &'a ArcWeak<Mutex<T>>,
+    display_fn: F,
+}
+
 impl<'a, T> DisplayArcWeakMutex<'a, T> {
     pub const fn new(weak: &'a ArcWeak<Mutex<T>>, skip: bool) -> Self {
         Self {
@@ -306,9 +311,19 @@ impl<'a, T> DisplayArcWeakMutex<'a, T> {
             skip,
         }
     }
+
+    pub fn map<F>(self, display_fn: F) -> DisplayArcWeakMutexMapped<'a, T, F>
+    where
+        F: Fn(&T, &mut std::fmt::Formatter<'_>) -> std::fmt::Result,
+    {
+        DisplayArcWeakMutexMapped {
+            arc_weak: self.arc_weak,
+            display_fn,
+        }
+    }
 }
 
-impl<'a, T: Display> Display for DisplayArcWeakMutex<'a, T> {
+impl<'a, T: Display> std::fmt::Display for DisplayArcWeakMutex<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.skip {
             return write!(f, "...");
@@ -318,6 +333,19 @@ impl<'a, T: Display> Display for DisplayArcWeakMutex<'a, T> {
         };
         let inner = strong.lock().unwrap();
         write!(f, "{inner:#}")
+    }
+}
+
+impl<'a, T, F> std::fmt::Display for DisplayArcWeakMutexMapped<'a, T, F>
+where
+    F: Fn(&T, &mut std::fmt::Formatter<'_>) -> std::fmt::Result,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Some(strong) = self.arc_weak.get_arc() else {
+            return write!(f, "DROPPED");
+        };
+        let inner = strong.lock().unwrap();
+        (self.display_fn)(&inner, f)
     }
 }
 
