@@ -3,6 +3,7 @@
 mod analysis;
 mod args;
 mod events_common;
+mod graphviz_export;
 mod model;
 mod processed_events;
 mod processor;
