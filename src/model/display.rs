@@ -366,6 +366,28 @@ impl std::fmt::Display for DisplayCallbackSummary<'_> {
     }
 }
 
+impl std::fmt::Display for CallbackCaller {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Subscription(subscriber) => DisplayArcWeakMutex::new(subscriber, false)
+                .map(|subscriber, f| {
+                    write!(
+                        f,
+                        "Subscriber({})",
+                        subscriber.get_topic().map(DisplayDebug)
+                    )
+                })
+                .fmt(f),
+            Self::Service(service) => DisplayArcWeakMutex::new(service, false)
+                .map(|service, f| write!(f, "Service({})", service.get_name().map(DisplayDebug)))
+                .fmt(f),
+            Self::Timer(timer) => DisplayArcWeakMutex::new(timer, false)
+                .map(|timer, f| write!(f, "Timer({})", timer.get_period().map(DisplayDuration)))
+                .fmt(f),
+        }
+    }
+}
+
 impl std::fmt::Display for CallbackType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
