@@ -376,7 +376,7 @@ pub struct DisplayDuration(pub(crate) i64);
 
 impl std::fmt::Display for DisplayDuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const SUFFIX: [&str; 6] = ["ns", "μs", "ms", "s", "m", "h"];
+        const SUFFIX: [&str; 6] = ["ns", "μs", "ms", "s", "min", "h"];
         /// Factor to convert the duration to the next suffix.
         const FACTOR: [i64; SUFFIX.len() - 1] = [1000, 1000, 1000, 60, 60];
 
@@ -397,7 +397,7 @@ pub struct DisplayLargeDuration(pub(crate) u128);
 
 impl std::fmt::Display for DisplayLargeDuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const SUFFIX: [&str; 6] = ["ns", "μs", "ms", "s", "m", "h"];
+        const SUFFIX: [&str; 6] = ["ns", "μs", "ms", "s", "min", "h"];
         /// Factor to convert the duration to the next suffix.
         const FACTOR: [u128; SUFFIX.len() - 1] = [1000, 1000, 1000, 60, 60];
 
@@ -423,7 +423,7 @@ pub struct DurationDisplayImprecise(pub i64);
 
 impl std::fmt::Display for DurationDisplayImprecise {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const SUFFIX: [&str; 8] = ["ns", "μs", "ms", "s", "m", "h", "days", "years"];
+        const SUFFIX: [&str; 8] = ["ns", "μs", "ms", "s", "min", "h", "days", "years"];
         /// Factor to convert the duration to the next suffix.
         const FACTOR: [i64; SUFFIX.len() - 1] = [1000, 1000, 1000, 60, 60, 24, 365];
 
