@@ -96,6 +96,13 @@ impl<T> Known<T> {
             Self::Unknown => true,
         }
     }
+
+    pub fn expect(self, msg: &str) -> T {
+        match self {
+            Self::Known(value) => value,
+            Self::Unknown => panic!("{}", msg),
+        }
+    }
 }
 
 impl<T> From<Option<T>> for Known<T> {
