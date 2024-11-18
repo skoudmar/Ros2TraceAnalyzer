@@ -8,6 +8,7 @@ mod model;
 mod processed_events;
 mod processor;
 mod raw_events;
+mod statistics;
 mod utils;
 
 use std::ffi::CStr;
