@@ -146,8 +146,11 @@ fn print_headline(headline: &str) {
 
 fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
-
     let args = Args::parse();
+    env_logger::Builder::new()
+        .filter_level(args.verbose.log_level_filter())
+        .format_timestamp(None)
+        .init();
 
     let trace_paths: Vec<_> = if args.is_exact_path() {
         args.trace_paths_cstring()

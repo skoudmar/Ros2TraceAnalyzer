@@ -5,6 +5,7 @@ use bt2_sys::graph::component::BtComponentType;
 use bt2_sys::query::support_info;
 use clap::builder::{PathBufValueParser, TypedValueParser};
 use clap::{Parser, ValueEnum};
+use clap_verbosity_flag::{Verbosity, WarnLevel};
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, ValueEnum)]
@@ -42,6 +43,9 @@ pub struct Args {
     /// Output format
     #[arg(long, short = 'f', value_enum, default_value_t = Default::default())]
     output_format: OutputFormat,
+
+    #[command(flatten)]
+    pub verbose: Verbosity<WarnLevel>,
 }
 
 impl Args {

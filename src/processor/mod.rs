@@ -16,7 +16,6 @@ use crate::model::{
 };
 use crate::{processed_events, raw_events};
 
-
 pub enum MaybeProcessed<P, R> {
     Processed(P),
     Raw(R),
