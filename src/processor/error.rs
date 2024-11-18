@@ -207,27 +207,6 @@ impl AlreadyExists {
         Self::new(id, stringify!(id), new_object, old_object)
     }
 
-    pub fn by_rcl_handle(
-        rcl_handle: u64,
-        old_object: impl Into<Object>,
-        new_object: impl Into<Object>,
-    ) -> Self {
-        Self::new(rcl_handle, stringify!(rcl_handle), new_object, old_object)
-    }
-
-    pub fn by_rclcpp_handle(
-        rclcpp_handle: u64,
-        old_object: impl Into<Object>,
-        new_object: impl Into<Object>,
-    ) -> Self {
-        Self::new(
-            rclcpp_handle,
-            stringify!(rclcpp_handle),
-            new_object,
-            old_object,
-        )
-    }
-
     pub fn with_ros2_event<E: Clone + Into<raw_events::ros2::Event>>(
         self,
         event: &E,
@@ -274,26 +253,6 @@ impl NotFound {
         }
     }
 
-    pub fn node(key: u64) -> Self {
-        Self::new(key, "rcl_handle", ObjectType::Node)
-    }
-
-    pub fn subscriber(key: u64, key_variable: &'static str) -> Self {
-        Self::new(key, key_variable, ObjectType::Subscriber)
-    }
-
-    pub fn publisher(key: u64, key_variable: &'static str) -> Self {
-        Self::new(key, key_variable, ObjectType::Publisher)
-    }
-
-    pub fn service(key: u64, key_variable: &'static str) -> Self {
-        Self::new(key, key_variable, ObjectType::Service)
-    }
-
-    pub fn client(key: u64, key_variable: &'static str) -> Self {
-        Self::new(key, key_variable, ObjectType::Client)
-    }
-
     pub fn timer(key: u64) -> Self {
         Self::new(key, "rcl_handle", ObjectType::Timer)
     }
@@ -304,10 +263,6 @@ impl NotFound {
 
     pub fn published_message(key: u64) -> Self {
         Self::new(key, "address", ObjectType::PublishedMessage)
-    }
-
-    pub fn subscribed_message(key: u64) -> Self {
-        Self::new(key, "address", ObjectType::SubscribedMessage)
     }
 
     pub fn dependent_object(self, object: impl Into<Object>) -> ObjectMissingDependency {
