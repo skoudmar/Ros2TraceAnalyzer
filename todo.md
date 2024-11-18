@@ -2,14 +2,15 @@
 
 ## Analysis
 
-- [ ] Inter-callback latency
-- [ ] Inter-message latency
-- [ ] Timer to callback latency
+- [x] Inter-callback latency
+- [x] Inter-message latency
+- [X] Timer to callback latency
+  - only if the spin wake time is known (so only for r2r)
 
 
 ## Graph
 
-- [ ] Add publisher/subscribers as nodes
+- [x] Add publisher/subscribers as nodes
 
 
 ## Export
