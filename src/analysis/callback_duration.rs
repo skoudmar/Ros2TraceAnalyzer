@@ -2,10 +2,10 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use crate::analysis::utils::calculate_min_max_avg;
 use crate::model::display::{get_node_name_from_weak, DisplayCallbackSummary};
 use crate::model::{Callback, CallbackInstance};
 use crate::processed_events::{ros2, Event, FullEvent};
+use crate::statistics::calculate_min_max_avg;
 use crate::utils::{DurationDisplayImprecise, WeakKnown};
 
 use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};

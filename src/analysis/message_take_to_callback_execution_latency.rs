@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::analysis::utils::calculate_min_max_avg;
+use crate::analysis::utils::DisplayDurationStats;
 use crate::model::display::DisplayCallbackSummary;
 use crate::model::{Callback, CallbackInstance, CallbackTrigger};
 use crate::processed_events::{ros2, Event, FullEvent};
-use crate::utils::DurationDisplayImprecise;
 
 use super::{ArcMutWrapper, EventAnalysis};
 
@@ -47,12 +46,7 @@ impl MessageTakeToCallbackLatency {
 
             println!("- [{i:4}] Callback {}:", DisplayCallbackSummary(&callback));
             println!("    Call count: {}", latencies.len());
-            if let Some((min_latency, max_latency, avg_latency)) = calculate_min_max_avg(latencies)
-            {
-                println!("    Max latency: {}", DurationDisplayImprecise(max_latency));
-                println!("    Min latency: {}", DurationDisplayImprecise(min_latency));
-                println!("    Avg latency: {}", DurationDisplayImprecise(avg_latency));
-            }
+            println!("    Latency: {}", DisplayDurationStats(&latencies));
         }
     }
 }

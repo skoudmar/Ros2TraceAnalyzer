@@ -4,9 +4,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::model::{Publisher, Subscriber, SubscriptionMessage};
 use crate::processed_events::{ros2, Event, FullEvent};
+use crate::statistics::calculate_min_max_avg;
 use crate::utils::{DurationDisplayImprecise, Known};
 
-use super::utils::calculate_min_max_avg;
 use super::{ArcMutWrapper, EventAnalysis};
 
 type SubPubKey = (ArcMutWrapper<Subscriber>, Option<ArcMutWrapper<Publisher>>);
