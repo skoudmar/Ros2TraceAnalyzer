@@ -95,7 +95,7 @@ impl CallbackDependency {
         Self::default()
     }
 
-    fn add_callback(&mut self, callback: Arc<Mutex<Callback>>) {
+    fn add_callback(&mut self, callback: &Arc<Mutex<Callback>>) {
         let callback_arc = callback.clone();
         let callback = callback.lock().unwrap();
 
@@ -182,7 +182,7 @@ impl EventAnalysis for CallbackDependency {
     fn process_event(&mut self, full_event: &FullEvent) {
         self.publication_in_callback.process_event(full_event);
         if let Event::Ros2(ros2::Event::RclcppCallbackRegister(event)) = &full_event.event {
-            self.add_callback(event.callback.clone());
+            self.add_callback(&event.callback);
         }
     }
 
