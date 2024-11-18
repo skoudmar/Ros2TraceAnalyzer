@@ -5,7 +5,7 @@ use crate::events_common::Context;
 use crate::model::{SpinInstance, Time};
 use crate::{processed_events, raw_events};
 
-use super::{ContextId, IntoId, UnsupportedOrError};
+use super::{ContextId, IntoId, MapGetAsResult, UnsupportedOrError};
 
 impl super::Processor {
     pub fn process_raw_r2r_event(
@@ -45,7 +45,8 @@ impl super::Processor {
         let timeout = std::time::Duration::new(event.timeout_s, event.timeout_ns);
 
         let node_arc = self
-            .get_node_by_rcl_handle(event.node_handle.into_id(context_id))
+            .nodes_by_rcl
+            .get_or_err(event.node_handle.into_id(context_id), "rcl_handle")
             .map_err(|e| e.with_r2r_event(&event, time, context))?
             .clone();
 
@@ -73,7 +74,8 @@ impl super::Processor {
         context: &Context,
     ) -> Result<processed_events::r2r::SpinEnd> {
         let node_arc = self
-            .get_node_by_rcl_handle(event.node_handle.into_id(context_id))
+            .nodes_by_rcl
+            .get_or_err(event.node_handle.into_id(context_id), "rcl_handle")
             .map_err(|e| e.with_r2r_event(&event, time, context))?
             .clone();
 
@@ -100,7 +102,8 @@ impl super::Processor {
         context: &Context,
     ) -> Result<processed_events::r2r::SpinWake> {
         let node_arc = self
-            .get_node_by_rcl_handle(event.node_handle.into_id(context_id))
+            .nodes_by_rcl
+            .get_or_err(event.node_handle.into_id(context_id), "rcl_handle")
             .map_err(|e| e.with_r2r_event(&event, time, context))?
             .clone();
 
@@ -126,7 +129,8 @@ impl super::Processor {
         context: &Context,
     ) -> Result<processed_events::r2r::SpinTimeout> {
         let node_arc = self
-            .get_node_by_rcl_handle(event.node_handle.into_id(context_id))
+            .nodes_by_rcl
+            .get_or_err(event.node_handle.into_id(context_id), "rcl_handle")
             .map_err(|e| e.with_r2r_event(&event, time, context))?
             .clone();
 
@@ -152,7 +156,8 @@ impl super::Processor {
         context: &Context,
     ) -> Result<processed_events::r2r::UpdateTime> {
         let subscriber_arc = self
-            .get_subscriber_by_rcl_handle(event.subscriber.into_id(context_id))
+            .subscribers_by_rcl
+            .get_or_err(event.subscriber.into_id(context_id), "rcl_handle")
             .map_err(|e| e.with_r2r_event(&event, time, context))
             .wrap_err("Subscriber not found for update_time event")?
             .clone();

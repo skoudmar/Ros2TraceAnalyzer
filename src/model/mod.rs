@@ -18,11 +18,24 @@ const GID_SIZE: usize = 16;
 const GID_SUFFIX_SIZE: usize = 8;
 
 #[derive(Debug, Error)]
-#[error("Object parameter already set: {msg}\nobject: {object:#?}\nnew_value: {new_value:#?}")]
+#[error("Object parameter already set: {msg}\nobject={object:#?}\nnew_value={new_value:#?}")]
 pub struct AlreadySetError<T: Debug, U: Debug> {
     object: T,
     new_value: U,
     msg: &'static str,
+}
+
+#[derive(Debug, Error)]
+#[error("{object} already initialized by event {event_name}")]
+pub struct AlreadyInitializedError {
+    object: &'static str,
+    event_name: &'static str,
+}
+
+impl AlreadyInitializedError {
+    pub const fn new(object: &'static str, event_name: &'static str) -> Self {
+        Self { object, event_name }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -233,14 +246,24 @@ pub struct Subscriber {
 }
 
 impl Subscriber {
-    pub fn rmw_init(&mut self, rmw_handle: u64, gid: [u8; raw_events::ros2::GID_SIZE]) {
-        assert!(
-            (self.rmw_handle.is_unknown() || self.rmw_handle.eq_inner(&rmw_handle))
-                && self.rmw_gid.is_unknown(),
-            "Subscriber already initialized with rmw_init_subscription. {self:#?}"
-        );
-        self.rmw_handle = Known::new(rmw_handle);
-        self.rmw_gid = Known::new(RmwGid::new(gid));
+    pub fn rmw_init(
+        &mut self,
+        rmw_handle: u64,
+        gid: [u8; raw_events::ros2::GID_SIZE],
+    ) -> Result<(), AlreadyInitializedError> {
+        assert!(!self.is_removed());
+        if self.rmw_handle.is_unknown_or_eq(&rmw_handle)
+            && self.rmw_gid.is_unknown_or_eq(&RmwGid::new(gid))
+        {
+            self.rmw_handle = Known::new(rmw_handle);
+            self.rmw_gid = Known::new(RmwGid::new(gid));
+            Ok(())
+        } else {
+            Err(AlreadyInitializedError::new(
+                "Subscriber",
+                "rmw_init_subscription",
+            ))
+        }
     }
 
     pub fn rcl_init(
@@ -249,40 +272,68 @@ impl Subscriber {
         topic_name: String,
         queue_depth: usize,
         node: Weak<Mutex<Node>>,
-    ) {
-        assert!(
-            self.rcl_handle.is_unknown(),
-            "Subscriber already initialized with rcl_subscription_init. {self:#?}"
-        );
-        self.rcl_handle = Known::new(rcl_handle);
-        self.topic_name = Known::new(topic_name);
-        self.queue_depth = Known::new(queue_depth);
-        self.node = Known::new(node.into());
+    ) -> Result<(), AlreadyInitializedError> {
+        assert!(!self.is_removed());
+        let node = node.into();
+        if self.rcl_handle.is_unknown() {
+            self.rcl_handle = Known::new(rcl_handle);
+            self.topic_name = Known::new(topic_name);
+            self.queue_depth = Known::new(queue_depth);
+            self.node = Known::new(node);
+            Ok(())
+        } else {
+            Err(AlreadyInitializedError::new(
+                "Subscriber",
+                "rcl_subscription_init",
+            ))
+        }
     }
 
-    pub fn rclcpp_init(&mut self, rclcpp_handle: u64) {
-        assert!(
-            self.rclcpp_handle.is_unknown(),
-            "Subscriber already initialized with rclcpp_subscription_init. {self:#?}"
-        );
-        self.rclcpp_handle = Known::new(rclcpp_handle);
+    pub fn rclcpp_init(&mut self, rclcpp_handle: u64) -> Result<(), AlreadyInitializedError> {
+        assert!(!self.is_removed());
+        if self.rclcpp_handle.is_unknown() {
+            self.rclcpp_handle = Known::new(rclcpp_handle);
+            Ok(())
+        } else {
+            Err(AlreadyInitializedError::new(
+                "Subscriber",
+                "rclcpp_subscription_init",
+            ))
+        }
     }
 
-    pub(crate) fn set_rmw_handle(&mut self, rmw_subscription_handle: u64) {
-        assert!(
-            self.rmw_handle.is_unknown(),
-            "Subscriber rmw_handle already set. {self:#?}"
-        );
-        self.rmw_handle = Known::new(rmw_subscription_handle);
+    pub(crate) fn set_rmw_handle(
+        &mut self,
+        rmw_subscription_handle: u64,
+    ) -> Result<(), AlreadySetError<&Self, u64>> {
+        assert!(!self.is_removed());
+        if self.rmw_handle.is_unknown_or_eq(&rmw_subscription_handle) {
+            self.rmw_handle = Known::new(rmw_subscription_handle);
+            Ok(())
+        } else {
+            Err(AlreadySetError {
+                object: self,
+                new_value: rmw_subscription_handle,
+                msg: "rmw_handle already set",
+            })
+        }
     }
 
-    pub fn set_callback(&mut self, callback: Arc<Mutex<Callback>>) {
-        assert!(
-            self.callback.is_unknown(),
-            "Subscriber callback already set. {self:#?}"
-        );
-
-        self.callback = Known::new(callback);
+    pub fn set_callback(
+        &mut self,
+        callback: Arc<Mutex<Callback>>,
+    ) -> Result<(), AlreadySetError<&Self, Arc<Mutex<Callback>>>> {
+        assert!(!self.is_removed());
+        if self.callback.is_unknown() {
+            self.callback = Known::new(callback);
+            Ok(())
+        } else {
+            Err(AlreadySetError {
+                object: self,
+                new_value: callback,
+                msg: "callback already set",
+            })
+        }
     }
 
     pub fn replace_taken_message(
@@ -291,6 +342,18 @@ impl Subscriber {
     ) -> Option<Arc<Mutex<SubscriptionMessage>>> {
         assert!(!self.is_removed());
         self.taken_message.replace(message)
+    }
+
+    pub fn get_rmw_handle(&self) -> Known<u64> {
+        self.rmw_handle
+    }
+
+    pub fn get_rcl_handle(&self) -> Known<u64> {
+        self.rcl_handle
+    }
+
+    pub fn get_rclcpp_handle(&self) -> Known<u64> {
+        self.rclcpp_handle
     }
 
     pub fn take_message(&mut self) -> Option<Arc<Mutex<SubscriptionMessage>>> {
@@ -347,14 +410,24 @@ pub struct Publisher {
 }
 
 impl Publisher {
-    pub fn rmw_init(&mut self, rmw_handle: u64, gid: [u8; raw_events::ros2::GID_SIZE]) {
-        assert!(
-            (self.rmw_handle.is_unknown() || self.rmw_handle.eq_inner(&rmw_handle))
-                && self.rmw_gid.is_unknown(),
-            "Publisher already initialized with rmw_init_publisher. {self:#?}"
-        );
-        self.rmw_handle = Known::new(rmw_handle);
-        self.rmw_gid = Known::new(RmwGid::new(gid));
+    pub fn rmw_init(
+        &mut self,
+        rmw_handle: u64,
+        gid: [u8; raw_events::ros2::GID_SIZE],
+    ) -> Result<(), AlreadyInitializedError> {
+        assert!(!self.is_removed());
+        if self.rmw_handle.is_unknown_or_eq(&rmw_handle)
+            && self.rmw_gid.is_unknown_or_eq(&RmwGid::new(gid))
+        {
+            self.rmw_handle = Known::new(rmw_handle);
+            self.rmw_gid = Known::new(RmwGid::new(gid));
+            Ok(())
+        } else {
+            Err(AlreadyInitializedError::new(
+                "Publisher",
+                "rmw_init_publisher",
+            ))
+        }
     }
 
     pub fn rcl_init(
@@ -363,31 +436,62 @@ impl Publisher {
         topic_name: String,
         queue_depth: usize,
         node: Weak<Mutex<Node>>,
-    ) {
-        assert!(
-            self.rcl_handle.is_unknown(),
-            "Publisher already initialized with rcl_publisher_init. {self:#?}"
-        );
-        self.rcl_handle = Known::new(rcl_handle);
-        self.topic_name = Known::new(topic_name);
-        self.queue_depth = Known::new(queue_depth);
-        self.node = Known::new(node.into());
+    ) -> Result<(), AlreadyInitializedError> {
+        assert!(!self.is_removed());
+        if self.rcl_handle.is_unknown() {
+            self.rcl_handle = Known::new(rcl_handle);
+            self.topic_name = Known::new(topic_name);
+            self.queue_depth = Known::new(queue_depth);
+            self.node = Known::new(node.into());
+            Ok(())
+        } else {
+            Err(AlreadyInitializedError::new(
+                "Publisher",
+                "rcl_publisher_init",
+            ))
+        }
     }
 
-    pub(crate) fn set_rmw_handle(&mut self, rmw_publisher_handle: u64) {
-        assert!(
-            self.rmw_handle.is_unknown(),
-            "Publisher rmw_handle already set. {self:#?}"
-        );
-        self.rmw_handle = Known::new(rmw_publisher_handle);
+    pub(crate) fn set_rmw_handle(
+        &mut self,
+        rmw_publisher_handle: u64,
+    ) -> Result<(), AlreadySetError<&Self, u64>> {
+        assert!(!self.is_removed());
+        if self.rmw_handle.is_unknown_or_eq(&rmw_publisher_handle) {
+            self.rmw_handle = Known::new(rmw_publisher_handle);
+            Ok(())
+        } else {
+            Err(AlreadySetError {
+                object: self,
+                new_value: rmw_publisher_handle,
+                msg: "rmw_handle already set",
+            })
+        }
     }
 
-    pub fn set_rcl_handle(&mut self, rcl_publisher_handle: u64) {
-        assert!(
-            self.rcl_handle.is_unknown(),
-            "Publisher rcl_handle already set. {self:#?}"
-        );
-        self.rcl_handle = Known::new(rcl_publisher_handle);
+    pub fn set_rcl_handle(
+        &mut self,
+        rcl_publisher_handle: u64,
+    ) -> Result<(), AlreadySetError<&Self, u64>> {
+        assert!(!self.is_removed());
+        if self.rcl_handle.is_unknown_or_eq(&rcl_publisher_handle) {
+            self.rcl_handle = Known::new(rcl_publisher_handle);
+            Ok(())
+        } else {
+            Err(AlreadySetError {
+                object: self,
+                new_value: rcl_publisher_handle,
+                msg: "rcl_handle already set",
+            })
+        }
+    }
+
+    pub fn get_rmw_handle(&self) -> Known<u64> {
+        self.rmw_handle
+    }
+
+    pub fn get_rcl_handle(&self) -> Known<u64> {
+        self.rcl_handle
     }
 
     pub fn get_topic(&self) -> Known<&str> {
@@ -451,16 +555,13 @@ impl Service {
         rmw_handle: u64,
         name: String,
         node: &Arc<Mutex<Node>>,
-    ) -> Result<(), AlreadySetError<&Self, (String, Arc<Mutex<Node>>, u64)>> {
+    ) -> Result<(), AlreadyInitializedError> {
+        assert!(!self.is_removed());
         if !self.name.is_unknown()
             || !self.node.is_unknown()
             || !self.rmw_handle.is_unknown_or_eq(&rmw_handle)
         {
-            return Err(AlreadySetError {
-                object: self,
-                new_value: (name, node.clone(), rmw_handle),
-                msg: "Service already initialized with rcl_service_init.",
-            });
+            return Err(AlreadyInitializedError::new("Service", "rcl_service_init"));
         }
 
         self.rmw_handle = Known::new(rmw_handle);
@@ -470,13 +571,21 @@ impl Service {
         Ok(())
     }
 
-    pub fn set_callback(&mut self, callback: Arc<Mutex<Callback>>) {
-        assert!(
-            self.callback.is_unknown(),
-            "Service callback already set. {self:#?}"
-        );
+    pub fn set_callback(
+        &mut self,
+        callback: Arc<Mutex<Callback>>,
+    ) -> Result<(), AlreadySetError<&Self, Arc<Mutex<Callback>>>> {
+        assert!(!self.is_removed());
+        if !self.callback.is_unknown() {
+            return Err(AlreadySetError {
+                object: self,
+                new_value: callback,
+                msg: "callback already set",
+            });
+        }
 
         self.callback = Known::new(callback);
+        Ok(())
     }
 
     pub fn get_node(&self) -> Known<ArcWeak<Mutex<Node>>> {
@@ -530,16 +639,25 @@ impl Client {
         }
     }
 
-    pub fn rcl_init(&mut self, rmw_handle: u64, service_name: String, node: &Arc<Mutex<Node>>) {
-        assert!(
-            self.rmw_handle.is_unknown()
-                && self.node.is_unknown()
-                && self.service_name.is_unknown(),
-            "Client already initialized with rcl_client_init. {self:#?}"
-        );
+    pub fn rcl_init(
+        &mut self,
+        rmw_handle: u64,
+        service_name: String,
+        node: &Arc<Mutex<Node>>,
+    ) -> Result<(), AlreadyInitializedError> {
+        assert!(!self.is_removed());
+
+        if !self.rmw_handle.is_unknown()
+            || !self.node.is_unknown()
+            || !self.service_name.is_unknown()
+        {
+            return Err(AlreadyInitializedError::new("Client", "rcl_client_init"));
+        }
         self.rmw_handle = Known::new(rmw_handle);
         self.node = Known::new(Arc::downgrade(node).into());
         self.service_name = Known::new(service_name);
+
+        Ok(())
     }
 
     pub fn mark_removed(&mut self) {
@@ -586,27 +704,48 @@ impl Timer {
         }
     }
 
-    pub fn rcl_init(&mut self, period: i64) {
-        assert!(
-            self.period.is_unknown(),
-            "Timer already initialized with rcl_timer_init. {self:#?}"
-        );
+    pub fn rcl_init(&mut self, period: i64) -> Result<(), AlreadyInitializedError> {
+        assert!(!self.is_removed());
+        if !self.period.is_unknown() {
+            return Err(AlreadyInitializedError::new("Timer", "rcl_timer_init"));
+        }
+
         self.period = Known::new(period);
+        Ok(())
     }
 
-    pub fn set_callback(&mut self, callback: Arc<Mutex<Callback>>) {
-        assert!(
-            self.callback.is_unknown(),
-            "Timer callback already set. {self:#?}"
-        );
+    pub fn set_callback(
+        &mut self,
+        callback: Arc<Mutex<Callback>>,
+    ) -> Result<(), AlreadySetError<&Self, Arc<Mutex<Callback>>>> {
+        assert!(!self.is_removed());
+        if !self.callback.is_unknown() {
+            return Err(AlreadySetError {
+                object: self,
+                new_value: callback,
+                msg: "Timer callback already set",
+            });
+        }
 
         self.callback = Known::new(callback);
+        Ok(())
     }
 
-    pub fn link_node(&mut self, node: &Arc<Mutex<Node>>) {
-        assert!(self.node.is_unknown(), "Timer node already set. {self:#?}");
+    pub fn link_node(
+        &mut self,
+        node: &Arc<Mutex<Node>>,
+    ) -> Result<(), AlreadySetError<&Self, Arc<Mutex<Node>>>> {
+        assert!(!self.is_removed());
+        if !self.node.is_unknown() {
+            return Err(AlreadySetError {
+                object: self,
+                new_value: Arc::clone(node),
+                msg: "Timer node already set",
+            });
+        }
 
         self.node = Known::new(Arc::downgrade(node).into());
+        Ok(())
     }
 
     pub fn get_period(&self) -> Known<i64> {
@@ -669,6 +808,8 @@ impl CallbackCaller {
         }
     }
 
+    /// Returns whether the caller of the callback has been marked as removed
+    /// or `None` if its weak reference cannot be upgraded.
     pub fn is_removed(&self) -> Option<bool> {
         match self {
             Self::Subscription(sub) => Some(sub.get_arc()?.lock().unwrap().is_removed()),
@@ -718,6 +859,8 @@ pub struct Callback {
     caller: Known<CallbackCaller>,
     name: Known<String>,
     running_instance: Option<Arc<Mutex<CallbackInstance>>>,
+
+    is_removed: bool,
 }
 
 impl Callback {
@@ -727,6 +870,7 @@ impl Callback {
             caller: Known::Known(caller),
             name: Known::Unknown,
             running_instance: None,
+            is_removed: false,
         }))
     }
 
@@ -745,13 +889,18 @@ impl Callback {
         Self::new(handle, caller)
     }
 
-    pub fn set_name(&mut self, name: String) {
-        assert!(
-            self.name.is_unknown(),
-            "Callback name already set. {self:#?}"
-        );
-
-        self.name = Known::new(name);
+    pub fn set_name(&mut self, name: String) -> Result<(), AlreadySetError<&Self, String>> {
+        assert!(!self.is_removed());
+        if self.name.is_unknown() {
+            self.name = Known::new(name);
+            Ok(())
+        } else {
+            Err(AlreadySetError {
+                object: self,
+                new_value: name,
+                msg: "callback name already set",
+            })
+        }
     }
 
     pub fn take_running_instance(&mut self) -> Option<Arc<Mutex<CallbackInstance>>> {
@@ -794,6 +943,19 @@ impl Callback {
             }
             CallbackCaller::Timer(timer) => timer.get_arc()?.lock().unwrap().get_node().into(),
         }
+    }
+
+    pub fn mark_removed(&mut self) {
+        assert!(self
+            .get_caller()
+            .map_or(Some(true), CallbackCaller::is_removed)
+            .unwrap_or(true));
+        self.is_removed = true;
+    }
+
+    #[inline]
+    pub fn is_removed(&self) -> bool {
+        self.is_removed
     }
 }
 

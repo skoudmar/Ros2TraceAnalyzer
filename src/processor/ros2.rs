@@ -8,7 +8,7 @@ use crate::model::{
 };
 use crate::{processed_events, raw_events};
 
-use super::{error, ContextId, IntoId, Processor};
+use super::{error, ContextId, IntoId, MapGetAsResult, Processor};
 
 use color_eyre::eyre::{eyre, Context as _};
 use color_eyre::Result;
@@ -17,7 +17,7 @@ use color_eyre::Result;
 impl Processor {
     pub(super) fn process_rcl_node_init(
         &mut self,
-        event: raw_events::ros2::RclNodeInit,
+        event: &raw_events::ros2::RclNodeInit,
         _time: Time,
         context_id: ContextId,
         _context: &Context,
@@ -45,62 +45,60 @@ impl Processor {
 
     pub(super) fn process_rmw_publisher_init(
         &mut self,
-        event: raw_events::ros2::RmwPublisherInit,
+        event: &raw_events::ros2::RmwPublisherInit,
         _time: Time,
         context_id: ContextId,
         _context: &Context,
     ) -> processed_events::ros2::RmwPublisherInit {
-        let publisher_arc = match self
+        let publisher_arc = self
             .publishers_by_rmw
             .entry(event.rmw_publisher_handle.into_id(context_id))
-        {
-            Entry::Occupied(entry) => entry.get().clone(),
-            Entry::Vacant(entry) => {
-                let publisher = Publisher::default();
-                let publisher_arc = Arc::new(Mutex::new(publisher));
-                entry.insert(publisher_arc.clone());
-                publisher_arc
-            }
-        };
+            .or_default();
 
-        publisher_arc
+        let init_result = publisher_arc
             .lock()
             .unwrap()
             .rmw_init(event.rmw_publisher_handle, event.gid);
 
+        if let Err(_e) = init_result {
+            log::warn!(
+                target: "rmw_publisher_init",
+                "Repeated initialization for handle {}. Assuming old publisher was deleted. Creating new.",
+                event.rmw_publisher_handle
+            );
+            let mut publisher = publisher_arc.lock().unwrap();
+            publisher.mark_removed();
+            drop(publisher);
+
+            let mut publisher = Publisher::default();
+            publisher
+                .rmw_init(event.rmw_publisher_handle, event.gid)
+                .expect("New Publisher should not be initialized yet");
+            *publisher_arc = Arc::new(Mutex::new(publisher));
+        }
+
         processed_events::ros2::RmwPublisherInit {
-            publisher: publisher_arc,
+            publisher: publisher_arc.clone(),
         }
     }
 
     pub(super) fn process_rcl_publisher_init(
         &mut self,
-        event: raw_events::ros2::RclPublisherInit,
+        event: &raw_events::ros2::RclPublisherInit,
         time: Time,
         context_id: ContextId,
         context: &Context,
-    ) -> Result<processed_events::ros2::RclPublisherInit> {
-        let publisher_arc = self
+    ) -> processed_events::ros2::RclPublisherInit {
+        let publisher_by_rmw_arc = self
             .publishers_by_rmw
             .entry(event.rmw_publisher_handle.into_id(context_id))
             .or_insert_with_key(|key| {
                 let mut publisher = Publisher::default();
-                publisher.set_rmw_handle(key.id);
+                publisher
+                    .set_rmw_handle(key.id)
+                    .expect("New Publisher should not be initialized yet");
                 Arc::new(Mutex::new(publisher))
             });
-        self.publishers_by_rcl
-            .insert(
-                event.publisher_handle.into_id(context_id),
-                publisher_arc.clone(),
-            )
-            .map_or(Ok(()), |old| {
-                Err(error::AlreadyExists::by_rcl_handle(
-                    event.publisher_handle,
-                    publisher_arc.clone(),
-                    old,
-                )
-                .with_ros2_event(&event, time, context))
-            })?;
 
         let node_arc = self
             .nodes_by_rcl
@@ -115,26 +113,62 @@ impl Processor {
                 Arc::new(Mutex::new(node))
             });
 
+        let init_result = publisher_by_rmw_arc.lock().unwrap().rcl_init(
+            event.publisher_handle,
+            event.topic_name.clone(),
+            event.queue_depth,
+            Arc::downgrade(node_arc),
+        );
+
+        let publisher_arc = if let Err(_e) = init_result {
+            log::warn!(
+                target: "rcl_publisher_init",
+                "Repeated initialization for handle {}. Assuming old publisher was deleted. Creating new.",
+                event.publisher_handle
+            );
+            let mut old_publisher = publisher_by_rmw_arc.lock().unwrap();
+            old_publisher.mark_removed();
+            drop(old_publisher);
+
+            let mut publisher = Publisher::default();
+            publisher
+                .rcl_init(
+                    event.publisher_handle,
+                    event.topic_name.clone(),
+                    event.queue_depth,
+                    Arc::downgrade(node_arc),
+                )
+                .expect("New Publisher should not be initialized yet");
+            let publisher_arc = Arc::new(Mutex::new(publisher));
+            *publisher_by_rmw_arc = publisher_arc.clone();
+
+            publisher_arc
+        } else {
+            publisher_by_rmw_arc.clone()
+        };
+
+        self.publishers_by_rcl
+            .insert(event.publisher_handle.into_id(context_id), publisher_arc.clone()).inspect(|old| {
+                log::warn!(
+                    target: "rcl_publisher_init",
+                    "Found different Publisher with same address. Assuming old Publisher was deleted: old={old:?}"
+                );
+                old.lock().unwrap().mark_removed();
+            });
+
         node_arc
             .lock()
             .unwrap()
             .add_publisher(publisher_arc.clone());
 
-        publisher_arc.lock().unwrap().rcl_init(
-            event.publisher_handle,
-            event.topic_name,
-            event.queue_depth,
-            Arc::downgrade(node_arc),
-        );
-
-        Ok(processed_events::ros2::RclPublisherInit {
+        processed_events::ros2::RclPublisherInit {
             publisher: publisher_arc.clone(),
-        })
+        }
     }
 
     pub(super) fn process_rclcpp_publish(
         &mut self,
-        event: raw_events::ros2::RclcppPublish,
+        event: &raw_events::ros2::RclcppPublish,
         time: Time,
         context_id: ContextId,
         _context: &Context,
@@ -152,7 +186,7 @@ impl Processor {
 
     pub(super) fn process_rcl_publish(
         &mut self,
-        event: raw_events::ros2::RclPublish,
+        event: &raw_events::ros2::RclPublish,
         time: Time,
         context_id: ContextId,
         _context: &Context,
@@ -172,10 +206,12 @@ impl Processor {
             .publishers_by_rcl
             .entry(event.publisher_handle.into_id(context_id))
             .or_insert_with_key(|key| {
-                // FIXME: rosout publisher can change handle address
+                // TODO: rosout publisher can change handle address
                 // For now we just create a new publisher
                 let mut publisher = Publisher::default();
-                publisher.set_rcl_handle(key.id);
+                publisher
+                    .set_rcl_handle(key.id)
+                    .expect("New Publisher should not be initialized yet");
 
                 Arc::new(Mutex::new(publisher))
             })
@@ -194,7 +230,7 @@ impl Processor {
 
     pub(super) fn process_rmw_publish(
         &mut self,
-        event: raw_events::ros2::RmwPublish,
+        event: &raw_events::ros2::RmwPublish,
         time: Time,
         context_id: ContextId,
         context: &Context,
@@ -236,7 +272,7 @@ impl Processor {
 
     pub(super) fn process_rclcpp_intra_publish(
         &mut self,
-        event: raw_events::ros2::RclcppIntraPublish,
+        event: &raw_events::ros2::RclcppIntraPublish,
         time: Time,
         context_id: ContextId,
         context: &Context,
@@ -245,13 +281,14 @@ impl Processor {
             .published_messages_by_rclcpp
             .get(&event.message.into_id(context_id))
             .ok_or(error::NotFound::published_message(event.message))
-            .map_err(|e| e.with_ros2_event(&event, time, context))?
+            .map_err(|e| e.with_ros2_event(event, time, context))?
             .clone();
 
         // TODO: check if event has rcl handle, rclcpp handle or other.
         let publisher_arc = self
-            .get_publisher_by_rcl_handle(event.publisher_handle.into_id(context_id))
-            .map_err(|e| e.with_ros2_event(&event, time, context))?
+            .publishers_by_rcl
+            .get_or_err(event.publisher_handle.into_id(context_id), "rcl_handle")
+            .map_err(|e| e.with_ros2_event(event, time, context))?
             .clone();
 
         message_arc.lock().unwrap().set_publisher(publisher_arc);
@@ -263,7 +300,7 @@ impl Processor {
 
     pub(super) fn process_rmw_subscription_init(
         &mut self,
-        event: raw_events::ros2::RmwSubscriptionInit,
+        event: &raw_events::ros2::RmwSubscriptionInit,
         _time: Time,
         context_id: ContextId,
         _context: &Context,
@@ -271,22 +308,38 @@ impl Processor {
         let subscriber_arc = self
             .subscribers_by_rmw
             .entry(event.rmw_subscription_handle.into_id(context_id))
-            .or_default()
-            .clone();
+            .or_default();
 
-        subscriber_arc
+        let init_result = subscriber_arc
             .lock()
             .unwrap()
             .rmw_init(event.rmw_subscription_handle, event.gid);
 
+        if let Err(_e) = init_result {
+            log::warn!(
+                target: "rmw_subscription_init",
+                "Repeated initialization for handle {}. Assuming old subscriber was deleted. Creating new.",
+                event.rmw_subscription_handle
+            );
+            let mut old_subscriber = subscriber_arc.lock().unwrap();
+            old_subscriber.mark_removed();
+            drop(old_subscriber);
+
+            let mut subscriber = Subscriber::default();
+            subscriber
+                .rmw_init(event.rmw_subscription_handle, event.gid)
+                .expect("New Subscriber should not be initialized yet");
+            *subscriber_arc = Arc::new(Mutex::new(subscriber));
+        }
+
         processed_events::ros2::RmwSubscriptionInit {
-            subscription: subscriber_arc,
+            subscription: subscriber_arc.clone(),
         }
     }
 
     pub(super) fn process_rcl_subscription_init(
         &mut self,
-        event: raw_events::ros2::RclSubscriptionInit,
+        event: &raw_events::ros2::RclSubscriptionInit,
         time: Time,
         context_id: ContextId,
         context: &Context,
@@ -296,42 +349,65 @@ impl Processor {
             .entry(event.rmw_subscription_handle.into_id(context_id))
             .or_insert_with_key(|key| {
                 let mut subscriber = Subscriber::default();
-                subscriber.set_rmw_handle(key.id);
+                subscriber
+                    .set_rmw_handle(key.id)
+                    .expect("New Subscriber should not have rwm handle yet");
                 Arc::new(Mutex::new(subscriber))
-            })
-            .clone();
-
-        self.subscribers_by_rcl
-            .insert(
-                event.subscription_handle.into_id(context_id),
-                subscriber_arc.clone(),
-            )
-            .map_or(Ok(()), |old| {
-                Err(error::AlreadyExists::new(
-                    event.subscription_handle,
-                    "rcl_handle",
-                    subscriber_arc.clone(),
-                    old,
-                )
-                .with_ros2_event(&event, time, context))
-            })?;
+            });
 
         let node_arc = self
-            .get_node_by_rcl_handle(event.node_handle.into_id(context_id))
-            .map_err(|e| e.dependent_object(&subscriber_arc))
-            .map_err(|e| e.with_ros2_event(&event, time, context))?;
+            .nodes_by_rcl
+            .get_or_err(event.node_handle.into_id(context_id), "rcl_handle")
+            .map_err(|e| e.dependent_object(&*subscriber_arc))
+            .map_err(|e| e.with_ros2_event(event, time, context))?
+            .clone();
+
+        let init_result = subscriber_arc.lock().unwrap().rcl_init(
+            event.subscription_handle,
+            event.topic_name.clone(),
+            event.queue_depth,
+            Arc::downgrade(&node_arc),
+        );
+
+        if let Err(_e) = init_result {
+            log::warn!(
+                target: "rcl_subscription_init",
+                "Repeated initialization for handle {}. Assuming old subscriber was deleted. Creating new.",
+                event.subscription_handle
+            );
+            let mut old_subscriber = subscriber_arc.lock().unwrap();
+            old_subscriber.mark_removed();
+            drop(old_subscriber);
+
+            let mut subscriber = Subscriber::default();
+            subscriber
+                .set_rmw_handle(event.rmw_subscription_handle)
+                .expect("New Subscriber should not have rwm handle yet");
+            subscriber
+                .rcl_init(
+                    event.subscription_handle,
+                    event.topic_name.clone(),
+                    event.queue_depth,
+                    Arc::downgrade(&node_arc),
+                )
+                .expect("New Subscriber should not be initialized yet");
+            *subscriber_arc = Arc::new(Mutex::new(subscriber));
+        }
+
+        self.subscribers_by_rcl
+            .insert(event.subscription_handle.into_id(context_id), subscriber_arc.clone())
+            .inspect(|old| {
+                log::warn!(
+                    target: "rcl_subscription_init",
+                    "Found different Subscriber with same address. Assuming old Subscriber was deleted: old={old:?}"
+                );
+                old.lock().unwrap().mark_removed();
+            });
 
         node_arc
             .lock()
             .unwrap()
             .add_subscriber(subscriber_arc.clone());
-
-        subscriber_arc.lock().unwrap().rcl_init(
-            event.subscription_handle,
-            event.topic_name,
-            event.queue_depth,
-            Arc::downgrade(node_arc),
-        );
 
         Ok(processed_events::ros2::RclSubscriptionInit {
             subscription: subscriber_arc.clone(),
@@ -340,51 +416,34 @@ impl Processor {
 
     pub(super) fn process_rclcpp_subscription_init(
         &mut self,
-        event: raw_events::ros2::RclcppSubscriptionInit,
+        event: &raw_events::ros2::RclcppSubscriptionInit,
         time: Time,
         context_id: ContextId,
         context: &Context,
     ) -> Result<processed_events::ros2::RclcppSubscriptionInit> {
         let subscriber_arc = self
-            .get_subscriber_by_rcl_handle(event.subscription_handle.into_id(context_id))
-            .map_err(|e| e.with_ros2_event(&event, time, context))?
-            .clone();
+            .subscribers_by_rcl
+            .get_or_err(event.subscription_handle.into_id(context_id), "rcl_handle")
+            .map_err(|e| e.with_ros2_event(event, time, context))?;
 
         subscriber_arc
             .lock()
             .unwrap()
-            .rclcpp_init(event.subscription);
+            .rclcpp_init(event.subscription)
+            .map_err(|e| error::Causes::AlreadyInitialized(e, subscriber_arc.clone().into()))?;
 
         self.subscribers_by_rclcpp
             .insert(
                 event.subscription.into_id(context_id),
                 subscriber_arc.clone(),
             )
-            .and_then(|old_arc| {
-                if Arc::ptr_eq(&old_arc, &subscriber_arc) {
-                    unreachable!(
-                        "The subscriber was already added to the map but without initialization."
-                    );
-                }
-                let mut old = old_arc.lock().unwrap();
-                let new = subscriber_arc.lock().unwrap();
-                if old.get_topic() == new.get_topic() {
-                    // Subscriber with same topic on the same address means it was destroyed and created again.
-                    old.mark_removed();
-                    None
-                } else {
-                    drop(old);
-                    Some(old_arc)
-                }
-            })
-            .map_or(Ok(()), |old| {
-                Err(error::AlreadyExists::by_rclcpp_handle(
-                    event.subscription,
-                    subscriber_arc.clone(),
-                    old,
-                )
-                .with_ros2_event(&event, time, context))
-            })?;
+            .inspect(|old| {
+                log::warn!(
+                    target: "rclcpp_subscription_init",
+                    "Found different Subscriber with same address. Assuming old Subscriber was deleted: old={old:?}"
+                );
+                old.lock().unwrap().mark_removed();
+            });
 
         Ok(processed_events::ros2::RclcppSubscriptionInit {
             subscription: subscriber_arc.clone(),
@@ -393,44 +452,36 @@ impl Processor {
 
     pub(super) fn process_rclcpp_subscription_callback_added(
         &mut self,
-        event: raw_events::ros2::RclcppSubscriptionCallbackAdded,
+        event: &raw_events::ros2::RclcppSubscriptionCallbackAdded,
         time: Time,
         context_id: ContextId,
         context: &Context,
     ) -> Result<processed_events::ros2::RclcppSubscriptionCallbackAdded> {
         let subscription_arc = self
-            .get_subscriber_by_rclcpp_handle(event.subscription.into_id(context_id))
-            .map_err(|e| e.with_ros2_event(&event, time, context))?
+            .subscribers_by_rclcpp
+            .get_or_err(event.subscription.into_id(context_id), "rclcpp_handle")
+            .map_err(|e| e.with_ros2_event(event, time, context))?
             .clone();
 
         let callback_arc = Callback::new_subscription(event.callback, &subscription_arc);
 
         self.callbacks_by_id
             .insert(event.callback.into_id(context_id), callback_arc.clone())
-            .and_then(|old_arc| {
-                let old = old_arc.lock().unwrap();
-                if old
-                    .get_caller()
-                    .and_then(CallbackCaller::is_removed)
-                    .unwrap_or(true)
-                {
-                    None
-                } else {
-                    drop(old);
-                    Some(old_arc)
-                }
-            })
+            .and_then(filter_out_removed_callers)
             .map_or(Ok(()), |old: Arc<Mutex<Callback>>| {
                 Err(
                     error::AlreadyExists::with_id(event.callback, &callback_arc, old)
-                        .with_ros2_event(&event, time, context),
+                        .with_ros2_event(event, time, context),
                 )
             })?;
 
         subscription_arc
             .lock()
             .unwrap()
-            .set_callback(callback_arc.clone());
+            .set_callback(callback_arc.clone())
+            .map_err(|e| {
+                eyre!("Subscription was already initialized by rclcpp_subscription_init event: {e}")
+            })?;
 
         Ok(processed_events::ros2::RclcppSubscriptionCallbackAdded {
             callback: callback_arc,
@@ -439,14 +490,18 @@ impl Processor {
 
     pub(super) fn process_rmw_take(
         &mut self,
-        event: raw_events::ros2::RmwTake,
+        event: &raw_events::ros2::RmwTake,
         time: Time,
         context_id: ContextId,
         context: &Context,
     ) -> Result<processed_events::ros2::RmwTake> {
         let subscriber = self
-            .get_subscriber_by_rmw_handle(event.rmw_subscription_handle.into_id(context_id))
-            .map_err(|e| e.with_ros2_event(&event, time, context))
+            .subscribers_by_rmw
+            .get_or_err(
+                event.rmw_subscription_handle.into_id(context_id),
+                "rmw_handle",
+            )
+            .map_err(|e| e.with_ros2_event(event, time, context))
             .wrap_err("Taken message missing subscriber.")?;
 
         let mut message = SubscriptionMessage::new(event.message);
@@ -458,7 +513,7 @@ impl Processor {
             message.rmw_take_matched(subscriber.clone(), published_message.clone(), time);
         } else {
             if event.source_timestamp == 0 {
-                eprintln!("rmw_take: Missing source timestamp. [{time}] {event:?} {context:?}");
+                log::info!(target:"rmw_take", "Missing source timestamp. [{time}] {event:?} {context:?}");
             }
             message.rmw_take_unmatched(subscriber.clone(), event.source_timestamp, time);
         }
@@ -486,7 +541,7 @@ impl Processor {
 
     pub(super) fn process_rcl_take(
         &mut self,
-        event: raw_events::ros2::RclTake,
+        event: &raw_events::ros2::RclTake,
         time: Time,
         context_id: ContextId,
         context: &Context,
@@ -528,7 +583,7 @@ impl Processor {
 
     pub(super) fn process_rclcpp_take(
         &mut self,
-        event: raw_events::ros2::RclcppTake,
+        event: &raw_events::ros2::RclcppTake,
         time: Time,
         context_id: ContextId,
         context: &Context,
@@ -568,7 +623,7 @@ impl Processor {
 
     pub(super) fn process_rcl_service_init(
         &mut self,
-        event: raw_events::ros2::RclServiceInit,
+        event: &raw_events::ros2::RclServiceInit,
         time: Time,
         context_id: ContextId,
         context: &Context,
@@ -579,40 +634,49 @@ impl Processor {
             .or_insert_with_key(|key| {
                 let service = Service::new(key.id);
                 Arc::new(Mutex::new(service))
-            })
-            .clone();
+            });
 
         let node_arc = self
-            .get_node_by_rcl_handle(event.node_handle.into_id(context_id))
-            .map_err(|e| e.dependent_object(&service_arc))?;
+            .nodes_by_rcl
+            .get_or_err(event.node_handle.into_id(context_id), "rcl_handle")
+            .map_err(|e| e.dependent_object(&*service_arc))?;
 
-        service_arc
-            .lock()
-            .unwrap()
-            .rcl_init(
-                event.rmw_service_handle,
-                event.service_name.clone(),
-                node_arc,
-            )
-            .map_err(|e| {
-                eyre!("Service was already initialized by rcl_service_init event: {e}").wrap_err(
-                    format!(
-                        "Error while processing event: [{time}] {:?} {context:?}",
-                        &event
-                    ),
+        let init_result = service_arc.lock().unwrap().rcl_init(
+            event.rmw_service_handle,
+            event.service_name.clone(),
+            node_arc,
+        );
+        if let Err(_e) = init_result {
+            log::warn!(
+                target: "rcl_service_init",
+                "Repeated initialization for handle {}. Assuming old service was deleted. Creating new.",
+                event.service_handle
+            );
+            let mut service = service_arc.lock().unwrap();
+            service.mark_removed();
+            drop(service);
+
+            let mut service = Service::new(event.service_handle.into_id(context_id).id);
+            service
+                .rcl_init(
+                    event.rmw_service_handle,
+                    event.service_name.clone(),
+                    node_arc,
                 )
-            })?;
+                .expect("New Service should not be initialized yet");
+            *service_arc = Arc::new(Mutex::new(service));
+        }
 
         node_arc.lock().unwrap().add_service(service_arc.clone());
 
         Ok(processed_events::ros2::RclServiceInit {
-            service: service_arc,
+            service: service_arc.clone(),
         })
     }
 
     pub(super) fn process_rclcpp_service_callback_added(
         &mut self,
-        event: raw_events::ros2::RclcppServiceCallbackAdded,
+        event: &raw_events::ros2::RclcppServiceCallbackAdded,
         time: Time,
         context_id: ContextId,
         context: &Context,
@@ -630,17 +694,21 @@ impl Processor {
 
         self.callbacks_by_id
             .insert(event.callback.into_id(context_id), callback_arc.clone())
-            .map_or(Ok(()), |old| {
+            .and_then(filter_out_removed_callers)
+            .map_or(Ok(()), |old: Arc<Mutex<Callback>>| {
                 Err(
                     error::AlreadyExists::with_id(event.callback, &callback_arc, old)
-                        .with_ros2_event(&event, time, context),
+                        .with_ros2_event(event, time, context),
                 )
             })?;
 
         service_arc
             .lock()
             .unwrap()
-            .set_callback(callback_arc.clone());
+            .set_callback(callback_arc.clone())
+            .map_err(|e| {
+                eyre!("Service was already initialized by rclcpp_service_init event: {e}")
+            })?;
 
         Ok(processed_events::ros2::RclCppServiceCallbackAdded {
             callback: callback_arc,
@@ -649,7 +717,7 @@ impl Processor {
 
     pub(super) fn process_rcl_client_init(
         &mut self,
-        event: raw_events::ros2::RclClientInit,
+        event: &raw_events::ros2::RclClientInit,
         time: Time,
         context_id: ContextId,
         context: &Context,
@@ -660,27 +728,50 @@ impl Processor {
             .or_insert_with_key(|key| {
                 let client = Client::new(key.id);
                 Arc::new(Mutex::new(client))
-            })
-            .clone();
+            });
 
         let node_arc = self
-            .get_node_by_rcl_handle(event.node_handle.into_id(context_id))
-            .map_err(|e| e.dependent_object(&client_arc))
-            .map_err(|e| e.with_ros2_event(&event, time, context))?;
+            .nodes_by_rcl
+            .get_or_err(event.node_handle.into_id(context_id), "rcl_handle")
+            .map_err(|e| e.dependent_object(&*client_arc))
+            .map_err(|e| e.with_ros2_event(event, time, context))?;
 
-        {
+        let init_result = client_arc.lock().unwrap().rcl_init(
+            event.rmw_client_handle,
+            event.service_name.clone(),
+            node_arc,
+        );
+        if let Err(_e) = init_result {
+            log::warn!(
+                target: "rcl_client_init",
+                "Repeated initialization for handle {}. Assuming old client was deleted. Creating new.",
+                event.client_handle
+            );
             let mut client = client_arc.lock().unwrap();
-            client.rcl_init(event.rmw_client_handle, event.service_name, node_arc);
+            client.mark_removed();
+            drop(client);
+
+            let mut client = Client::new(event.client_handle.into_id(context_id).id);
+            client
+                .rcl_init(
+                    event.rmw_client_handle,
+                    event.service_name.clone(),
+                    node_arc,
+                )
+                .expect("New Client should not be initialized yet");
+            *client_arc = Arc::new(Mutex::new(client));
         }
 
         node_arc.lock().unwrap().add_client(client_arc.clone());
 
-        Ok(processed_events::ros2::RclClientInit { client: client_arc })
+        Ok(processed_events::ros2::RclClientInit {
+            client: client_arc.clone(),
+        })
     }
 
     pub(super) fn process_rcl_timer_init(
         &mut self,
-        event: raw_events::ros2::RclTimerInit,
+        event: &raw_events::ros2::RclTimerInit,
         _time: Time,
         context_id: ContextId,
         _context: &Context,
@@ -691,41 +782,60 @@ impl Processor {
             .or_insert_with_key(|key| {
                 let timer = Timer::new(key.id);
                 Arc::new(Mutex::new(timer))
-            })
-            .clone();
+            });
 
-        {
+        let init_result = timer_arc.lock().unwrap().rcl_init(event.period);
+        if let Err(_e) = init_result {
+            log::warn!(
+                target: "rcl_timer_init",
+                "Repeated initialization for handle {}. Assuming old timer was deleted. Creating new.",
+                event.timer_handle
+            );
             let mut timer = timer_arc.lock().unwrap();
-            timer.rcl_init(event.period);
+            timer.mark_removed();
+            drop(timer);
+
+            let mut timer = Timer::new(event.timer_handle.into_id(context_id).id);
+            timer
+                .rcl_init(event.period)
+                .expect("New Timer should not be initialized yet");
+            *timer_arc = Arc::new(Mutex::new(timer));
         }
 
-        processed_events::ros2::RclTimerInit { timer: timer_arc }
+        processed_events::ros2::RclTimerInit {
+            timer: timer_arc.clone(),
+        }
     }
 
     pub(super) fn process_rclcpp_timer_callback_added(
         &mut self,
-        event: raw_events::ros2::RclcppTimerCallbackAdded,
+        event: &raw_events::ros2::RclcppTimerCallbackAdded,
         context_id: ContextId,
         context: &Context,
         time: Time,
     ) -> Result<processed_events::ros2::RclcppTimerCallbackAdded> {
         let timer_arc = self
             .get_timer_by_rcl_handle(event.timer_handle.into_id(context_id))
-            .map_err(|e| e.with_ros2_event(&event, time, context))?
+            .map_err(|e| e.with_ros2_event(event, time, context))?
             .clone();
 
         let callback_arc = Callback::new_timer(event.callback, &timer_arc);
 
         self.callbacks_by_id
             .insert(event.callback.into_id(context_id), callback_arc.clone())
-            .map_or(Ok(()), |old| {
+            .and_then(filter_out_removed_callers)
+            .map_or(Ok(()), |old: Arc<Mutex<Callback>>| {
                 Err(
                     error::AlreadyExists::with_id(event.callback, &callback_arc, old)
-                        .with_ros2_event(&event, time, context),
+                        .with_ros2_event(event, time, context),
                 )
             })?;
 
-        timer_arc.lock().unwrap().set_callback(callback_arc.clone());
+        timer_arc
+            .lock()
+            .unwrap()
+            .set_callback(callback_arc.clone())
+            .map_err(|e| eyre!("Timer was already has a callback: {e}"))?;
 
         Ok(processed_events::ros2::RclcppTimerCallbackAdded {
             callback: callback_arc,
@@ -734,30 +844,30 @@ impl Processor {
 
     pub(super) fn process_rclcpp_timer_link_node(
         &mut self,
-        event: raw_events::ros2::RclcppTimerLinkNode,
+        event: &raw_events::ros2::RclcppTimerLinkNode,
         time: Time,
         context_id: ContextId,
         context: &Context,
     ) -> Result<processed_events::ros2::RclcppTimerLinkNode> {
         let timer_arc = self
             .get_timer_by_rcl_handle(event.timer_handle.into_id(context_id))
-            .map_err(|e| e.with_ros2_event(&event, time, context))
+            .map_err(|e| e.with_ros2_event(event, time, context))
             .wrap_err("Timer not found. Missing rcl_timer_init event")?;
 
         let node_arc = self
-            .get_node_by_rcl_handle(event.node_handle.into_id(context_id))
+            .nodes_by_rcl
+            .get_or_err(event.node_handle.into_id(context_id), "rcl_handle")
             .map_err(|e| e.dependent_object(timer_arc))
-            .map_err(|e| e.with_ros2_event(&event, time, context))
+            .map_err(|e| e.with_ros2_event(event, time, context))
             .wrap_err("Node not found. Missing rcl_node_init event")?;
 
-        {
-            let mut timer = timer_arc.lock().unwrap();
-            timer.link_node(node_arc);
-        }
-        {
-            let mut node = node_arc.lock().unwrap();
-            node.add_timer(timer_arc.clone());
-        }
+        timer_arc
+            .lock()
+            .unwrap()
+            .link_node(node_arc)
+            .map_err(|e| eyre!("Timer already linked to a node: {e}"))?;
+
+        node_arc.lock().unwrap().add_timer(timer_arc.clone());
 
         Ok(processed_events::ros2::RclcppTimerLinkNode {
             timer: timer_arc.clone(),
@@ -766,20 +876,21 @@ impl Processor {
 
     pub(super) fn process_rclcpp_callback_register(
         &mut self,
-        event: raw_events::ros2::RclcppCallbackRegister,
+        event: &raw_events::ros2::RclcppCallbackRegister,
         time: Time,
         context_id: ContextId,
         context: &Context,
     ) -> Result<processed_events::ros2::RclcppCallbackRegister> {
         let callback_arc = self
             .get_callback_by_id(event.callback.into_id(context_id))
-            .map_err(|e| e.with_ros2_event(&event, time, context))
+            .map_err(|e| e.with_ros2_event(event, time, context))
             .wrap_err("Callback not found. Missing rclcpp_*_callback_added event?")?;
 
-        {
-            let mut callback = callback_arc.lock().unwrap();
-            callback.set_name(event.symbol);
-        }
+        callback_arc
+            .lock()
+            .unwrap()
+            .set_name(event.symbol.clone())
+            .map_err(|e| eyre!("Callback already registered with a name: {e}"))?;
 
         Ok(processed_events::ros2::RclcppCallbackRegister {
             callback: callback_arc.clone(),
@@ -788,14 +899,14 @@ impl Processor {
 
     pub(super) fn process_callback_start(
         &mut self,
-        event: raw_events::ros2::CallbackStart,
+        event: &raw_events::ros2::CallbackStart,
         time: Time,
         context_id: ContextId,
         context: &Context,
     ) -> Result<processed_events::ros2::CallbackStart> {
         let callback_arc = self
             .get_callback_by_id(event.callback.into_id(context_id))
-            .map_err(|e| e.with_ros2_event(&event, time, context))
+            .map_err(|e| e.with_ros2_event(event, time, context))
             .wrap_err("Callback not found. Missing rclcpp_*_callback_added event?")?;
 
         let callback_instance = CallbackInstance::new(callback_arc.clone(), time);
@@ -808,14 +919,14 @@ impl Processor {
 
     pub(super) fn process_callback_end(
         &mut self,
-        event: raw_events::ros2::CallbackEnd,
+        event: &raw_events::ros2::CallbackEnd,
         time: Time,
         context_id: ContextId,
         context: &Context,
     ) -> Result<processed_events::ros2::CallbackEnd> {
         let callback_arc = self
             .get_callback_by_id(event.callback.into_id(context_id))
-            .map_err(|e| e.with_ros2_event(&event, time, context))
+            .map_err(|e| e.with_ros2_event(event, time, context))
             .wrap_err("Callback not found. Missing rclcpp_*_callback_added event?")?;
 
         let callback_instance = {
@@ -833,5 +944,19 @@ impl Processor {
         Ok(processed_events::ros2::CallbackEnd {
             callback: callback_instance,
         })
+    }
+}
+
+fn filter_out_removed_callers(old_arc: Arc<Mutex<Callback>>) -> Option<Arc<Mutex<Callback>>> {
+    let old = old_arc.lock().unwrap();
+    if old
+        .get_caller()
+        .and_then(CallbackCaller::is_removed)
+        .unwrap_or(true)
+    {
+        None
+    } else {
+        drop(old);
+        Some(old_arc)
     }
 }

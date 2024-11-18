@@ -92,6 +92,57 @@ impl<T> IntoId<T> for T {
     }
 }
 
+trait MapGetAsResult<K, V> {
+    fn get_or_err(&self, key: K, key_name: &'static str) -> Result<&Arc<Mutex<V>>, error::NotFound>
+    where
+        K: std::hash::Hash + Eq + Debug,
+        V: Debug;
+}
+
+impl MapGetAsResult<Id<u64>, Node> for HashMap<Id<u64>, Arc<Mutex<Node>>> {
+    fn get_or_err(
+        &self,
+        key: Id<u64>,
+        key_name: &'static str,
+    ) -> Result<&Arc<Mutex<Node>>, error::NotFound> {
+        self.get(&key)
+            .ok_or_else(|| error::NotFound::new(key.id, key_name, error::ObjectType::Node))
+    }
+}
+
+impl MapGetAsResult<Id<u64>, Subscriber> for HashMap<Id<u64>, Arc<Mutex<Subscriber>>> {
+    fn get_or_err(
+        &self,
+        key: Id<u64>,
+        key_name: &'static str,
+    ) -> Result<&Arc<Mutex<Subscriber>>, error::NotFound> {
+        self.get(&key)
+            .ok_or_else(|| error::NotFound::new(key.id, key_name, error::ObjectType::Subscriber))
+    }
+}
+
+impl MapGetAsResult<Id<u64>, Publisher> for HashMap<Id<u64>, Arc<Mutex<Publisher>>> {
+    fn get_or_err(
+        &self,
+        key: Id<u64>,
+        key_name: &'static str,
+    ) -> Result<&Arc<Mutex<Publisher>>, error::NotFound> {
+        self.get(&key)
+            .ok_or_else(|| error::NotFound::new(key.id, key_name, error::ObjectType::Publisher))
+    }
+}
+
+impl MapGetAsResult<Id<u64>, Service> for HashMap<Id<u64>, Arc<Mutex<Service>>> {
+    fn get_or_err(
+        &self,
+        key: Id<u64>,
+        key_name: &'static str,
+    ) -> Result<&Arc<Mutex<Service>>, error::NotFound> {
+        self.get(&key)
+            .ok_or_else(|| error::NotFound::new(key.id, key_name, error::ObjectType::Service))
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Processor {
     hostname_to_host_id: HashMap<String, u32>,
@@ -155,75 +206,6 @@ impl Processor {
         }
     }
 
-    fn get_node_by_rcl_handle(&self, id: Id<u64>) -> Result<&Arc<Mutex<Node>>, error::NotFound> {
-        self.nodes_by_rcl
-            .get(&id)
-            .ok_or(error::NotFound::node(id.id))
-    }
-
-    fn get_subscriber_by_rmw_handle(
-        &self,
-        id: Id<u64>,
-    ) -> Result<&Arc<Mutex<Subscriber>>, error::NotFound> {
-        self.subscribers_by_rmw
-            .get(&id)
-            .ok_or(error::NotFound::subscriber(id.id, "rmw_handle"))
-    }
-
-    fn get_subscriber_by_rcl_handle(
-        &self,
-        id: Id<u64>,
-    ) -> Result<&Arc<Mutex<Subscriber>>, error::NotFound> {
-        self.subscribers_by_rcl
-            .get(&id)
-            .ok_or(error::NotFound::subscriber(id.id, "rcl_handle"))
-    }
-
-    fn get_subscriber_by_rclcpp_handle(
-        &self,
-        id: Id<u64>,
-    ) -> Result<&Arc<Mutex<Subscriber>>, error::NotFound> {
-        self.subscribers_by_rclcpp
-            .get(&id)
-            .ok_or(error::NotFound::subscriber(id.id, "rclcpp_handle"))
-    }
-
-    fn get_publisher_by_rmw_handle(
-        &self,
-        id: Id<u64>,
-    ) -> Result<&Arc<Mutex<Publisher>>, error::NotFound> {
-        self.publishers_by_rmw
-            .get(&id)
-            .ok_or(error::NotFound::publisher(id.id, "rmw_handle"))
-    }
-
-    fn get_publisher_by_rcl_handle(
-        &self,
-        id: Id<u64>,
-    ) -> Result<&Arc<Mutex<Publisher>>, error::NotFound> {
-        self.publishers_by_rcl
-            .get(&id)
-            .ok_or(error::NotFound::publisher(id.id, "rcl_handle"))
-    }
-
-    fn get_service_by_rcl_handle(
-        &self,
-        id: Id<u64>,
-    ) -> Result<&Arc<Mutex<Service>>, error::NotFound> {
-        self.services_by_rcl
-            .get(&id)
-            .ok_or(error::NotFound::service(id.id, "rcl_handle"))
-    }
-
-    fn get_client_by_rcl_handle(
-        &self,
-        id: Id<u64>,
-    ) -> Result<&Arc<Mutex<Client>>, error::NotFound> {
-        self.clients_by_rcl
-            .get(&id)
-            .ok_or(error::NotFound::client(id.id, "rcl_handle"))
-    }
-
     fn get_timer_by_rcl_handle(&self, id: Id<u64>) -> Result<&Arc<Mutex<Timer>>, error::NotFound> {
         self.timers_by_rcl
             .get(&id)
@@ -242,7 +224,7 @@ impl Processor {
     ) -> Result<MaybeProcessed<processed_events::FullEvent, raw_events::FullEvent>> {
         Ok(match full_event.event {
             raw_events::Event::Ros2(event) => {
-                match self.process_raw_ros2_event(event, &full_event.context, full_event.time) {
+                match self.process_raw_ros2_event(&event, &full_event.context, full_event.time) {
                     Ok(processed) => MaybeProcessed::Processed(processed.into()),
                     Err(UnsupportedOrError::Unsupported(raw_event)) => {
                         MaybeProcessed::Raw(raw_event.into())
@@ -269,7 +251,7 @@ impl Processor {
 
     pub fn process_raw_ros2_event(
         &mut self,
-        event: raw_events::ros2::Event,
+        event: &raw_events::ros2::Event,
         context: &Context,
         time: Time,
     ) -> Result<processed_events::ros2::Event, UnsupportedOrError<raw_events::ros2::Event>> {
@@ -283,7 +265,7 @@ impl Processor {
                 .process_rmw_publisher_init(event, time, context_id, context)
                 .into(),
             raw_events::ros2::Event::RclPublisherInit(event) => self
-                .process_rcl_publisher_init(event, time, context_id, context)?
+                .process_rcl_publisher_init(event, time, context_id, context)
                 .into(),
             raw_events::ros2::Event::RclcppPublish(event) => self
                 .process_rclcpp_publish(event, time, context_id, context)
@@ -347,7 +329,7 @@ impl Processor {
                 .into(),
 
             _ => {
-                return Err(UnsupportedOrError::Unsupported(event));
+                return Err(UnsupportedOrError::Unsupported(event.clone()));
             }
         })
     }

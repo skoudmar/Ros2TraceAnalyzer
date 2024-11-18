@@ -5,8 +5,8 @@ use thiserror::Error;
 
 use crate::events_common::Context;
 use crate::model::{
-    Callback, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
-    SubscriptionMessage, Time, Timer,
+    AlreadyInitializedError, Callback, Client, Node, PublicationMessage, Publisher, Service,
+    Subscriber, SubscriptionMessage, Time, Timer,
 };
 use crate::raw_events;
 use crate::utils::CyclicDependency;
@@ -390,6 +390,9 @@ pub enum Causes {
 
     #[error(transparent)]
     ObjectMissingDependency(#[from] ObjectMissingDependency),
+
+    #[error("{_0}: {_1}")]
+    AlreadyInitialized(#[source] AlreadyInitializedError, Object),
 }
 
 #[derive(Debug, Error)]
