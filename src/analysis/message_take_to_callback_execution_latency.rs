@@ -48,7 +48,7 @@ impl MessageTakeToCallbackLatency {
             println!("    Call count: {}", latencies.len());
             println!(
                 "    Latency: {}",
-                DisplayDurationStats::with_comma(&latencies)
+                DisplayDurationStats::with_comma(latencies)
             );
         }
     }

@@ -66,6 +66,13 @@ pub struct AnalysisArgs {
     /// 0 (minimum), 0.10, 0.5 (median), 0.90, 0.99, 1 (maximum)
     #[arg(long, value_parser, value_delimiter = ',', num_args = 1.., default_value = "0,0.10,0.5,0.90,0.99,1")]
     pub quantiles: Vec<Quantile>,
+
+    /// Minimum multiplier for the latency analysis.
+    ///
+    /// The minimum multiplier is used to set the maximum value in gradients
+    /// to be at least `min-multiplier` times the minimum value.
+    #[arg(long, default_value = "5")]
+    pub min_multiplier: i64,
 }
 
 impl Args {

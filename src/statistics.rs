@@ -54,6 +54,12 @@ impl<T> Sorted<T> {
             self.values.first()
         }
     }
+
+    #[must_use]
+    pub fn median(&self) -> Option<&T> {
+        const MEDIAN_QUANTILE: Quantile = Quantile(0.5);
+        self.quantile(MEDIAN_QUANTILE)
+    }
 }
 
 impl<T> Deref for Sorted<T> {

@@ -5,12 +5,14 @@ use std::sync::{Arc, Mutex};
 use crate::analysis::utils::DisplayDurationStats;
 use crate::events_common::Context;
 use crate::model::{
-    self, Callback, CallbackCaller, CallbackInstance, CallbackTrigger, Publisher, Subscriber, Time,
-    Timer,
+    self, Callback, CallbackCaller, CallbackInstance, CallbackTrigger, Publisher, Service,
+    Subscriber, Time, Timer,
 };
 use crate::processed_events::{r2r, ros2, Event, FullEvent};
+use crate::statistics::Sorted;
 use crate::utils::{DisplayDuration, Known};
 use crate::visualization::graphviz_export::{self, NodeShape};
+use crate::visualization::COLOR_GRADIENT;
 
 use super::{ArcMutWrapper, EventAnalysis};
 
@@ -50,6 +52,7 @@ pub struct DependencyGraph {
 pub enum Node {
     Publisher(ArcMutWrapper<Publisher>),
     Subscriber(ArcMutWrapper<Subscriber>),
+    Service(ArcMutWrapper<Service>),
     Timer(ArcMutWrapper<Timer>),
     Callback(ArcMutWrapper<Callback>),
 }
@@ -97,9 +100,18 @@ pub struct CallbackNode {
 enum Edge {
     PublicationInCallback(ArcMutWrapper<Publisher>, ArcMutWrapper<Callback>),
     SubscriberCallbackInvocation(ArcMutWrapper<Subscriber>, ArcMutWrapper<Callback>),
-    ServiceCallbackInvocation(ArcMutWrapper<Callback>, ArcMutWrapper<Callback>),
+    ServiceCallbackInvocation(ArcMutWrapper<Service>, ArcMutWrapper<Callback>),
     TimerCallbackInvocation(ArcMutWrapper<Timer>, ArcMutWrapper<Callback>),
     PublisherSubscriberCommunication(ArcMutWrapper<Publisher>, ArcMutWrapper<Subscriber>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum EdgeType {
+    PublisherSubscriberCommunication,
+    SubscriberCallbackInvocation,
+    TimerCallbackInvocation,
+    ServiceCallbackInvocation,
+    PublicationInCallback,
 }
 
 impl Edge {
@@ -109,7 +121,7 @@ impl Edge {
             Edge::SubscriberCallbackInvocation(subscriber, _callback) => {
                 Node::Subscriber(subscriber.clone())
             }
-            Edge::ServiceCallbackInvocation(callback, _service) => Node::Callback(callback.clone()),
+            Edge::ServiceCallbackInvocation(service, _callback) => Node::Service(service.clone()),
             Edge::TimerCallbackInvocation(timer, _callback) => Node::Timer(timer.clone()),
             Edge::PublisherSubscriberCommunication(publisher, _subscriber) => {
                 Node::Publisher(publisher.clone())
@@ -123,12 +135,22 @@ impl Edge {
             Edge::SubscriberCallbackInvocation(_subscriber, callback) => {
                 Node::Callback(callback.clone())
             }
-            Edge::ServiceCallbackInvocation(_callback, callback) => {
-                Node::Callback(callback.clone())
-            }
+            Edge::ServiceCallbackInvocation(_service, callback) => Node::Callback(callback.clone()),
             Edge::TimerCallbackInvocation(_timer, callback) => Node::Callback(callback.clone()),
             Edge::PublisherSubscriberCommunication(_publisher, subscriber) => {
                 Node::Subscriber(subscriber.clone())
+            }
+        }
+    }
+
+    pub fn as_type(&self) -> EdgeType {
+        match self {
+            Edge::PublicationInCallback(_, _) => EdgeType::PublicationInCallback,
+            Edge::SubscriberCallbackInvocation(_, _) => EdgeType::SubscriberCallbackInvocation,
+            Edge::ServiceCallbackInvocation(_, _) => EdgeType::ServiceCallbackInvocation,
+            Edge::TimerCallbackInvocation(_, _) => EdgeType::TimerCallbackInvocation,
+            Edge::PublisherSubscriberCommunication(_, _) => {
+                EdgeType::PublisherSubscriberCommunication
             }
         }
     }
@@ -242,7 +264,8 @@ impl DependencyGraph {
                 edge_data.latencies.push(latency);
             }
             CallbackTrigger::Service(service_arc) => {
-                let edge = Edge::ServiceCallbackInvocation(callback_arc.clone(), callback_arc);
+                let edge =
+                    Edge::ServiceCallbackInvocation(service_arc.clone().into(), callback_arc);
                 let edge_data = self.edges.entry(edge).or_default();
 
                 if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
@@ -508,19 +531,74 @@ impl EventAnalysis for DependencyGraph {
     }
 }
 
+struct EdgeWeightStats {
+    subscriber_to_callback: (i64, i64),
+    timer_to_callback: (i64, i64),
+    callback_to_publisher: (i64, i64),
+}
+
+impl EdgeWeightStats {
+    fn update_subscriber_to_callback(&mut self, latency: i64) {
+        self.subscriber_to_callback.0 = self.subscriber_to_callback.0.min(latency);
+        self.subscriber_to_callback.1 = self.subscriber_to_callback.1.max(latency);
+    }
+
+    fn update_timer_to_callback(&mut self, latency: i64) {
+        self.timer_to_callback.0 = self.timer_to_callback.0.min(latency);
+        self.timer_to_callback.1 = self.timer_to_callback.1.max(latency);
+    }
+
+    fn update_callback_to_publisher(&mut self, latency: i64) {
+        self.callback_to_publisher.0 = self.callback_to_publisher.0.min(latency);
+        self.callback_to_publisher.1 = self.callback_to_publisher.1.max(latency);
+    }
+
+    fn validate_range(range: (i64, i64)) -> Option<(i64, i64)> {
+        if range.0 == i64::MAX && range.1 == i64::MIN {
+            None
+        } else {
+            Some(range)
+        }
+    }
+
+    fn range_for_type(&self, typ: EdgeType) -> Option<(i64, i64)> {
+        match typ {
+            EdgeType::SubscriberCallbackInvocation => {
+                Self::validate_range(self.subscriber_to_callback)
+            }
+            EdgeType::TimerCallbackInvocation => Self::validate_range(self.timer_to_callback),
+            EdgeType::PublicationInCallback => Self::validate_range(self.callback_to_publisher),
+            EdgeType::ServiceCallbackInvocation => None,
+            EdgeType::PublisherSubscriberCommunication => None,
+        }
+    }
+}
+
+impl Default for EdgeWeightStats {
+    fn default() -> Self {
+        Self {
+            subscriber_to_callback: (i64::MAX, i64::MIN),
+            timer_to_callback: (i64::MAX, i64::MIN),
+            callback_to_publisher: (i64::MAX, i64::MIN),
+        }
+    }
+}
+
 pub struct DisplayAsDot<'a> {
     graph_node_to_ros_node: HashMap<Node, ArcMutWrapper<model::Node>>,
     node_to_id: HashMap<Node, usize>,
     ros_nodes: Vec<ArcMutWrapper<model::Node>>,
+    ros_node_to_id: HashMap<ArcMutWrapper<model::Node>, usize>,
+    ros_nodes_min_max_latency_stats: HashMap<ArcMutWrapper<model::Node>, EdgeWeightStats>,
 
-    edges: Vec<(usize, usize, EdgeData)>,
+    edges: Vec<(usize, usize, Sorted<i64>, Option<(usize, EdgeType)>)>,
 
     analysis: &'a DependencyGraph,
 }
 
 impl<'a> DisplayAsDot<'a> {
     pub fn new(graph: &'a DependencyGraph) -> Self {
-        let mut graph_node_to_ros_node = HashMap::new();
+        let mut graph_node_to_ros_node: HashMap<Node, ArcMutWrapper<model::Node>> = HashMap::new();
         let mut node_to_id = HashMap::new();
 
         let mut graph_node_id = 1;
@@ -569,14 +647,6 @@ impl<'a> DisplayAsDot<'a> {
             graph_node_to_ros_node.insert(node, ros_node.clone().into());
         }
 
-        let mut edges = Vec::new();
-
-        for (edge, edge_data) in &graph.edges {
-            let source_id = node_to_id[&edge.source()];
-            let target_id = node_to_id[&edge.target()];
-            edges.push((source_id, target_id, edge_data.clone()));
-        }
-
         let unique_used_ros_nodes = graph_node_to_ros_node
             .values()
             .collect::<HashSet<_>>()
@@ -584,12 +654,131 @@ impl<'a> DisplayAsDot<'a> {
             .cloned()
             .collect::<Vec<_>>();
 
+        let ros_node_to_id = unique_used_ros_nodes
+            .iter()
+            .enumerate()
+            .map(|(id, ros_node)| (ros_node.clone(), id))
+            .collect::<HashMap<_, _>>();
+
+        let mut edges = Vec::new();
+        let mut ros_nodes_min_max_latency_stats = HashMap::new();
+
+        for (edge, edge_data) in &graph.edges {
+            let latencies = Sorted::from_unsorted(&edge_data.latencies);
+            let source = edge.source();
+            let target = edge.target();
+            let source_ros_node = &graph_node_to_ros_node[&source];
+            let target_ros_node = &graph_node_to_ros_node[&target];
+            let node_id = if source_ros_node == target_ros_node {
+                // Update the latency statistics for the ROS node
+                let median = *latencies.median().unwrap();
+                let stats: &mut EdgeWeightStats = ros_nodes_min_max_latency_stats
+                    .entry(source_ros_node.clone())
+                    .or_default();
+                match edge.as_type() {
+                    EdgeType::SubscriberCallbackInvocation => {
+                        stats.update_subscriber_to_callback(median);
+                        Some((ros_node_to_id[source_ros_node], edge.as_type()))
+                    }
+                    EdgeType::TimerCallbackInvocation => {
+                        stats.update_timer_to_callback(median);
+                        Some((ros_node_to_id[source_ros_node], edge.as_type()))
+                    }
+                    EdgeType::PublicationInCallback => {
+                        stats.update_callback_to_publisher(median);
+                        Some((ros_node_to_id[source_ros_node], edge.as_type()))
+                    }
+                    _ => {
+                        // ServiceToCallback: Service is represented by its callback so the latency is always 0.
+                        // PublisherSubscriberCommunication: mostly between different nodes so we do not support it.
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
+            let source_id = node_to_id[&source];
+            let target_id = node_to_id[&target];
+            edges.push((source_id, target_id, latencies, node_id));
+        }
+
         Self {
             graph_node_to_ros_node,
             ros_nodes: unique_used_ros_nodes,
+            ros_node_to_id,
             node_to_id,
+            ros_nodes_min_max_latency_stats,
             edges,
             analysis: graph,
+        }
+    }
+}
+
+fn get_node_name_and_tooltip(
+    node: &Node,
+    analysis: &DependencyGraph,
+    ros_node_name: Known<&str>,
+) -> (String, String) {
+    match node {
+        Node::Publisher(publisher_arc) => {
+            let publisher = publisher_arc.0.lock().unwrap();
+            let topic = publisher.get_topic().to_string();
+            let name = format!("Publisher\n{topic}");
+            let tooltip = format!(
+                "Node: {ros_node_name}\nDelay between publications:\n{}",
+                DisplayDurationStats::with_newline(
+                    &analysis.publisher_nodes[publisher_arc].publication_delay
+                )
+            );
+            (name, tooltip)
+        }
+        Node::Subscriber(subscriber_arc) => {
+            let subscriber = subscriber_arc.0.lock().unwrap();
+            let topic = subscriber.get_topic().to_string();
+            let name = format!("Subscriber\n{topic}");
+            let tooltip = format!(
+                "Node: {ros_node_name}\nDelay between messages:\n{}",
+                DisplayDurationStats::with_newline(
+                    &analysis.subscriber_nodes[subscriber_arc].take_delay
+                )
+            );
+            (name, tooltip)
+        }
+        Node::Timer(timer_arc) => {
+            let timer = timer_arc.0.lock().unwrap();
+            let period = timer.get_period().unwrap();
+            let name = format!("Timer\n{}", DisplayDuration(period));
+            let tooltip = format!(
+                "Node: {ros_node_name}\nDelay between activations:\n{}",
+                DisplayDurationStats::with_newline(
+                    &analysis.timer_nodes[timer_arc].activation_delay
+                )
+            );
+            (name, tooltip)
+        }
+        Node::Callback(callback_arc) => {
+            let callback = callback_arc.0.lock().unwrap();
+            let name = format!(
+                "Callback\n{}",
+                Known::<&CallbackCaller>::from(callback.get_caller())
+            );
+            let tooltip = format!(
+                "Node: {ros_node_name}\nDelay between activations:\n{}\nExecution duration:\n{}",
+                DisplayDurationStats::with_newline(
+                    &analysis.callback_nodes[callback_arc].activation_delay
+                ),
+                DisplayDurationStats::with_newline(
+                    &analysis.callback_nodes[callback_arc].durations
+                )
+            );
+            (name, tooltip)
+        }
+        Node::Service(service_arc) => {
+            let service = service_arc.0.lock().unwrap();
+            let name = format!("Service\n{}", service.get_name());
+            let tooltip = format!("Node: {ros_node_name}\nSee callback for details",);
+            (name, tooltip)
         }
     }
 }
@@ -602,12 +791,7 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
             .map(|node| node.0.lock().unwrap().get_full_name().to_string())
             .collect::<Vec<_>>();
 
-        let ros_node_to_id = self
-            .ros_nodes
-            .iter()
-            .enumerate()
-            .map(|(id, ros_node)| (ros_node, id))
-            .collect::<HashMap<_, _>>();
+        let ros_node_to_id = &self.ros_node_to_id;
 
         let mut clusters = vec![Vec::new(); ros_node_to_id.len()];
         for (node, ros_node) in &self.graph_node_to_ros_node {
@@ -630,73 +814,41 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
                             .get_full_name()
                             .map(ToString::to_string)
                     });
-            let (node_name, tooltip) = match node {
-                Node::Publisher(publisher_arc) => {
-                    let publisher = publisher_arc.0.lock().unwrap();
-                    let topic = publisher.get_topic().to_string();
-                    let name = format!("Publisher\n{topic}");
-                    let tooltip = format!(
-                        "Node: {ros_node_name}\nDelay between publications: {}",
-                        DisplayDurationStats::with_newline(
-                            &self.analysis.publisher_nodes[publisher_arc].publication_delay
-                        )
-                    );
-                    (name, tooltip)
-                }
-                Node::Subscriber(subscriber_arc) => {
-                    let subscriber = subscriber_arc.0.lock().unwrap();
-                    let topic = subscriber.get_topic().to_string();
-                    let name = format!("Subscriber\n{topic}");
-                    let tooltip = format!(
-                        "Node: {ros_node_name}\nDelay between messages: {}",
-                        DisplayDurationStats::with_newline(
-                            &self.analysis.subscriber_nodes[subscriber_arc].take_delay
-                        )
-                    );
-                    (name, tooltip)
-                }
-                Node::Timer(timer_arc) => {
-                    let timer = timer_arc.0.lock().unwrap();
-                    let period = timer.get_period().unwrap();
-                    let name = format!("Timer\n{}", DisplayDuration(period));
-                    let tooltip = format!(
-                        "Node: {ros_node_name}\nDelay between activations: {}",
-                        DisplayDurationStats::with_newline(
-                            &self.analysis.timer_nodes[timer_arc].activation_delay
-                        )
-                    );
-                    (name, tooltip)
-                }
-                Node::Callback(callback_arc) => {
-                    let callback = callback_arc.0.lock().unwrap();
-                    let name = format!(
-                        "Callback\n{}",
-                        Known::<&CallbackCaller>::from(callback.get_caller())
-                    );
-                    let tooltip = format!(
-                        "Node: {ros_node_name}\nDelay between activations: {}\nExecution duration: {}",
-                        DisplayDurationStats::with_newline(&self.analysis.callback_nodes[callback_arc].activation_delay),
-                        DisplayDurationStats::with_newline(&self.analysis.callback_nodes[callback_arc].durations)
-                    );
-                    (name, tooltip)
-                }
-            };
+            let (node_name, tooltip) =
+                get_node_name_and_tooltip(node, self.analysis, ros_node_name.as_deref());
 
             let graph_node = graph.add_node(&node_name, *id);
             graph_node.set_shape(NodeShape::Ellipse);
             graph_node.set_attribute("tooltip", &tooltip);
         }
 
-        for (source_id, target_id, edge_data) in &self.edges {
+        for (source_id, target_id, latencies, in_node_id) in &self.edges {
             let edge = graph.add_edge(*source_id, *target_id, "");
             edge.set_attribute(
                 "tooltip",
                 &format!(
-                    "Activation delay: {}\nLatency: {}",
-                    DisplayDurationStats::with_newline(&edge_data.activation_delay),
-                    DisplayDurationStats::with_newline(&edge_data.latencies),
+                    "Latency:\n{}",
+                    DisplayDurationStats::with_newline(latencies),
                 ),
             );
+
+            if let Some((min_latency, max_latency)) =
+                in_node_id.as_ref().and_then(|(node_id, edge_type)| {
+                    self.ros_nodes_min_max_latency_stats[&self.ros_nodes[*node_id]]
+                        .range_for_type(*edge_type)
+                })
+            {
+                edge.set_attribute(
+                    "color",
+                    &COLOR_GRADIENT
+                        .color_for_range_with_min_multiplier(
+                            *latencies.median().unwrap(),
+                            min_latency,
+                            max_latency,
+                        )
+                        .to_string(),
+                );
+            }
         }
 
         for (cluster_nodes, cluster_name) in clusters.into_iter().zip(cluster_names) {
