@@ -12,6 +12,7 @@
 
 - [x] Add publisher/subscribers as nodes
 - [x] Rankdir LR
+- [x] Specify quantiles on commandline
 
 
 ## Export

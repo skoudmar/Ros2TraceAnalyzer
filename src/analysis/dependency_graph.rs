@@ -637,7 +637,7 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
                     let name = format!("Publisher\n{topic}");
                     let tooltip = format!(
                         "Node: {ros_node_name}\nDelay between publications: {}",
-                        DisplayDurationStats(
+                        DisplayDurationStats::with_newline(
                             &self.analysis.publisher_nodes[publisher_arc].publication_delay
                         )
                     );
@@ -649,7 +649,7 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
                     let name = format!("Subscriber\n{topic}");
                     let tooltip = format!(
                         "Node: {ros_node_name}\nDelay between messages: {}",
-                        DisplayDurationStats(
+                        DisplayDurationStats::with_newline(
                             &self.analysis.subscriber_nodes[subscriber_arc].take_delay
                         )
                     );
@@ -661,7 +661,7 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
                     let name = format!("Timer\n{}", DisplayDuration(period));
                     let tooltip = format!(
                         "Node: {ros_node_name}\nDelay between activations: {}",
-                        DisplayDurationStats(
+                        DisplayDurationStats::with_newline(
                             &self.analysis.timer_nodes[timer_arc].activation_delay
                         )
                     );
@@ -673,7 +673,11 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
                         "Callback\n{}",
                         Known::<&CallbackCaller>::from(callback.get_caller())
                     );
-                    let tooltip = format!("Node: {ros_node_name}\nDelay between activations: {}\nExecution duration: {}", DisplayDurationStats(&self.analysis.callback_nodes[callback_arc].activation_delay), DisplayDurationStats(&self.analysis.callback_nodes[callback_arc].durations));
+                    let tooltip = format!(
+                        "Node: {ros_node_name}\nDelay between activations: {}\nExecution duration: {}",
+                        DisplayDurationStats::with_newline(&self.analysis.callback_nodes[callback_arc].activation_delay),
+                        DisplayDurationStats::with_newline(&self.analysis.callback_nodes[callback_arc].durations)
+                    );
                     (name, tooltip)
                 }
             };
@@ -689,8 +693,8 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
                 "tooltip",
                 &format!(
                     "Activation delay: {}\nLatency: {}",
-                    DisplayDurationStats(&edge_data.activation_delay),
-                    DisplayDurationStats(&edge_data.latencies),
+                    DisplayDurationStats::with_newline(&edge_data.activation_delay),
+                    DisplayDurationStats::with_newline(&edge_data.latencies),
                 ),
             );
         }

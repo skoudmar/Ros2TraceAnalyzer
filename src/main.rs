@@ -148,6 +148,7 @@ fn print_headline(headline: &str) {
 fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
     let args = Args::parse();
+    args.set_globals();
     env_logger::Builder::new()
         .filter_level(args.verbose.log_level_filter())
         .format_timestamp(None)

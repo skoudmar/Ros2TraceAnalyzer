@@ -1,5 +1,6 @@
 use std::ffi::{CStr, CString};
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use bt2_sys::graph::component::BtComponentType;
 use bt2_sys::query::support_info;
@@ -8,6 +9,10 @@ use clap::{Parser, ValueEnum};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 use walkdir::WalkDir;
 
+use crate::statistics::Quantile;
+
+pub static ANALYSIS_CLI_ARGS: OnceLock<AnalysisArgs> = OnceLock::new();
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, ValueEnum)]
 pub enum OutputFormat {
     #[default]
@@ -15,7 +20,7 @@ pub enum OutputFormat {
     Csv,
 }
 
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// Path to a directory containing the trace to analyze
@@ -46,6 +51,21 @@ pub struct Args {
 
     #[command(flatten)]
     pub verbose: Verbosity<WarnLevel>,
+
+    #[command(flatten)]
+    pub analysis_args: AnalysisArgs,
+}
+
+#[derive(Debug, Parser, Clone)]
+pub struct AnalysisArgs {
+    /// Quantiles to compute for the latency and duration analysis.
+    ///
+    /// The quantiles must be in the range [0, 1].
+    ///
+    /// If not specified, the default quantiles are:
+    /// 0 (minimum), 0.10, 0.5 (median), 0.90, 0.99, 1 (maximum)
+    #[arg(long, value_parser, value_delimiter = ',', num_args = 1.., default_value = "0,0.10,0.5,0.90,0.99,1")]
+    pub quantiles: Vec<Quantile>,
 }
 
 impl Args {
@@ -78,6 +98,12 @@ impl Args {
 
     pub const fn output_format(&self) -> OutputFormat {
         self.output_format
+    }
+
+    pub(crate) fn set_globals(&self) {
+        ANALYSIS_CLI_ARGS
+            .set(self.analysis_args.clone())
+            .expect("Failed to set global analysis CLI arguments");
     }
 }
 
