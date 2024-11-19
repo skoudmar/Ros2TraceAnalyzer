@@ -617,6 +617,7 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
         }
 
         let mut graph = graphviz_export::Graph::new();
+        graph.set_attribute("rankdir", "LR");
         for (node, id) in &self.node_to_id {
             let ros_node_name =
                 self.graph_node_to_ros_node

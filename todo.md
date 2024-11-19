@@ -11,6 +11,7 @@
 ## Graph
 
 - [x] Add publisher/subscribers as nodes
+- [x] Rankdir LR
 
 
 ## Export
