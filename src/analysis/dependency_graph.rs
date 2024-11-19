@@ -568,8 +568,9 @@ impl EdgeWeightStats {
             }
             EdgeType::TimerCallbackInvocation => Self::validate_range(self.timer_to_callback),
             EdgeType::PublicationInCallback => Self::validate_range(self.callback_to_publisher),
-            EdgeType::ServiceCallbackInvocation => None,
-            EdgeType::PublisherSubscriberCommunication => None,
+            EdgeType::ServiceCallbackInvocation | EdgeType::PublisherSubscriberCommunication => {
+                None
+            }
         }
     }
 }
@@ -584,6 +585,14 @@ impl Default for EdgeWeightStats {
     }
 }
 
+struct DisplayAsDotEdge {
+    source: usize,
+    target: usize,
+    latencies: Sorted<i64>,
+    node_index: Option<usize>,
+    edge_type: EdgeType,
+}
+
 pub struct DisplayAsDot<'a> {
     graph_node_to_ros_node: HashMap<Node, ArcMutWrapper<model::Node>>,
     node_to_id: HashMap<Node, usize>,
@@ -591,7 +600,8 @@ pub struct DisplayAsDot<'a> {
     ros_node_to_id: HashMap<ArcMutWrapper<model::Node>, usize>,
     ros_nodes_min_max_latency_stats: HashMap<ArcMutWrapper<model::Node>, EdgeWeightStats>,
 
-    edges: Vec<(usize, usize, Sorted<i64>, Option<(usize, EdgeType)>)>,
+    edges: Vec<DisplayAsDotEdge>,
+    pub_sub_latency_range: Option<(i64, i64)>,
 
     analysis: &'a DependencyGraph,
 }
@@ -660,48 +670,12 @@ impl<'a> DisplayAsDot<'a> {
             .map(|(id, ros_node)| (ros_node.clone(), id))
             .collect::<HashMap<_, _>>();
 
-        let mut edges = Vec::new();
-        let mut ros_nodes_min_max_latency_stats = HashMap::new();
-
-        for (edge, edge_data) in &graph.edges {
-            let latencies = Sorted::from_unsorted(&edge_data.latencies);
-            let source = edge.source();
-            let target = edge.target();
-            let source_ros_node = &graph_node_to_ros_node[&source];
-            let target_ros_node = &graph_node_to_ros_node[&target];
-            let node_id = if source_ros_node == target_ros_node {
-                // Update the latency statistics for the ROS node
-                let median = *latencies.median().unwrap();
-                let stats: &mut EdgeWeightStats = ros_nodes_min_max_latency_stats
-                    .entry(source_ros_node.clone())
-                    .or_default();
-                match edge.as_type() {
-                    EdgeType::SubscriberCallbackInvocation => {
-                        stats.update_subscriber_to_callback(median);
-                        Some((ros_node_to_id[source_ros_node], edge.as_type()))
-                    }
-                    EdgeType::TimerCallbackInvocation => {
-                        stats.update_timer_to_callback(median);
-                        Some((ros_node_to_id[source_ros_node], edge.as_type()))
-                    }
-                    EdgeType::PublicationInCallback => {
-                        stats.update_callback_to_publisher(median);
-                        Some((ros_node_to_id[source_ros_node], edge.as_type()))
-                    }
-                    _ => {
-                        // ServiceToCallback: Service is represented by its callback so the latency is always 0.
-                        // PublisherSubscriberCommunication: mostly between different nodes so we do not support it.
-                        None
-                    }
-                }
-            } else {
-                None
-            };
-
-            let source_id = node_to_id[&source];
-            let target_id = node_to_id[&target];
-            edges.push((source_id, target_id, latencies, node_id));
-        }
+        let (edges, ros_nodes_min_max_latency_stats, pub_sub_latency_range) = process_edges(
+            &graph.edges,
+            &graph_node_to_ros_node,
+            &ros_node_to_id,
+            &node_to_id,
+        );
 
         Self {
             graph_node_to_ros_node,
@@ -711,8 +685,92 @@ impl<'a> DisplayAsDot<'a> {
             ros_nodes_min_max_latency_stats,
             edges,
             analysis: graph,
+            pub_sub_latency_range,
         }
     }
+}
+
+fn process_edges(
+    graph_edges: &HashMap<Edge, EdgeData>,
+    graph_node_to_ros_node: &HashMap<Node, ArcMutWrapper<model::Node>>,
+    ros_node_to_id: &HashMap<ArcMutWrapper<model::Node>, usize>,
+    node_to_id: &HashMap<Node, usize>,
+) -> (
+    Vec<DisplayAsDotEdge>,
+    HashMap<ArcMutWrapper<model::Node>, EdgeWeightStats>,
+    Option<(i64, i64)>,
+) {
+    let (mut pub_sub_min_latency, mut pub_sub_max_latency) = (i64::MAX, i64::MIN);
+    let mut edges = Vec::new();
+    let mut ros_nodes_min_max_latency_stats: HashMap<ArcMutWrapper<model::Node>, EdgeWeightStats> =
+        HashMap::new();
+
+    for (edge, edge_data) in graph_edges {
+        let latencies = Sorted::from_unsorted(&edge_data.latencies);
+        let median = *latencies.median().unwrap();
+        let edge_type = edge.as_type();
+
+        let source = edge.source();
+        let target = edge.target();
+        let source_ros_node = &graph_node_to_ros_node[&source];
+        let target_ros_node = &graph_node_to_ros_node[&target];
+
+        let node_id = match edge_type {
+            EdgeType::PublisherSubscriberCommunication => {
+                pub_sub_max_latency = pub_sub_max_latency.max(median);
+                pub_sub_min_latency = pub_sub_min_latency.min(median);
+                None
+            }
+            EdgeType::SubscriberCallbackInvocation if source_ros_node == target_ros_node => {
+                ros_nodes_min_max_latency_stats
+                    .entry(source_ros_node.clone())
+                    .or_default()
+                    .update_subscriber_to_callback(median);
+                Some(ros_node_to_id[source_ros_node])
+            }
+            EdgeType::TimerCallbackInvocation if source_ros_node == target_ros_node => {
+                ros_nodes_min_max_latency_stats
+                    .entry(source_ros_node.clone())
+                    .or_default()
+                    .update_timer_to_callback(median);
+                Some(ros_node_to_id[source_ros_node])
+            }
+            EdgeType::PublicationInCallback if source_ros_node == target_ros_node => {
+                ros_nodes_min_max_latency_stats
+                    .entry(source_ros_node.clone())
+                    .or_default()
+                    .update_callback_to_publisher(median);
+                Some(ros_node_to_id[source_ros_node])
+            }
+            _ => {
+                // ServiceToCallback: Service is represented by its callback so the latency is always 0.
+                None
+            }
+        };
+
+        let source_id = node_to_id[&source];
+        let target_id = node_to_id[&target];
+
+        edges.push(DisplayAsDotEdge {
+            source: source_id,
+            target: target_id,
+            latencies,
+            node_index: node_id,
+            edge_type,
+        });
+    }
+    let pub_sub_latency_range =
+        if pub_sub_min_latency == i64::MAX && pub_sub_max_latency == i64::MIN {
+            None
+        } else {
+            Some((pub_sub_min_latency, pub_sub_max_latency))
+        };
+
+    (
+        edges,
+        ros_nodes_min_max_latency_stats,
+        pub_sub_latency_range,
+    )
 }
 
 fn get_node_name_and_tooltip(
@@ -791,11 +849,9 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
             .map(|node| node.0.lock().unwrap().get_full_name().to_string())
             .collect::<Vec<_>>();
 
-        let ros_node_to_id = &self.ros_node_to_id;
-
-        let mut clusters = vec![Vec::new(); ros_node_to_id.len()];
+        let mut clusters = vec![Vec::new(); self.ros_node_to_id.len()];
         for (node, ros_node) in &self.graph_node_to_ros_node {
-            let id = ros_node_to_id[ros_node];
+            let id = self.ros_node_to_id[ros_node];
             let graph_node_id = self.node_to_id[node];
             clusters[id].push(graph_node_id);
         }
@@ -822,27 +878,32 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
             graph_node.set_attribute("tooltip", &tooltip);
         }
 
-        for (source_id, target_id, latencies, in_node_id) in &self.edges {
-            let edge = graph.add_edge(*source_id, *target_id, "");
-            edge.set_attribute(
+        for edge in &self.edges {
+            let graph_edge = graph.add_edge(edge.source, edge.target, "");
+            graph_edge.set_attribute(
                 "tooltip",
                 &format!(
                     "Latency:\n{}",
-                    DisplayDurationStats::with_newline(latencies),
+                    DisplayDurationStats::with_newline(&edge.latencies),
                 ),
             );
 
-            if let Some((min_latency, max_latency)) =
-                in_node_id.as_ref().and_then(|(node_id, edge_type)| {
-                    self.ros_nodes_min_max_latency_stats[&self.ros_nodes[*node_id]]
-                        .range_for_type(*edge_type)
-                })
-            {
-                edge.set_attribute(
+            if let Some((min_latency, max_latency)) = match edge.edge_type {
+                EdgeType::PublisherSubscriberCommunication => self.pub_sub_latency_range,
+                _ => {
+                    if let Some(node_id) = edge.node_index {
+                        self.ros_nodes_min_max_latency_stats[&self.ros_nodes[node_id]]
+                            .range_for_type(edge.edge_type)
+                    } else {
+                        None
+                    }
+                }
+            } {
+                graph_edge.set_attribute(
                     "color",
                     &COLOR_GRADIENT
                         .color_for_range_with_min_multiplier(
-                            *latencies.median().unwrap(),
+                            *edge.latencies.median().unwrap(),
                             min_latency,
                             max_latency,
                         )

@@ -94,7 +94,10 @@ impl<'a> Iterator for ProcessedEventsIter<'a> {
                 BtMessageType::DiscardedEvents
                 | BtMessageType::DiscardedPackets
                 | BtMessageType::MessageIteratorInactivity => {
-                    println!("Skipping message of type {:?}", message.get_type());
+                    log::warn!(
+                        "Skipping babeltrace2 message of type {:?}",
+                        message.get_type()
+                    );
                     self.other_messages += 1;
                     continue;
                 }
@@ -107,7 +110,7 @@ impl<'a> Iterator for ProcessedEventsIter<'a> {
             let Ok(event) = event else {
                 let event_msg = event.unwrap_err();
                 let event = event_msg.get_event();
-                eprintln!("Unsupported event: {event:?}");
+                log::debug!("Unsupported event: {event:?}");
 
                 // Skip unsupported events
                 self.other_events += 1;
