@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Display;
 
@@ -8,6 +9,7 @@ pub struct Graph {
     nodes: Vec<GraphNode>,
     edges: Vec<GraphEdge>,
     clusters: Vec<GraphCluster>,
+    attributes: Attributes,
 }
 
 impl Graph {
@@ -30,11 +32,17 @@ impl Graph {
         self.edges.push(GraphEdge::new(source, target, label));
         self.edges.iter_mut().last().unwrap()
     }
+
+    pub fn set_attribute(&mut self, key: &'static str, value: &str) {
+        self.attributes.set(key, value);
+    }
 }
 
 impl Display for Graph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "digraph {{")?;
+        writeln!(f, "\tgraph {}", self.attributes)?;
+
         for node in &self.nodes {
             writeln!(f, "\t{node}")?;
         }
@@ -69,7 +77,7 @@ impl Display for GraphCluster {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "\tsubgraph cluster_{} {{", self.id)?;
         writeln!(f, "\t\tlabel=\"{}\"", self.label)?;
-        writeln!(f, "\t\tgraph[style=\"dotted\"]")?;
+        writeln!(f, "\t\tgraph [style=\"dotted\"]")?;
 
         write!(f, "\t\t")?;
         for node_id in &self.node_ids {
@@ -80,65 +88,48 @@ impl Display for GraphCluster {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Display)]
+#[display("{}", str::from(self))]
 pub enum NodeShape {
     #[default]
-    #[display("box")]
     Box,
-
-    #[display("ellipse")]
     Ellipse,
+}
+
+impl From<NodeShape> for &'static str {
+    fn from(shape: NodeShape) -> &'static str {
+        match shape {
+            NodeShape::Box => "box",
+            NodeShape::Ellipse => "ellipse",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct GraphNode {
     id: usize,
-    name: String,
-    shape: NodeShape,
-    attributes: HashMap<String, String>,
+    attributes: Attributes,
 }
 
 impl GraphNode {
     fn new(id: usize, name: &str) -> Self {
-        Self {
-            id,
-            name: escape_string(name),
-            shape: NodeShape::default(),
-            attributes: HashMap::new(),
-        }
-    }
-
-    pub fn set_name(&mut self, name: &str) {
-        self.name = escape_string(name);
+        let mut attributes = Attributes::new();
+        attributes.set("label", name);
+        attributes.set("shape", NodeShape::default().into());
+        Self { id, attributes }
     }
 
     pub fn set_shape(&mut self, shape: NodeShape) {
-        self.shape = shape;
+        self.attributes.set("shape", shape.into());
     }
 
-    pub fn set_attribute(&mut self, key: &str, value: &str) {
-        assert!(
-            key != "label",
-            "Cannot set label attribute here, Use set_name instead!"
-        );
-        assert!(
-            key != "shape",
-            "Cannot set shape attribute here. Use set_shape instead!"
-        );
-        self.attributes.insert(key.to_owned(), escape_string(value));
+    pub fn set_attribute(&mut self, key: impl Into<Cow<'static, str>>, value: &str) {
+        self.attributes.set(key, value);
     }
 }
 
 impl Display for GraphNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} [label=\"{}\", shape={}",
-            self.id, self.name, self.shape
-        )?;
-        for (key, value) in &self.attributes {
-            write!(f, ", {key}=\"{value}\"")?;
-        }
-        write!(f, "]")
+        write!(f, "{} {}", self.id, self.attributes)
     }
 }
 
@@ -146,33 +137,28 @@ impl Display for GraphNode {
 pub struct GraphEdge {
     src: usize,
     dst: usize,
-    label: String,
-    attributes: HashMap<&'static str, String>,
+    attributes: Attributes,
 }
 
 impl GraphEdge {
     fn new(src: usize, dst: usize, label: &str) -> Self {
+        let mut attributes = Attributes::new();
+        attributes.set("label", label);
         Self {
             src,
             dst,
-            label: escape_string(label),
-            attributes: HashMap::new(),
+            attributes,
         }
     }
 
-    pub fn set_attribute(&mut self, key: &'static str, value: &str) {
-        assert!(key != "label", "Cannot set label attribute");
-        self.attributes.insert(key, escape_string(value));
+    pub fn set_attribute(&mut self, key: impl Into<Cow<'static, str>>, value: &str) {
+        self.attributes.set(key, value);
     }
 }
 
 impl Display for GraphEdge {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} -> {} [label=\"{}\"", self.src, self.dst, self.label)?;
-        for (key, value) in &self.attributes {
-            write!(f, ", {key}=\"{value}\"")?;
-        }
-        write!(f, "]")
+        write!(f, "{} -> {} {}", self.src, self.dst, self.attributes)
     }
 }
 
@@ -180,4 +166,34 @@ fn escape_string(s: &str) -> String {
     s.replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\n', "\\n")
+}
+
+#[derive(Debug, Clone, Default)]
+struct Attributes {
+    attributes: HashMap<Cow<'static, str>, String>,
+}
+
+impl Attributes {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn set(&mut self, key: impl Into<Cow<'static, str>>, value: &str) {
+        self.attributes.insert(key.into(), value.to_string());
+    }
+}
+
+impl Display for Attributes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut iter = self.attributes.iter();
+        // Write value with Debug to escape special characters
+        write!(f, "[")?;
+        if let Some((key, value)) = iter.next() {
+            write!(f, "{key}={value:?}",)?;
+        }
+        for (key, value) in iter {
+            write!(f, ", {key}={value:?}")?;
+        }
+        write!(f, "]")
+    }
 }
