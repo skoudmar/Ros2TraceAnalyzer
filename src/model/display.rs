@@ -353,14 +353,14 @@ impl std::fmt::Display for DisplayCallbackSummary<'_> {
                 let service = service.lock().unwrap();
                 let name = service.get_name().map(DisplayDebug);
 
-                write!(f, "(node={node_name}, Service({name})")
+                write!(f, "(node={node_name}, Service({name}))")
             }
             CallbackCaller::Timer(timer) => {
                 let timer = timer.get_arc().unwrap();
                 let timer = timer.lock().unwrap();
                 let period = timer.get_period().map(DisplayDuration);
 
-                write!(f, "(node={node_name}, Timer({period})")
+                write!(f, "(node={node_name}, Timer({period}))")
             }
         }
     }
