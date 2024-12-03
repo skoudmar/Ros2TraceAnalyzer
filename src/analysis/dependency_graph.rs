@@ -436,7 +436,7 @@ impl DependencyGraph {
 
     fn process_publication(
         &mut self,
-        event: &ros2::RclPublish,
+        event: &ros2::RmwPublish,
         event_time: Time,
         context: &Context,
     ) {
@@ -506,7 +506,7 @@ impl EventAnalysis for DependencyGraph {
                 self.process_rmw_take(event, event_time);
             }
 
-            Event::Ros2(ros2::Event::RclPublish(event)) => {
+            Event::Ros2(ros2::Event::RmwPublish(event)) => {
                 self.process_publication(event, event_time, &full_event.context);
             }
 
