@@ -56,7 +56,7 @@ impl super::Processor {
             let old = node.replace_spin_instance(spin_instance.clone());
 
             if let Some(old) = old {
-                eprintln!("Node {node} has a spin instance already set: {old:?}");
+                log::warn!(target:"r2r::spin_start","Node {node} has a spin instance already set: {old:?}");
             }
         }
 

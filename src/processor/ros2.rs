@@ -609,8 +609,8 @@ impl Processor {
                 .expect("The message was just created, rcl_take was not called before.");
             let message_arc = Arc::new(Mutex::new(message));
 
-            eprintln!(
-                "rcl_take: Message was not taken before. Creating new message. [{time}] {event:?} {context:?}"
+            log::warn!(target:"rcl_take",
+                "Message was not taken before. Creating new message. [{time}] {event:?} {context:?}"
             );
 
             self.received_messages
@@ -651,7 +651,7 @@ impl Processor {
                 .expect("The message was just created, rclcpp_take was not called before.");
             let message_arc = Arc::new(Mutex::new(message));
 
-            eprintln!("rclcpp_take: Message was not taken before. Creating new message. [{time}] {event:?} {context:?}");
+            log::warn!("rclcpp_take: Message was not taken before. Creating new message. [{time}] {event:?} {context:?}");
 
             self.received_messages
                 .insert(event.message.into_id(context_id), message_arc.clone());
@@ -729,7 +729,7 @@ impl Processor {
             .services_by_rcl
             .entry(event.service_handle.into_id(context_id))
             .or_insert_with_key(|key| {
-                eprintln!("Service not found for callback. Creating new (possibly duplicate) service. Event: [{time}] {event:?} {context:?}");
+                log::warn!("Service not found for callback. Creating new (possibly duplicate) service. Event: [{time}] {event:?} {context:?}");
                 let service = Service::new(key.id);
                 Arc::new(Mutex::new(service))
             });

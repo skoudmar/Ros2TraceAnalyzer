@@ -110,7 +110,7 @@ impl MessageLatency {
                 // If the publication message is not available, use the sender timestamp
                 (Some(publication_timestamp), None)
             } else {
-                eprintln!("No publication message or timestamp found for message {message:?}");
+                log::warn!("No publication message or timestamp found for message {message:?}");
                 (None, None)
             };
 
