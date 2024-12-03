@@ -107,6 +107,7 @@ impl Processor {
             .entry(event.node_handle.into_id(context_id))
             .or_insert_with(|| {
                 // Only /rosout publishers are allowed to be created before node.
+                // This happens in ROS2 Iron and lower versions.
                 assert_eq!(
                     event.topic_name, "/rosout",
                     "Node not found for publisher: {event:?}"
