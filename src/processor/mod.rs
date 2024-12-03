@@ -14,6 +14,7 @@ use crate::model::{
     Callback, Client, Node, PublicationMessage, Publisher, Service, Subscriber,
     SubscriptionMessage, Timer,
 };
+use crate::utils::Known;
 use crate::{processed_events, raw_events};
 
 pub enum MaybeProcessed<P, R> {
@@ -164,8 +165,8 @@ pub struct Processor {
 
     callbacks_by_id: HashMap<Id<u64>, Arc<Mutex<Callback>>>,
 
-    /// Id by publication timestamp
-    published_messages: HashMap<i64, Arc<Mutex<PublicationMessage>>>,
+    /// Id by publication timestamp and topic
+    published_messages: HashMap<(i64, Known<String>), Arc<Mutex<PublicationMessage>>>,
     /// Id by message ptr
     received_messages: HashMap<Id<u64>, Arc<Mutex<SubscriptionMessage>>>,
 

@@ -1,3 +1,4 @@
+use std::borrow::ToOwned;
 use std::collections::hash_map::Entry;
 use std::sync::{Arc, Mutex};
 
@@ -6,6 +7,7 @@ use crate::model::{
     Callback, CallbackCaller, CallbackInstance, Client, Node, PublicationMessage, Publisher,
     Service, Subscriber, SubscriptionMessage, Time, Timer,
 };
+use crate::utils::Known;
 use crate::{processed_events, raw_events};
 
 use super::{error, ContextId, IntoId, MapGetAsResult, Processor};
@@ -238,32 +240,63 @@ impl Processor {
         let message_arc = self
             .published_messages_by_rcl
             .remove(&event.message.into_id(context_id))
-            .unwrap_or_else(|| {
-                let mut message = PublicationMessage::new(event.message);
-                if let Some(rmw_handle) = event.rmw_publisher_handle {
-                    if let Some(publisher) =
-                        self.publishers_by_rmw.get(&rmw_handle.into_id(context_id))
-                    {
-                        message.set_publisher(publisher.clone());
-                    }
+            .unwrap_or_else(|| Arc::new(Mutex::new(PublicationMessage::new(event.message))));
+        let mut message = message_arc.lock().unwrap();
+        let publisher_id = event.rmw_publisher_handle.map(|h| h.into_id(context_id));
+        let publisher_arc = publisher_id.and_then(|id| self.publishers_by_rmw.get(&id));
+        let topic: Known<String> = match (publisher_arc, message.get_publisher()) {
+            (Some(publisher_arc), Some(message_publisher_arc)) => {
+                let message_publisher = message_publisher_arc.lock().unwrap();
+                if Arc::ptr_eq(publisher_arc, &message_publisher_arc) {
+                    message_publisher.get_topic().map(ToOwned::to_owned)
+                } else if message_publisher.is_stub() {
+                    message.replace_publisher(publisher_arc.clone());
+                    publisher_arc
+                        .lock()
+                        .unwrap()
+                        .get_topic()
+                        .map(ToOwned::to_owned)
+                } else {
+                    log::warn!(target: "rmw_publish",
+                        "Publisher mismatch for message. [{time}] {event:?} {context:?}"
+                    );
+                    Known::Unknown
                 }
-                Arc::new(Mutex::new(message))
-            });
-        event.timestamp.map_or_else(
-            || {
-                eprintln!("Missing timestamp for RMW publish event. Subscription messages will not match it: [{time}] {event:?} {context:?}");
+            }
+            (Some(publisher_arc), None) => {
+                message.set_publisher(publisher_arc.clone());
+                publisher_arc
+                    .lock()
+                    .unwrap()
+                    .get_topic()
+                    .map(ToOwned::to_owned)
+            }
+            (None, Some(message_publisher_arc)) => message_publisher_arc
+                .lock()
+                .unwrap()
+                .get_topic()
+                .map(ToOwned::to_owned),
+            (None, None) => Known::Unknown,
+        };
 
-                let mut message = message_arc.lock().unwrap();
-                message.rmw_publish_old(time);
-            },
-            |timestamp| {
-                let mut message = message_arc.lock().unwrap();
-                message.rmw_publish(time, timestamp);
+        if let Some(timestamp) = event.timestamp {
+            message.rmw_publish(time, timestamp);
 
-                self.published_messages
-                    .insert(timestamp, message_arc.clone());
-            },
-        );
+            self.published_messages
+                        .insert((timestamp, topic), message_arc.clone())
+                        .inspect(|old| {
+                            log::warn!(
+                                target: "rmw_publish",
+                                "Replacing different PublicationMessage with same sender timestamp. old_message={old:?}"
+                            );
+                        });
+        } else {
+            log::warn!(target: "rmw_publish",
+                        "Missing timestamp for RMW publish event. Subscription messages will not match it: [{time}] {event:?} {context:?}");
+
+            message.rmw_publish_old(time);
+        }
+        drop(message);
 
         processed_events::ros2::RmwPublish {
             message: message_arc,
@@ -503,12 +536,23 @@ impl Processor {
             )
             .map_err(|e| e.with_ros2_event(event, time, context))
             .wrap_err("Taken message missing subscriber.")?;
+        let topic = subscriber
+            .lock()
+            .unwrap()
+            .get_topic()
+            .map(ToOwned::to_owned);
 
         let mut message = SubscriptionMessage::new(event.message);
 
-        if let Some(published_message) = (event.source_timestamp != 0)
-            .then_some(())
-            .and_then(|()| self.published_messages.get(&event.source_timestamp))
+        if let Some(published_message) =
+            (event.source_timestamp != 0).then_some(()).and_then(|()| {
+                self.published_messages
+                    .get(&(event.source_timestamp, topic))
+                    .or_else(|| {
+                        self.published_messages
+                            .get(&(event.source_timestamp, Known::Unknown))
+                    })
+            })
         {
             message.rmw_take_matched(subscriber.clone(), published_message.clone(), time);
         } else {

@@ -506,6 +506,16 @@ impl Publisher {
         self.removed = true;
     }
 
+    /// Returns whether the publisher is a stub.
+    ///
+    /// A stub publisher is a publisher that has not been initialized by any init method.
+    pub fn is_stub(&self) -> bool {
+        self.rmw_gid.is_unknown()
+            && self.topic_name.is_unknown()
+            && self.node.is_unknown()
+            && self.queue_depth.is_unknown()
+    }
+
     pub fn is_removed(&self) -> bool {
         self.removed
     }
@@ -1003,6 +1013,10 @@ impl PublicationMessage {
             self.publisher.is_unknown(),
             "PublicationMessage publisher already set. {self:#?}"
         );
+        self.publisher = Known::new(publisher);
+    }
+
+    pub(crate) fn replace_publisher(&mut self, publisher: Arc<Mutex<Publisher>>) {
         self.publisher = Known::new(publisher);
     }
 
