@@ -4,7 +4,6 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use crate::processed_events::FullEvent;
-use csv::{Writer, WriterBuilder};
 use derive_more::derive::From;
 
 mod utils;
@@ -45,16 +44,14 @@ pub trait EventAnalysis {
 pub trait AnalysisOutput {
     const FILE_NAME: &'static str;
 
-    fn write_csv(&self, writer: &mut Writer<File>) -> csv::Result<()>;
+    fn write_json(&self, file: &mut File) -> serde_json::Result<()>;
 }
 
 pub trait AnalysisOutputExt: AnalysisOutput {
-    fn write_csv_to_output_dir(&self, output_dir: &Path) -> csv::Result<()> {
-        let out_file = output_dir.join(Self::FILE_NAME).with_extension("csv");
-        let mut wrt = WriterBuilder::new()
-            .has_headers(true)
-            .from_path(&out_file)?;
-        self.write_csv(&mut wrt)
+    fn write_json_to_output_dir(&self, output_dir: &Path) -> std::io::Result<()> {
+        let out_file = output_dir.join(Self::FILE_NAME).with_extension("json");
+        let mut out_file = File::create(out_file)?;
+        self.write_json(&mut out_file).map_err(Into::into)
     }
 }
 

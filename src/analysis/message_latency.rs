@@ -2,12 +2,15 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use serde::Serialize;
+
+use crate::analysis::utils::DisplayDurationStats;
+use crate::model::display::get_node_name_from_weak;
 use crate::model::{Publisher, Subscriber, SubscriptionMessage};
 use crate::processed_events::{ros2, Event, FullEvent};
-use crate::statistics::calculate_min_max_avg;
-use crate::utils::{DurationDisplayImprecise, Known};
+use crate::utils::Known;
 
-use super::{ArcMutWrapper, EventAnalysis};
+use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};
 
 type SubPubKey = (ArcMutWrapper<Subscriber>, Option<ArcMutWrapper<Publisher>>);
 pub struct MessageLatency {
@@ -20,10 +23,7 @@ pub struct MessageLatencyStats {
     topic: String,
     subscriber: Arc<Mutex<Subscriber>>,
     publisher: Option<Arc<Mutex<Publisher>>>,
-    message_count: usize,
-    max_latency: i64,
-    min_latency: i64,
-    avg_latency: i64,
+    latencies: Vec<i64>,
 }
 
 impl PartialEq for MessageLatencyStats {
@@ -165,17 +165,12 @@ impl MessageLatency {
             .map(|((subscriber_arc, publisher_arc), latencies)| {
                 let subscriber = subscriber_arc.0.lock().unwrap();
                 let topic = subscriber.get_topic();
-                let (min_latency, max_latency, avg_latency) =
-                    calculate_min_max_avg(latencies).expect("Latency series should not be empty");
 
                 MessageLatencyStats {
                     topic: topic.to_string(),
                     subscriber: subscriber_arc.0.clone(),
                     publisher: publisher_arc.as_ref().map(|p| p.0.clone()),
-                    message_count: latencies.len(),
-                    max_latency,
-                    min_latency,
-                    avg_latency,
+                    latencies: latencies.clone(),
                 }
             })
             .collect()
@@ -189,7 +184,6 @@ impl MessageLatency {
             let subscriber = stat.subscriber.lock().unwrap();
             let topic = &stat.topic;
             let publisher = stat.publisher.as_ref().map(|p| p.lock().unwrap());
-            let msg_count = stat.message_count;
 
             println!("- [{i:4}] Topic {topic}:");
             println!("    Subscriber: {subscriber:#}");
@@ -198,21 +192,7 @@ impl MessageLatency {
             } else {
                 println!("    Publisher: Unknown");
             }
-            println!("    Message count: {msg_count}");
-            if msg_count > 0 {
-                println!(
-                    "    Max latency: {}",
-                    DurationDisplayImprecise(stat.max_latency)
-                );
-                println!(
-                    "    Min latency: {}",
-                    DurationDisplayImprecise(stat.min_latency)
-                );
-                println!(
-                    "    Avg latency: {}",
-                    DurationDisplayImprecise(stat.avg_latency)
-                );
-            }
+            println!("\t{}", DisplayDurationStats::new(&stat.latencies, "\n\t"));
         }
     }
 }
@@ -255,5 +235,51 @@ impl EventAnalysis for MessageLatency {
         // Make sure all messages are accounted for. The remaining messages are
         // missing the RclCppTake event.
         self.remove_remaining_messages();
+    }
+}
+
+impl AnalysisOutput for MessageLatency {
+    const FILE_NAME: &'static str = "message_latency";
+
+    fn write_json(&self, file: &mut std::fs::File) -> serde_json::Result<()> {
+        let stats = self.calculate_stats();
+        let stats: Vec<MessageLatencyExport> = stats.into_iter().map(Into::into).collect();
+        serde_json::to_writer(file, &stats)
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct MessageLatencyExport {
+    topic: String,
+    subscriber_node: String,
+    publisher_node: String,
+    latencies: Vec<i64>,
+}
+
+impl From<MessageLatencyStats> for MessageLatencyExport {
+    fn from(value: MessageLatencyStats) -> Self {
+        let subscriber = value.subscriber.lock().unwrap();
+        let subscriber_node = subscriber
+            .get_node()
+            .map(|node| get_node_name_from_weak(&node.get_weak()).unwrap_or("Unknown".to_string()))
+            .unwrap_or("Unknown".to_string());
+        let publisher_node = value.publisher.as_ref().map_or_else(
+            || "Unknown".to_string(),
+            |p| {
+                let publisher = p.lock().unwrap().get_node();
+                publisher
+                    .map(|node| {
+                        get_node_name_from_weak(&node.get_weak()).unwrap_or("Unknown".to_string())
+                    })
+                    .unwrap_or("Unknown".to_string())
+            },
+        );
+
+        Self {
+            topic: value.topic,
+            subscriber_node,
+            publisher_node,
+            latencies: value.latencies,
+        }
     }
 }

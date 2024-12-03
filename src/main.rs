@@ -253,15 +253,20 @@ fn main() -> color_eyre::eyre::Result<()> {
                 .write_fmt(format_args!("{dot_output}"))
                 .wrap_err_with(|| format!("Failed to write to file: {out_file_path:?}"))?;
         }
-    } else if args.output_format() == OutputFormat::Csv {
+    } else if args.output_format() == OutputFormat::Json {
         let output_dir = args
             .output_dir()
             .ok_or_eyre("Output directory not specified")?;
 
         callback_duration_analysis
-            .write_csv_to_output_dir(output_dir)
+            .write_json_to_output_dir(output_dir)
             .wrap_err("Failed to write CSV")
             .wrap_err("Callback duration analysis serialization error")?;
+
+        message_latency_analysis
+            .write_json_to_output_dir(output_dir)
+            .wrap_err("Failed to write CSV")
+            .wrap_err("Message latency analysis serialization error")?;
 
         todo!("Not all analyses are serialized yet");
     }

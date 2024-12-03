@@ -16,6 +16,10 @@ impl<'a> DisplayDurationStats<'a> {
     pub fn new(slice: &'a [i64], separator: &'a str) -> Self {
         Self(slice, separator)
     }
+
+    pub(crate) fn print(&self) {
+        println!("{self}");
+    }
 }
 
 impl<'a> std::fmt::Display for DisplayDurationStats<'a> {

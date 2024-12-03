@@ -23,10 +23,7 @@ pub struct Record {
     callback_type: String,
     callback_caller: String,
 
-    call_count: usize,
-    max_duration: i64,
-    min_duration: i64,
-    avg_duration: i64,
+    durations: Vec<i64>,
 }
 
 #[derive(Debug, Clone)]
@@ -129,18 +126,11 @@ impl CallbackDuration {
                 let callback_caller = callback.get_caller().unwrap().get_caller_as_string();
                 drop(callback);
 
-                let summary = self
-                    .calculate_duration_summary(callback_arc)
-                    .expect("Callback key should exist.");
-
                 Record {
                     node: node_name.to_string(),
                     callback_type: callback_type.to_string(),
                     callback_caller: callback_caller.to_string(),
-                    call_count: summary.call_count,
-                    max_duration: summary.max_duration,
-                    min_duration: summary.min_duration,
-                    avg_duration: summary.avg_duration,
+                    durations: self.durations[callback_arc].clone(),
                 }
             })
             .collect()
@@ -204,12 +194,8 @@ impl EventAnalysis for CallbackDuration {
 impl AnalysisOutput for CallbackDuration {
     const FILE_NAME: &'static str = "callback_duration";
 
-    fn write_csv(&self, writer: &mut csv::Writer<std::fs::File>) -> csv::Result<()> {
+    fn write_json(&self, file: &mut std::fs::File) -> serde_json::Result<()> {
         let records = self.get_records();
-        for record in records {
-            writer.serialize(record)?;
-        }
-
-        Ok(())
+        serde_json::to_writer(file, &records)
     }
 }

@@ -17,7 +17,7 @@ pub static ANALYSIS_CLI_ARGS: OnceLock<AnalysisArgs> = OnceLock::new();
 pub enum OutputFormat {
     #[default]
     Text,
-    Csv,
+    Json,
 }
 
 #[derive(Debug, Parser)]
