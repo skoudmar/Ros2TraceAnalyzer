@@ -20,8 +20,13 @@ pub struct CallbackDuration {
 #[derive(Debug, Clone, Serialize)]
 pub struct Record {
     node: String,
-    callback_type: String,
-    callback_caller: String,
+    caller_type: String,
+    /// The caller parameter is the main parameter of the caller.
+    ///
+    /// - For subscriptions, it is the topic name.
+    /// - For timers, it is the timer period.
+    /// - For services, it is the service name.
+    caller_param: String,
 
     durations: Vec<i64>,
 }
@@ -128,8 +133,8 @@ impl CallbackDuration {
 
                 Record {
                     node: node_name.to_string(),
-                    callback_type: callback_type.to_string(),
-                    callback_caller: callback_caller.to_string(),
+                    caller_type: callback_type.to_string(),
+                    caller_param: callback_caller.to_string(),
                     durations: self.durations[callback_arc].clone(),
                 }
             })
