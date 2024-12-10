@@ -497,7 +497,11 @@ impl Processor {
             .map_err(|e| e.with_ros2_event(event, time, context))?
             .clone();
 
-        let callback_arc = Callback::new_subscription(event.callback, &subscription_arc);
+        let callback_arc = Callback::new_subscription(
+            event.callback,
+            &subscription_arc,
+            context.hostname().to_owned(),
+        );
 
         self.callbacks_by_id
             .insert(event.callback.into_id(context_id), callback_arc.clone())
@@ -735,7 +739,8 @@ impl Processor {
                 Arc::new(Mutex::new(service))
             });
 
-        let callback_arc = Callback::new_service(event.callback, service_arc);
+        let callback_arc =
+            Callback::new_service(event.callback, service_arc, context.hostname().to_owned());
 
         self.callbacks_by_id
             .insert(event.callback.into_id(context_id), callback_arc.clone())
@@ -864,7 +869,8 @@ impl Processor {
             .map_err(|e| e.with_ros2_event(event, time, context))?
             .clone();
 
-        let callback_arc = Callback::new_timer(event.callback, &timer_arc);
+        let callback_arc =
+            Callback::new_timer(event.callback, &timer_arc, context.hostname().to_owned());
 
         self.callbacks_by_id
             .insert(event.callback.into_id(context_id), callback_arc.clone())

@@ -869,34 +869,48 @@ pub struct Callback {
     caller: Known<CallbackCaller>,
     name: Known<String>,
     running_instance: Option<Arc<Mutex<CallbackInstance>>>,
+    hostname: String,
 
     is_removed: bool,
 }
 
 impl Callback {
-    fn new(handle: u64, caller: CallbackCaller) -> Arc<Mutex<Self>> {
+    fn new(handle: u64, caller: CallbackCaller, hostname: String) -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             handle,
             caller: Known::Known(caller),
             name: Known::Unknown,
             running_instance: None,
+            hostname,
             is_removed: false,
         }))
     }
 
-    pub fn new_subscription(handle: u64, caller: &Arc<Mutex<Subscriber>>) -> Arc<Mutex<Self>> {
+    pub fn new_subscription(
+        handle: u64,
+        caller: &Arc<Mutex<Subscriber>>,
+        hostname: String,
+    ) -> Arc<Mutex<Self>> {
         let caller = CallbackCaller::Subscription(Arc::downgrade(caller).into());
-        Self::new(handle, caller)
+        Self::new(handle, caller, hostname)
     }
 
-    pub fn new_service(handle: u64, caller: &Arc<Mutex<Service>>) -> Arc<Mutex<Self>> {
+    pub fn new_service(
+        handle: u64,
+        caller: &Arc<Mutex<Service>>,
+        hostname: String,
+    ) -> Arc<Mutex<Self>> {
         let caller = CallbackCaller::Service(Arc::downgrade(caller).into());
-        Self::new(handle, caller)
+        Self::new(handle, caller, hostname)
     }
 
-    pub fn new_timer(handle: u64, caller: &Arc<Mutex<Timer>>) -> Arc<Mutex<Self>> {
+    pub fn new_timer(
+        handle: u64,
+        caller: &Arc<Mutex<Timer>>,
+        hostname: String,
+    ) -> Arc<Mutex<Self>> {
         let caller = CallbackCaller::Timer(Arc::downgrade(caller).into());
-        Self::new(handle, caller)
+        Self::new(handle, caller, hostname)
     }
 
     pub fn set_name(&mut self, name: String) -> Result<(), AlreadySetError<&Self, String>> {
@@ -953,6 +967,10 @@ impl Callback {
             }
             CallbackCaller::Timer(timer) => timer.get_arc()?.lock().unwrap().get_node().into(),
         }
+    }
+
+    pub fn get_hostname(&self) -> &str {
+        &self.hostname
     }
 
     pub fn mark_removed(&mut self) {
