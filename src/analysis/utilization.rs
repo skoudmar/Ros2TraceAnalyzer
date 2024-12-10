@@ -166,18 +166,43 @@ impl<'a> Utilization<'a> {
         utilization_per_thread_map
     }
 
-    pub(crate) fn print_stats(&self, quantile: Quantile) {
+    pub fn print_stats(&self, quantile: Quantile) {
         let thread_callback_map = self.get_thread_callback_map();
         let per_callback_utilization = self.calculate_utilization_per_callback(quantile);
         let utilization_per_thread = Self::calculate_total_utilization(&per_callback_utilization);
         let mut utilization_per_thread: Vec<_> = utilization_per_thread.into_iter().collect();
-        utilization_per_thread.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        utilization_per_thread.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).reverse());
 
         println!("Utilization statistics for duration quantile {quantile}:");
-        for ((hostname, thread), utilization) in utilization_per_thread {
-            let callbacks = thread_callback_map
-                .get(&(hostname.clone(), thread))
-                .unwrap();
+        Self::print_utilization(
+            &utilization_per_thread,
+            &per_callback_utilization,
+            &thread_callback_map,
+        );
+    }
+
+    pub fn print_stats_real(&self) {
+        let thread_callback_map = self.get_thread_callback_map();
+        let per_callback_utilization = self.calculate_utilization_per_callback_real();
+        let utilization_per_thread = Self::calculate_total_utilization(&per_callback_utilization);
+        let mut utilization_per_thread: Vec<_> = utilization_per_thread.into_iter().collect();
+        utilization_per_thread.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).reverse());
+
+        println!("Utilization statistics for real execution times:");
+        Self::print_utilization(
+            &utilization_per_thread,
+            &per_callback_utilization,
+            &thread_callback_map,
+        );
+    }
+
+    fn print_utilization(
+        utilization_per_thread: &[((String, u32), f64)],
+        per_callback_utilization: &HashMap<ArcMutWrapper<Callback>, HashMap<u32, f64>>,
+        thread_callback_map: &HashMap<(String, u32), HashSet<ArcMutWrapper<Callback>>>,
+    ) {
+        for (key @ (hostname, thread), utilization) in utilization_per_thread {
+            let callbacks = thread_callback_map.get(key).unwrap();
             println!(
                 "Thread {:?} on {} has utilization {:8.5} %",
                 thread,
@@ -190,10 +215,7 @@ impl<'a> Utilization<'a> {
                 else {
                     continue;
                 };
-                let utilization = per_callback_utilization
-                    .get(&thread)
-                    .copied()
-                    .unwrap_or(0.0);
+                let utilization = per_callback_utilization.get(thread).copied().unwrap_or(0.0);
                 println!(
                     "  - {:8.5} % from Callback {}",
                     utilization * 100.0,
