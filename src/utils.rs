@@ -87,6 +87,13 @@ impl<T> Known<T> {
         }
     }
 
+    pub fn map_or<U>(self, default: U, f: impl FnOnce(T) -> U) -> U {
+        match self {
+            Self::Known(x) => f(x),
+            Self::Unknown => default,
+        }
+    }
+
     pub(crate) fn is_unknown_or_eq<U>(&self, other: &U) -> bool
     where
         T: PartialEq<U>,
