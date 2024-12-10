@@ -245,6 +245,10 @@ fn main() -> color_eyre::eyre::Result<()> {
         print_headline(" Analysis ");
         spin_to_callback_analysis.print_stats();
 
+        print_headline(" Analysis ");
+        let utilization = analysis::Utilization::new(&callback_duration_analysis);
+        utilization.print_stats(0.95.try_into().unwrap());
+
         if let Some(out_dir) = args.output_dir() {
             let out_file_path = out_dir.join("dependency_graph.dot");
             let mut out_file = std::fs::File::create(&out_file_path)

@@ -26,6 +26,9 @@ pub use callback_dependency::CallbackDependency;
 pub mod message_take_to_callback_execution_latency;
 pub use message_take_to_callback_execution_latency::MessageTakeToCallbackLatency;
 
+pub mod utilization;
+pub use utilization::Utilization;
+
 pub trait EventAnalysis {
     /// Initialize the analysis
     ///
