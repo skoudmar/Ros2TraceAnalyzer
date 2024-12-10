@@ -124,7 +124,6 @@ pub fn calculate_min_max_avg(elements: &[i64]) -> Option<(i64, i64, i64)> {
     let first = *elements.first()?;
     let mut min = first;
     let mut max = first;
-    let mut sum = i128::from(first);
 
     for &element in elements.iter().skip(1) {
         if element < min {
@@ -132,15 +131,34 @@ pub fn calculate_min_max_avg(elements: &[i64]) -> Option<(i64, i64, i64)> {
         } else if element > max {
             max = element;
         }
-
-        sum += i128::from(element);
     }
 
-    let avg = (sum / elements.len() as i128)
-        .try_into()
-        .expect("Average of i64 values should fit into i64");
+    let avg = elements.mean()?;
 
     Some((min, max, avg))
+}
+
+pub trait Mean {
+    type Output;
+
+    fn mean(&self) -> Option<Self::Output>;
+}
+
+impl<'a> Mean for &'a [i64] {
+    type Output = i64;
+
+    fn mean(&self) -> Option<Self::Output> {
+        if self.is_empty() {
+            return None;
+        }
+
+        let sum: i128 = self.iter().copied().map(i128::from).sum();
+        let mean = (sum / self.len() as i128)
+            .try_into()
+            .expect("Average of i64 values should fit into i64");
+
+        Some(mean)
+    }
 }
 
 #[cfg(test)]
