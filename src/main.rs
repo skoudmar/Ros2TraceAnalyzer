@@ -148,6 +148,7 @@ fn print_headline(headline: &str) {
     println!("\n{:#^60}\n", headline.green());
 }
 
+#[allow(clippy::too_many_lines)]
 fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
     let args = Args::parse();
