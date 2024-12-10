@@ -62,6 +62,13 @@ impl<T> Sorted<T> {
     }
 }
 
+impl<T: Ord> From<Vec<T>> for Sorted<T> {
+    fn from(mut values: Vec<T>) -> Self {
+        values.sort_unstable();
+        Self { values }
+    }
+}
+
 impl<T> Deref for Sorted<T> {
     type Target = [T];
 
