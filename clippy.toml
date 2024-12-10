@@ -1,0 +1,2 @@
+
+ignore-interior-mutability = ["ctf_trace_reader_crust::analysis::ArcMutWrapper"]
