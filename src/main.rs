@@ -11,15 +11,15 @@ mod statistics;
 mod utils;
 mod visualization;
 
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::io::Write;
 
-use analysis::AnalysisOutputExt;
-use args::{find_trace_paths, is_trace_path, Args, OutputFormat};
+use analysis::{AnalysisOutputExt, EventAnalysis};
+use args::{find_trace_paths, is_trace_path, AnalysisSubcommand, Args};
 use bt2_sys::iterator::MessageIterator;
 use bt2_sys::message::BtMessageType;
 use clap::Parser;
-use color_eyre::eyre::{bail, ensure, Context, OptionExt, Result};
+use color_eyre::eyre::{bail, ensure, Context, Result};
 use color_eyre::owo_colors::OwoColorize;
 
 struct ProcessedEventsIter<'a> {
@@ -61,8 +61,8 @@ impl<'a> ProcessedEventsIter<'a> {
         self.on_unprocessed_event = on_unprocessed_event;
     }
 
-    fn print_counters(&self) {
-        println!(
+    fn log_counters(&self) {
+        log::info!(target: "trace_counters",
             "Ros events:\n\
             - processed: {}\n\
             - failed to process: {}\n\
@@ -148,16 +148,32 @@ fn print_headline(headline: &str) {
     println!("\n{:#^60}\n", headline.green());
 }
 
-#[allow(clippy::too_many_lines)]
-fn main() -> color_eyre::eyre::Result<()> {
-    color_eyre::install()?;
-    let args = Args::parse();
-    args.set_globals();
-    env_logger::Builder::new()
-        .filter_level(args.verbose.log_level_filter())
-        .format_timestamp(None)
-        .init();
+fn run_analysis<'a, A: EventAnalysis>(
+    args: &Args,
+    analysis: &'a mut A,
+    iter: &mut ProcessedEventsIter<'a>,
+) -> Result<()> {
+    iter.add_analysis(analysis);
 
+    if args.should_print_unprocessed_events() {
+        iter.set_on_unprocessed_event(|event| {
+            println!("Unprocessed event: {event:?}");
+        });
+    }
+
+    for event in iter.by_ref() {
+        let event = event.wrap_err("Failed to process event")?;
+        if args.should_print_events() {
+            println!("{event}");
+        }
+    }
+
+    iter.log_counters();
+
+    Ok(())
+}
+
+fn prepare_trace_paths(args: &Args) -> Result<Vec<CString>> {
     let trace_paths: Vec<_> = if args.is_exact_path() {
         args.trace_paths_cstring()
             .into_iter()
@@ -191,8 +207,86 @@ fn main() -> color_eyre::eyre::Result<()> {
         bail!("Processing multiple traces is not supported yet.");
     }
 
+    Ok(trace_paths)
+}
+
+fn run_analysis_based_on_args(args: &Args) -> Result<()> {
+    let trace_paths = prepare_trace_paths(args)?;
+    let mut iter = ProcessedEventsIter::new(&trace_paths[0]);
+
+    match &args.subcommand {
+        args::AnalysisSubcommand::MessageLatency { common } => {
+            let mut analysis = analysis::MessageLatency::new();
+            run_analysis(args, &mut analysis, &mut iter)?;
+            if let Some(json_path) = &common.json_dir_path {
+                analysis.write_json_to_output_dir(json_path)?;
+            } else {
+                print_headline(" Message Latency Analysis ");
+                analysis.print_stats();
+            }
+        }
+        args::AnalysisSubcommand::Callback { common } => {
+            let mut analysis = analysis::CallbackDuration::new();
+            run_analysis(args, &mut analysis, &mut iter)?;
+            if let Some(json_path) = &common.json_dir_path {
+                analysis.write_json_to_output_dir(json_path)?;
+            } else {
+                print_headline(" Callback Analysis ");
+                analysis.print_stats();
+            }
+        }
+        args::AnalysisSubcommand::Utilization { quantile } => {
+            let mut analysis = analysis::CallbackDuration::new();
+            run_analysis(args, &mut analysis, &mut iter)?;
+            print_headline(" Utilization Analysis ");
+            let utilization = analysis::Utilization::new(&analysis);
+            utilization.print_stats(*quantile);
+        }
+        args::AnalysisSubcommand::UtilizationReal => {
+            let mut analysis = analysis::CallbackDuration::new();
+            run_analysis(args, &mut analysis, &mut iter)?;
+            print_headline(" Real Utilization Analysis ");
+            let utilization = analysis::Utilization::new(&analysis);
+            utilization.print_stats_real();
+        }
+        args::AnalysisSubcommand::DependencyGraph(dep_args) => {
+            let mut analysis = analysis::DependencyGraph::new();
+            run_analysis(args, &mut analysis, &mut iter)?;
+            print_headline(" Dependency Graph ");
+            let dot_output = analysis.display_as_dot(
+                dep_args.color,
+                dep_args.thickness,
+                dep_args.min_multiplier,
+            );
+            let mut out_file = std::fs::File::create(&dep_args.output_path)
+                .wrap_err_with(|| format!("Failed to create file: {:?}", &dep_args.output_path))?;
+            out_file
+                .write_fmt(format_args!("{dot_output}"))
+                .wrap_err_with(|| {
+                    format!("Failed to write to file: {:?}", &dep_args.output_path)
+                })?;
+        }
+        &args::AnalysisSubcommand::All { .. } => {
+            unreachable!("'All' subcommand should be handled separately.");
+        }
+    }
+
+    Ok(())
+}
+
+fn run_all(args: &Args) -> Result<()> {
+    let AnalysisSubcommand::All {
+        common,
+        utilization_quantile,
+        dependency_graph: dependency_graph_arg,
+    } = &args.subcommand
+    else {
+        bail!("Expected 'all' subcommand.");
+    };
+    let trace_paths = prepare_trace_paths(args)?;
+
     let mut message_latency_analysis = analysis::MessageLatency::new();
-    let mut callback_duration_analysis = analysis::CallbackDuration::new();
+    let mut callback_analysis = analysis::CallbackDuration::new();
     let mut callback_dependency_analysis = analysis::CallbackDependency::new();
     let mut spin_to_callback_analysis = analysis::MessageTakeToCallbackLatency::new();
     let mut dependency_graph = analysis::DependencyGraph::new();
@@ -200,7 +294,7 @@ fn main() -> color_eyre::eyre::Result<()> {
     let mut iter = ProcessedEventsIter::new(&trace_paths[0]);
 
     iter.add_analysis(&mut message_latency_analysis);
-    iter.add_analysis(&mut callback_duration_analysis);
+    iter.add_analysis(&mut callback_analysis);
     iter.add_analysis(&mut callback_dependency_analysis);
     iter.add_analysis(&mut spin_to_callback_analysis);
     iter.add_analysis(&mut dependency_graph);
@@ -219,61 +313,68 @@ fn main() -> color_eyre::eyre::Result<()> {
     }
 
     print_headline(" Trace counters ");
-    iter.print_counters();
+    iter.log_counters();
 
-    if args.output_format() == OutputFormat::Text {
-        print_headline(" Objects ");
-        iter.processor.print_objects();
+    print_headline(" Objects ");
+    iter.processor.print_objects();
 
-        print_headline(" Analysis ");
-        message_latency_analysis.print_stats();
+    print_headline(" Message Latency Analysis ");
+    message_latency_analysis.print_stats();
 
-        print_headline(" Analysis ");
-        callback_duration_analysis.print_stats();
+    print_headline(" Callback Analysis ");
+    callback_analysis.print_stats();
 
-        print_headline(" Analysis ");
-        callback_dependency_analysis
-            .get_graph()
-            .unwrap()
-            .print_graph();
+    print_headline(" Callback dependency Analysis ");
+    callback_dependency_analysis
+        .get_graph()
+        .unwrap()
+        .print_graph();
 
-        print_headline(" Analysis ");
-        callback_dependency_analysis
-            .get_publication_in_callback_analysis()
-            .print_stats();
+    print_headline(" Publication in callback Analysis ");
+    callback_dependency_analysis
+        .get_publication_in_callback_analysis()
+        .print_stats();
 
-        print_headline(" Analysis ");
-        spin_to_callback_analysis.print_stats();
+    print_headline(" Analysis ");
+    spin_to_callback_analysis.print_stats();
 
-        print_headline(" Analysis ");
-        let utilization = analysis::Utilization::new(&callback_duration_analysis);
-        utilization.print_stats(0.95.try_into().unwrap());
+    print_headline(" Utilization Analysis ");
+    let utilization = analysis::Utilization::new(&callback_analysis);
+    utilization.print_stats(*utilization_quantile);
 
-        if let Some(out_dir) = args.output_dir() {
-            let out_file_path = out_dir.join("dependency_graph.dot");
-            let mut out_file = std::fs::File::create(&out_file_path)
-                .wrap_err_with(|| format!("Failed to create file: {out_file_path:?}"))?;
-            let dot_output = dependency_graph.display_as_dot();
-            out_file
-                .write_fmt(format_args!("{dot_output}"))
-                .wrap_err_with(|| format!("Failed to write to file: {out_file_path:?}"))?;
-        }
-    } else if args.output_format() == OutputFormat::Json {
-        let output_dir = args
-            .output_dir()
-            .ok_or_eyre("Output directory not specified")?;
+    print_headline(" Real Utilization Analysis ");
+    utilization.print_stats_real();
 
-        callback_duration_analysis
-            .write_json_to_output_dir(output_dir)
-            .wrap_err("Failed to write CSV")
-            .wrap_err("Callback duration analysis serialization error")?;
+    let out_dir = &dependency_graph_arg.output_path;
 
-        message_latency_analysis
-            .write_json_to_output_dir(output_dir)
-            .wrap_err("Failed to write CSV")
-            .wrap_err("Message latency analysis serialization error")?;
+    let out_file_path = out_dir.join("dependency_graph.dot");
+    let mut out_file = std::fs::File::create(&out_file_path)
+        .wrap_err_with(|| format!("Failed to create file: {out_file_path:?}"))?;
+    let dot_output = dependency_graph.display_as_dot(
+        dependency_graph_arg.color,
+        dependency_graph_arg.thickness,
+        dependency_graph_arg.min_multiplier,
+    );
+    out_file
+        .write_fmt(format_args!("{dot_output}"))
+        .wrap_err_with(|| format!("Failed to write to file: {out_file_path:?}"))?;
 
-        todo!("Not all analyses are serialized yet");
+    Ok(())
+}
+
+fn main() -> color_eyre::eyre::Result<()> {
+    color_eyre::install()?;
+    let args = Args::parse();
+    args.set_globals();
+    env_logger::Builder::new()
+        .filter_level(args.verbose.log_level_filter())
+        .format_timestamp(None)
+        .init();
+
+    if matches!(args.subcommand, AnalysisSubcommand::All { .. }) {
+        run_all(&args)?;
+    } else {
+        run_analysis_based_on_args(&args)?;
     }
 
     Ok(())

@@ -3,8 +3,6 @@ use std::sync::LazyLock;
 
 use colorgrad::{Gradient, GradientBuilder, LinearGradient};
 
-use crate::args::ANALYSIS_CLI_ARGS;
-
 pub mod graphviz_export;
 
 pub static COLOR_GRADIENT: LazyLock<ColorGradient> = LazyLock::new(ColorGradient::new);
@@ -32,19 +30,6 @@ impl ColorGradient {
     pub fn color_for_range(&self, value: i64, min: i64, max: i64) -> Color {
         let value = (value - min) as f32 / (max - min) as f32;
         self.color(value)
-    }
-
-    /// Returns a color for the given value in the range `[min, MAX(max, min * min_multiplier)]`.
-    ///
-    /// The [`min_multiplier`](ANALYSIS_CLI_ARGS.min_multiplier) is taken from the [`ANALYSIS_CLI_ARGS`] variable.
-    pub fn color_for_range_with_min_multiplier(&self, value: i64, min: i64, max: i64) -> Color {
-        let max = max.max(
-            min * ANALYSIS_CLI_ARGS
-                .get()
-                .expect("CLI arguments should be set")
-                .min_multiplier,
-        );
-        self.color_for_range(value, min, max)
     }
 }
 

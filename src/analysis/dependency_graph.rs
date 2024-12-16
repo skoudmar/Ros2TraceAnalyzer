@@ -169,8 +169,13 @@ impl DependencyGraph {
         Self::default()
     }
 
-    pub fn display_as_dot(&self) -> DisplayAsDot {
-        DisplayAsDot::new(self)
+    pub fn display_as_dot(
+        &self,
+        color: bool,
+        thickness: bool,
+        min_multiplier: f64,
+    ) -> DisplayAsDot {
+        DisplayAsDot::new(self, color, thickness, min_multiplier)
     }
 }
 
@@ -604,10 +609,20 @@ pub struct DisplayAsDot<'a> {
     pub_sub_latency_range: Option<(i64, i64)>,
 
     analysis: &'a DependencyGraph,
+
+    // Cli Arguments
+    color: bool,
+    thickness: bool,
+    min_multiplier: f64,
 }
 
 impl<'a> DisplayAsDot<'a> {
-    pub fn new(graph: &'a DependencyGraph) -> Self {
+    pub fn new(
+        graph: &'a DependencyGraph,
+        color: bool,
+        thickness: bool,
+        min_multiplier: f64,
+    ) -> Self {
         let mut graph_node_to_ros_node: HashMap<Node, ArcMutWrapper<model::Node>> = HashMap::new();
         let mut node_to_id = HashMap::new();
 
@@ -686,6 +701,9 @@ impl<'a> DisplayAsDot<'a> {
             edges,
             analysis: graph,
             pub_sub_latency_range,
+            color,
+            thickness,
+            min_multiplier,
         }
     }
 }
@@ -899,16 +917,28 @@ impl<'a> std::fmt::Display for DisplayAsDot<'a> {
                     }
                 }
             } {
-                graph_edge.set_attribute(
-                    "color",
-                    &COLOR_GRADIENT
-                        .color_for_range_with_min_multiplier(
-                            *edge.latencies.median().unwrap(),
-                            min_latency,
-                            max_latency,
-                        )
-                        .to_string(),
-                );
+                let max_latency =
+                    max_latency.max((min_latency as f64 * self.min_multiplier) as i64);
+                let weight = *edge.latencies.median().unwrap();
+
+                if self.color {
+                    graph_edge.set_attribute(
+                        "color",
+                        &COLOR_GRADIENT
+                            .color_for_range(weight, min_latency, max_latency)
+                            .to_string(),
+                    );
+                }
+
+                if self.thickness {
+                    const MIN_PENWIDTH: f64 = 0.2;
+                    const MAX_PENWIDTH: f64 = 3.0;
+
+                    let thickness =
+                        (weight - min_latency) as f64 / (max_latency - min_latency) as f64;
+                    let thickness = MIN_PENWIDTH + thickness * (MAX_PENWIDTH - MIN_PENWIDTH);
+                    graph_edge.set_attribute("penwidth", &format!("{}", thickness));
+                }
             }
         }
 

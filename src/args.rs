@@ -5,13 +5,13 @@ use std::sync::OnceLock;
 use bt2_sys::graph::component::BtComponentType;
 use bt2_sys::query::support_info;
 use clap::builder::{PathBufValueParser, TypedValueParser};
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 use walkdir::WalkDir;
 
 use crate::statistics::Quantile;
 
-pub static ANALYSIS_CLI_ARGS: OnceLock<AnalysisArgs> = OnceLock::new();
+pub static ANALYSIS_CLI_ARGS: OnceLock<AnalysisArgsCommon> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, ValueEnum)]
 pub enum OutputFormat {
@@ -22,6 +22,7 @@ pub enum OutputFormat {
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
+#[command(propagate_version = true, subcommand_precedence_over_arg = true)]
 pub struct Args {
     /// Path to a directory containing the trace to analyze
     ///
@@ -41,23 +42,81 @@ pub struct Args {
     #[arg(long, short = 'u')]
     print_unprocessed_events: bool,
 
-    /// Path to a directory where the output files will be written
-    #[arg(long, short = 'o', value_parser = PathBufValueParser::new().try_map(to_directory_path_buf))]
-    output: Option<PathBuf>,
-
-    /// Output format
-    #[arg(long, short = 'f', value_enum, default_value_t = Default::default())]
-    output_format: OutputFormat,
-
     #[command(flatten)]
     pub verbose: Verbosity<WarnLevel>,
 
-    #[command(flatten)]
-    pub analysis_args: AnalysisArgs,
+    #[command(subcommand)]
+    pub subcommand: AnalysisSubcommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum AnalysisSubcommand {
+    /// Analyze the latency of the messages.
+    MessageLatency {
+        #[command(flatten)]
+        common: AnalysisArgsCommon,
+    },
+
+    /// Analyze the callback duration and inter-arrival time.
+    Callback {
+        #[command(flatten)]
+        common: AnalysisArgsCommon,
+    },
+
+    /// Analyze the utilization of the system based on the quantile callback durations.
+    Utilization {
+        /// Callback duration quantile.
+        #[arg(long, value_parser, default_value = "0.9")]
+        quantile: Quantile,
+    },
+    /// Analyze the utilization of the system based on the real execution times.
+    UtilizationReal,
+
+    /// Construct a dependency graph.
+    DependencyGraph(DependencyGraphArgs),
+
+    /// Run all analyses.
+    All {
+        #[command(flatten)]
+        common: AnalysisArgsCommon,
+
+        /// Callback duration quantile for utilization analysis.
+        #[arg(long, value_parser, default_value = "0.9")]
+        utilization_quantile: Quantile,
+
+        #[command(flatten)]
+        dependency_graph: DependencyGraphArgs,
+    },
+}
+
+#[derive(Debug, clap::Args)]
+pub struct DependencyGraphArgs {
+    /// Color edges based on the latency measurements.
+    #[arg(long)]
+    pub color: bool,
+
+    /// Set the edge thickness based on the latency measurements.
+    #[arg(long)]
+    pub thickness: bool,
+
+    /// Minimum multiplier for edge coloring or thickness.
+    ///
+    /// Can be any positive number.
+    ///
+    /// The minimum multiplier is used to set the maximum value in gradients
+    /// to be at least `min-multiplier` times the minimum value.
+    ///
+    /// The gradient range is exactly [minimum value, max(maximum value, minimum value * min_multiplier)].
+    #[arg(long, default_value = "5.0")]
+    pub min_multiplier: f64,
+
+    /// Path where to write the graph in DOT format.
+    #[arg(long, short = 'o', value_parser = PathBufValueParser::new().try_map(to_directory_path_buf))]
+    pub output_path: PathBuf,
 }
 
 #[derive(Debug, Parser, Clone)]
-pub struct AnalysisArgs {
+pub struct AnalysisArgsCommon {
     /// Quantiles to compute for the latency and duration analysis.
     ///
     /// The quantiles must be in the range [0, 1].
@@ -67,12 +126,9 @@ pub struct AnalysisArgs {
     #[arg(long, value_parser, value_delimiter = ',', num_args = 1.., default_value = "0,0.10,0.5,0.90,0.99,1")]
     pub quantiles: Vec<Quantile>,
 
-    /// Minimum multiplier for the latency analysis.
-    ///
-    /// The minimum multiplier is used to set the maximum value in gradients
-    /// to be at least `min-multiplier` times the minimum value.
-    #[arg(long, default_value = "5")]
-    pub min_multiplier: i64,
+    /// Export the latency measurements to a JSON file.
+    #[arg(long = "json-dir", value_parser)]
+    pub json_dir_path: Option<PathBuf>,
 }
 
 impl Args {
@@ -99,18 +155,33 @@ impl Args {
         self.print_unprocessed_events
     }
 
-    pub fn output_dir(&self) -> Option<&PathBuf> {
-        self.output.as_ref()
-    }
+    // pub fn output_dir(&self) -> Option<&PathBuf> {
+    //     self.output.as_ref()
+    // }
 
-    pub const fn output_format(&self) -> OutputFormat {
-        self.output_format
-    }
+    // pub const fn output_format(&self) -> OutputFormat {
+    //     self.output_format
+    // }
 
     pub(crate) fn set_globals(&self) {
-        ANALYSIS_CLI_ARGS
-            .set(self.analysis_args.clone())
-            .expect("Failed to set global analysis CLI arguments");
+        use AnalysisSubcommand::{
+            All, Callback, DependencyGraph, MessageLatency, Utilization, UtilizationReal,
+        };
+        match &self.subcommand {
+            MessageLatency { common } | Callback { common } | All { common, .. } => {
+                ANALYSIS_CLI_ARGS
+                    .set(common.clone())
+                    .expect("Failed to set global analysis CLI arguments");
+            }
+            Utilization { .. } | UtilizationReal | DependencyGraph { .. } => {
+                ANALYSIS_CLI_ARGS
+                    .set(AnalysisArgsCommon {
+                        quantiles: vec![],
+                        json_dir_path: None,
+                    })
+                    .expect("Failed to set global analysis CLI arguments");
+            }
+        }
     }
 }
 
