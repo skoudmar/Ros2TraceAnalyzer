@@ -50,7 +50,7 @@ pub struct Record {
     caller_param: String,
 
     durations: Vec<i64>,
-    inter_arrival_time: Vec<i64>,
+    inter_arrival_times: Vec<i64>,
 }
 
 #[derive(Debug, Clone)]
@@ -183,7 +183,7 @@ impl CallbackDuration {
                     caller_type: callback_type.to_string(),
                     caller_param: callback_caller.to_string(),
                     durations: data.iter().map(|data| data.duration).collect(),
-                    inter_arrival_time: Self::get_inter_arrival_time_inner(data)
+                    inter_arrival_times: Self::get_inter_arrival_time_inner(data)
                         .unwrap_or_default(),
                 }
             })
