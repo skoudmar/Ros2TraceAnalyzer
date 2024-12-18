@@ -43,7 +43,7 @@ pub fn context_from_event(event: &BtEventConst) -> Context {
         .get_context_field()
         .unwrap_or_else(|| panic!("Missing context field in event {event:?}"))
         .into_struct()
-        .get_field_by_name("cpu_id")
+        .get_field_by_name_cstr(c"cpu_id")
         .unwrap_or_else(|| panic!("Missing cpu_id field in event {event:?}"))
         .into_uint()
         .get_value()
@@ -52,7 +52,7 @@ pub fn context_from_event(event: &BtEventConst) -> Context {
 
     let trace = event.get_stream().get_trace();
     let BtEnvironmentEntry::String(hostname) = trace
-        .get_environment_entry_by_name("hostname")
+        .get_environment_entry_by_name_cstr(c"hostname")
         .expect("Trace missing hostname environment entry")
     else {
         panic!("Missing hostname environment entry");
@@ -67,21 +67,21 @@ pub fn context_from_event(event: &BtEventConst) -> Context {
         .expect("Event missing common context field")
         .into_struct();
     let vpid = common_context
-        .get_field_by_name("vpid")
+        .get_field_by_name_cstr(c"vpid")
         .expect("Missing vpid")
         .into_int()
         .get_value()
         .try_into()
         .unwrap();
     let vtid = common_context
-        .get_field_by_name("vtid")
+        .get_field_by_name_cstr(c"vtid")
         .expect("Missing vtid")
         .into_int()
         .get_value()
         .try_into()
         .unwrap();
     let procname = common_context
-        .get_field_by_name("procname")
+        .get_field_by_name_cstr(c"procname")
         .expect("Missing procname")
         .into_string()
         .get_value()
