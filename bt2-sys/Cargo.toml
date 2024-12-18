@@ -6,6 +6,7 @@ edition = "2021"
 authors.workspace = true
 repository.workspace = true
 license.workspace = true
+categories = ["api-bindings"]
 
 [dependencies]
 derive_more = { version = "1.0.0", features = ["deref", "deref_mut", "from", "into"] }
