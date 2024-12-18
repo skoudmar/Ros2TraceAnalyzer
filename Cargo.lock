@@ -3,6 +3,26 @@
 version = 3
 
 [[package]]
+name = "Ros2TraceAnalyzer"
+version = "0.1.0"
+dependencies = [
+ "bt2-derive",
+ "bt2-sys",
+ "chrono",
+ "clap",
+ "clap-verbosity-flag",
+ "color-eyre",
+ "colorgrad",
+ "derive_more",
+ "env_logger",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "walkdir",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -336,26 +356,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46f9a16a848a7fb95dd47ce387ac1ee9a6df879ba784b815537fcd388a1a8288"
 dependencies = [
  "phf",
-]
-
-[[package]]
-name = "ctf_trace_reader_crust"
-version = "0.1.0"
-dependencies = [
- "bt2-derive",
- "bt2-sys",
- "chrono",
- "clap",
- "clap-verbosity-flag",
- "color-eyre",
- "colorgrad",
- "derive_more",
- "env_logger",
- "log",
- "serde",
- "serde_json",
- "thiserror",
- "walkdir",
 ]
 
 [[package]]

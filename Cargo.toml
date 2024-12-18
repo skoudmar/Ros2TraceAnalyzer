@@ -1,5 +1,5 @@
 [package]
-name = "ctf_trace_reader_crust"
+name = "Ros2TraceAnalyzer"
 version = "0.1.0"
 edition = "2021"
 authors.workspace = true
