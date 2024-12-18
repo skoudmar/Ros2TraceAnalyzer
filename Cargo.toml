@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors.workspace = true
 repository.workspace = true
+license.workspace = true
+
 
 [dependencies]
 bt2-sys = { path = "bt2-sys" }
@@ -28,3 +30,4 @@ members = ["bt2-derive", "bt2-sys"]
 [workspace.package]
 repository = "https://github.com/skoudmar/Ros2TraceAnalyzer.git"
 authors = ["Martin Škoudlil <skoudmar@fel.cvut.cz>"]
+license = "MIT OR Apache-2.0"
