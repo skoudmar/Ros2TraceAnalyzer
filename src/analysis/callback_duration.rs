@@ -285,7 +285,7 @@ impl EventAnalysis for CallbackDuration {
 impl AnalysisOutput for CallbackDuration {
     const FILE_NAME: &'static str = "callback_duration";
 
-    fn write_json(&self, file: &mut std::fs::File) -> serde_json::Result<()> {
+    fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
         let records = self.get_records();
         serde_json::to_writer(file, &records)
     }

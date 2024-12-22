@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::hash::Hash;
+use std::io::BufWriter;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -47,13 +48,14 @@ pub trait EventAnalysis {
 pub trait AnalysisOutput {
     const FILE_NAME: &'static str;
 
-    fn write_json(&self, file: &mut File) -> serde_json::Result<()>;
+    fn write_json(&self, file: &mut BufWriter<File>) -> serde_json::Result<()>;
 }
 
 pub trait AnalysisOutputExt: AnalysisOutput {
     fn write_json_to_output_dir(&self, output_dir: &Path) -> std::io::Result<()> {
         let out_file = output_dir.join(Self::FILE_NAME).with_extension("json");
-        let mut out_file = File::create(out_file)?;
+        let out_file = File::create(out_file)?;
+        let mut out_file: BufWriter<File> = BufWriter::new(out_file);
         self.write_json(&mut out_file).map_err(Into::into)
     }
 }

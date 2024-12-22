@@ -241,7 +241,7 @@ impl EventAnalysis for MessageLatency {
 impl AnalysisOutput for MessageLatency {
     const FILE_NAME: &'static str = "message_latency";
 
-    fn write_json(&self, file: &mut std::fs::File) -> serde_json::Result<()> {
+    fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
         let stats = self.calculate_stats();
         let stats: Vec<MessageLatencyExport> = stats.into_iter().map(Into::into).collect();
         serde_json::to_writer(file, &stats)
