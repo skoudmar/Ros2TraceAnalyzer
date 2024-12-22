@@ -30,7 +30,7 @@ pub struct Args {
     #[arg(value_parser = PathBufValueParser::new().try_map(to_directory_path_buf), num_args = 1.., required = true)]
     trace_paths: Vec<PathBuf>,
 
-    /// If set to true, only the directory specified by `trace-path` is searched for traces, not its subdirectories.
+    /// If set to true, only the directory specified by `TRACE_PATH` is searched for traces, not its subdirectories.
     #[arg(long)]
     exact_trace_path: bool,
 
