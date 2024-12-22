@@ -319,10 +319,18 @@ fn run_all(args: &Args) -> Result<()> {
     iter.processor.print_objects();
 
     print_headline(" Message Latency Analysis ");
-    message_latency_analysis.print_stats();
+    if let Some(json_dir) = &common.json_dir_path {
+        message_latency_analysis.write_json_to_output_dir(json_dir)?;
+    } else {
+        message_latency_analysis.print_stats();
+    }
 
     print_headline(" Callback Analysis ");
-    callback_analysis.print_stats();
+    if let Some(json_dir) = &common.json_dir_path {
+        callback_analysis.write_json_to_output_dir(json_dir)?;
+    } else {
+        callback_analysis.print_stats();
+    }
 
     print_headline(" Callback dependency Analysis ");
     callback_dependency_analysis
@@ -335,7 +343,7 @@ fn run_all(args: &Args) -> Result<()> {
         .get_publication_in_callback_analysis()
         .print_stats();
 
-    print_headline(" Analysis ");
+    print_headline(" Spin to Callback latency Analysis ");
     spin_to_callback_analysis.print_stats();
 
     print_headline(" Utilization Analysis ");
