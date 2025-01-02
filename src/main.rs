@@ -252,13 +252,14 @@ fn run_analysis_based_on_args(args: &Args) -> Result<()> {
         args::AnalysisSubcommand::DependencyGraph(dep_args) => {
             let mut analysis = analysis::DependencyGraph::new();
             run_analysis(args, &mut analysis, &mut iter)?;
-            print_headline(" Dependency Graph ");
             let dot_output = analysis.display_as_dot(
                 dep_args.color,
                 dep_args.thickness,
                 dep_args.min_multiplier,
             );
-            let mut out_file = std::fs::File::create(&dep_args.output_path)
+            let mut out_file_path = dep_args.output_path.clone();
+            out_file_path.push("dependency_graph.dot");
+            let mut out_file = std::fs::File::create(&out_file_path)
                 .wrap_err_with(|| format!("Failed to create file: {:?}", &dep_args.output_path))?;
             out_file
                 .write_fmt(format_args!("{dot_output}"))
