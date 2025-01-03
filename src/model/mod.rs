@@ -516,6 +516,10 @@ impl Publisher {
             && self.queue_depth.is_unknown()
     }
 
+    pub fn change_rcl_handle(&mut self, rcl_handle: u64) {
+        self.rcl_handle = Known::new(rcl_handle);
+    }
+
     pub fn is_removed(&self) -> bool {
         self.removed
     }

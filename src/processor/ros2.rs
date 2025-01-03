@@ -252,11 +252,16 @@ impl Processor {
                     message_publisher.get_topic().map(ToOwned::to_owned)
                 } else if message_publisher.is_stub() {
                     message.replace_publisher(publisher_arc.clone());
-                    publisher_arc
-                        .lock()
-                        .unwrap()
-                        .get_topic()
-                        .map(ToOwned::to_owned)
+                    let mut publisher = publisher_arc.lock().unwrap();
+                    self.publishers_by_rcl.insert(
+                        message_publisher
+                            .get_rcl_handle()
+                            .unwrap()
+                            .into_id(context_id),
+                        publisher_arc.clone(),
+                    );
+                    publisher.change_rcl_handle(message_publisher.get_rcl_handle().unwrap());
+                    publisher.get_topic().map(ToOwned::to_owned)
                 } else {
                     log::warn!(target: "rmw_publish",
                         "Publisher mismatch for message. [{time}] {event:?} {context:?}"
