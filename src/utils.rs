@@ -441,7 +441,11 @@ impl std::fmt::Display for DurationDisplayImprecise {
         /// Factor to convert the duration to the next suffix.
         const FACTOR: [i64; SUFFIX.len() - 1] = [1000, 1000, 1000, 60, 60, 24, 365];
 
-        let mut value = self.0;
+        if self.0 == 0 {
+            return write!(f, "0 {}", SUFFIX[0]);
+        }
+
+        let mut value = self.0.abs();
         let mut suffix = 0;
         let mut total_factor = 1;
         while suffix < SUFFIX.len() - 1 && value >= FACTOR[suffix] {
