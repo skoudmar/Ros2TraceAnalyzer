@@ -12,7 +12,7 @@ mod utils;
 mod visualization;
 
 use std::ffi::{CStr, CString};
-use std::io::Write;
+use std::io::{BufWriter, Write};
 
 use analysis::{AnalysisOutputExt, EventAnalysis};
 use args::{find_trace_paths, is_trace_path, AnalysisSubcommand, Args};
@@ -349,11 +349,16 @@ fn run_all(args: &Args) -> Result<()> {
         callback_analysis.print_stats();
     }
 
-    print_headline(" Callback dependency Analysis ");
-    callback_dependency_analysis
-        .get_graph()
-        .unwrap()
-        .print_graph();
+    let graph = callback_dependency_analysis.get_graph().unwrap();
+    let callback_dependency_path = dependency_graph_arg
+        .output_path
+        .join("callback_dependency.dot");
+    let callback_dependency_file = std::fs::File::create(&callback_dependency_path)
+        .wrap_err_with(|| format!("Failed to create file: {callback_dependency_path:?}"))?;
+    let mut callback_dependency_file = BufWriter::new(callback_dependency_file);
+    callback_dependency_file
+        .write_fmt(format_args!("{}", graph.as_dot()))
+        .wrap_err_with(|| format!("Failed to write to file: {callback_dependency_path:?}"))?;
 
     print_headline(" Publication in callback Analysis ");
     callback_dependency_analysis
@@ -373,8 +378,9 @@ fn run_all(args: &Args) -> Result<()> {
     let out_dir = &dependency_graph_arg.output_path;
 
     let out_file_path = out_dir.join("dependency_graph.dot");
-    let mut out_file = std::fs::File::create(&out_file_path)
+    let out_file = std::fs::File::create(&out_file_path)
         .wrap_err_with(|| format!("Failed to create file: {out_file_path:?}"))?;
+    let mut out_file = BufWriter::new(out_file);
     let dot_output = dependency_graph.display_as_dot(
         dependency_graph_arg.color,
         dependency_graph_arg.thickness,

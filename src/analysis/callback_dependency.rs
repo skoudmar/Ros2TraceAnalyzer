@@ -11,6 +11,8 @@ use super::{ArcMutWrapper, EventAnalysis, PublicationInCallback};
 pub mod graph {
     use crate::model::display::DisplayCallbackSummary;
     use crate::model::Callback;
+    use crate::visualization;
+    use crate::visualization::graphviz_export;
     use std::sync::{Arc, Mutex};
 
     #[derive(Debug, Clone, Default)]
@@ -63,6 +65,28 @@ pub mod graph {
             }
 
             println!("Sources: {:?}", self.sources());
+        }
+
+        pub fn as_dot(&self) -> graphviz_export::Graph {
+            let mut graph = graphviz_export::Graph::new();
+            graph.set_attribute("rankdir", "LR");
+
+            for (i, node) in self.nodes().iter().enumerate() {
+                let callback = node.callback().lock().unwrap();
+                let label = DisplayCallbackSummary(&callback).to_string();
+                let label = label.replace(' ', "\n");
+                let label = &label[1..label.len() - 1];
+                let node = graph.add_node(&format!("Callback\n{label}"), i);
+                node.set_shape(graphviz_export::NodeShape::Ellipse);
+            }
+
+            for (src, dst) in self.edges() {
+                let src_idx = *src;
+                let dst_idx = *dst;
+                graph.add_edge(src_idx, dst_idx, "");
+            }
+
+            graph
         }
     }
 
