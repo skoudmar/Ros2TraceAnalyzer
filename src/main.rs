@@ -76,6 +76,22 @@ impl<'a> ProcessedEventsIter<'a> {
             self.other_messages
         );
     }
+
+    fn print_counters(&self) {
+        println!(
+            "Ros events:\n\
+            - processed: {}\n\
+            - failed to process: {}\n\
+            - unsupported: {}\n\
+            Other events: {}\n\
+            Other messages: {}",
+            self.ros_processed_events,
+            self.ros_processing_failures,
+            self.ros_unsupported_events,
+            self.other_events,
+            self.other_messages
+        );
+    }
 }
 
 impl<'a> Iterator for ProcessedEventsIter<'a> {
@@ -314,7 +330,7 @@ fn run_all(args: &Args) -> Result<()> {
     }
 
     print_headline(" Trace counters ");
-    iter.log_counters();
+    iter.print_counters();
 
     print_headline(" Objects ");
     iter.processor.print_objects();
