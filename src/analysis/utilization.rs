@@ -227,15 +227,23 @@ impl<'a> Utilization<'a> {
                 hostname,
                 utilization * 100.0,
             );
-            for callback_arc in callbacks {
+            let mut utilization_per_callback = callbacks
+                .into_iter()
+                .filter_map(|callback_arc| {
+                    per_callback_utilization
+                        .get(callback_arc)
+                        .map(|utilization| {
+                            let utilization = utilization.get(thread).copied().unwrap_or(0.0);
+                            (callback_arc, utilization)
+                        })
+                })
+                .collect::<Vec<_>>();
+            utilization_per_callback.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).reverse());
+
+            for (callback_arc, utilization) in utilization_per_callback {
                 let callback = callback_arc.0.lock().unwrap();
-                let Some(per_callback_utilization) = per_callback_utilization.get(callback_arc)
-                else {
-                    continue;
-                };
-                let utilization = per_callback_utilization.get(thread).copied().unwrap_or(0.0);
                 println!(
-                    "  - {:8.5} % from Callback {}",
+                    "    {:9.5} % from Callback {}",
                     utilization * 100.0,
                     DisplayCallbackSummary(&callback),
                 );
