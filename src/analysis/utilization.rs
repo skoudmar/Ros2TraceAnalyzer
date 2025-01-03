@@ -4,16 +4,20 @@ use crate::model::display::DisplayCallbackSummary;
 use crate::model::{Callback, CallbackType};
 use crate::statistics::{Mean, Quantile, Sorted};
 
+use super::callback_duration::ExecutionData;
 use super::{ArcMutWrapper, CallbackDuration};
 
 pub struct Utilization<'a> {
     callback_analysis: &'a CallbackDuration,
 }
 
-trait ReductionFunction: Fn(HashMap<u32, (usize, i64)>, Vec<i64>, f64) -> HashMap<u32, f64> {}
+trait ReductionFunction:
+    Fn(HashMap<u32, (usize, i64)>, &[ExecutionData], f64) -> HashMap<u32, f64>
+{
+}
 
 impl<F> ReductionFunction for F where
-    F: Fn(HashMap<u32, (usize, i64)>, Vec<i64>, f64) -> HashMap<u32, f64>
+    F: Fn(HashMap<u32, (usize, i64)>, &[ExecutionData], f64) -> HashMap<u32, f64>
 {
 }
 
@@ -95,9 +99,7 @@ impl<'a> Utilization<'a> {
 
             let utilization_per_thread = reduction_function(
                 execution_times_and_counts_per_thread,
-                self.callback_analysis
-                    .get_durations_for_callback(callback_arc)
-                    .unwrap(),
+                execution_data,
                 inter_arrival_time as f64,
             );
 
@@ -111,8 +113,8 @@ impl<'a> Utilization<'a> {
         &self,
     ) -> HashMap<ArcMutWrapper<Callback>, HashMap<u32, f64>> {
         self.calculate_utilization_per_callback_internal(
-            |execution_times_and_counts_per_thread, duration_data, inter_arrival_time| {
-                let total_count = duration_data.len();
+            |execution_times_and_counts_per_thread, execution_data, inter_arrival_time| {
+                let total_count = execution_data.len();
                 execution_times_and_counts_per_thread
                     .into_iter()
                     .map(|(thread, (_count, time))| {
@@ -129,15 +131,31 @@ impl<'a> Utilization<'a> {
         execution_duration_quantile: Quantile,
     ) -> HashMap<ArcMutWrapper<Callback>, HashMap<u32, f64>> {
         self.calculate_utilization_per_callback_internal(
-            |execution_times_and_counts_per_thread, duration_data, inter_arrival_time| {
-                let total_count = duration_data.len();
-                let quantile_duration = *Sorted::from(duration_data)
-                    .quantile(execution_duration_quantile)
-                    .unwrap();
+            |execution_times_and_counts_per_thread, execution_data, inter_arrival_time| {
+                let total_count = execution_data.len();
+                let mut duration_data_per_thread = HashMap::new();
+                for data in execution_data {
+                    let thread = data.tid;
+                    let duration_data: &mut Vec<_> =
+                        duration_data_per_thread.entry(thread).or_default();
+                    duration_data.push(data.duration);
+                }
+
+                let quantile_duration = duration_data_per_thread
+                    .into_iter()
+                    .map(|(thread, durations)| {
+                        let sorted_durations = Sorted::from(durations);
+                        let quantile_duration = *sorted_durations
+                            .quantile(execution_duration_quantile)
+                            .unwrap();
+                        (thread, quantile_duration)
+                    })
+                    .collect::<HashMap<_, _>>();
+
                 execution_times_and_counts_per_thread
                     .into_iter()
                     .map(|(thread, (count, _time))| {
-                        let utilization = (quantile_duration as f64 * count as f64)
+                        let utilization = (quantile_duration[&thread] as f64 * count as f64)
                             / (inter_arrival_time * total_count as f64);
                         (thread, utilization)
                     })
