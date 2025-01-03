@@ -14,3 +14,6 @@ proc-macro = true
 proc-macro2 = "1.0.89"
 quote = "1.0.37"
 syn = "2.0.85"
+
+[dev-dependencies]
+bt2-sys = { path = "../bt2-sys" }
