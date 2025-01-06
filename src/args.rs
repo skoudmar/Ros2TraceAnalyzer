@@ -72,7 +72,7 @@ pub enum AnalysisSubcommand {
     /// Analyze the utilization of the system based on the real execution times.
     UtilizationReal,
 
-    /// Construct a dependency graph.
+    /// Construct a detailed dependency graph.
     DependencyGraph(DependencyGraphArgs),
 
     /// Run all analyses.
