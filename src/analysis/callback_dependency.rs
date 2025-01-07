@@ -74,7 +74,7 @@ pub mod graph {
             for (i, node) in self.nodes().iter().enumerate() {
                 let callback = node.callback().lock().unwrap();
                 let label = DisplayCallbackSummary(&callback).to_string();
-                let label = label.replace(' ', "\n");
+                let label = label.replace(", ", "\n");
                 let label = &label[1..label.len() - 1];
                 let node = graph.add_node(&format!("Callback\n{label}"), i);
                 node.set_shape(graphviz_export::NodeShape::Ellipse);
