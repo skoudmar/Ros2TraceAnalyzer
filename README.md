@@ -2,6 +2,9 @@
 
 Ros2TraceAnalyzer is a command-line tool to extract useful data from LTTng traces of ROS application.
 
+## Supported ROS versions
+
+- Jazzy
 
 ## Installation
 
