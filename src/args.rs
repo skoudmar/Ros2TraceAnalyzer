@@ -7,6 +7,7 @@ use bt2_sys::query::support_info;
 use clap::builder::{PathBufValueParser, TypedValueParser};
 use clap::{Parser, Subcommand, ValueEnum};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
+use derive_more::derive::Deref;
 use walkdir::WalkDir;
 
 use crate::statistics::Quantile;
@@ -73,7 +74,13 @@ pub enum AnalysisSubcommand {
     UtilizationReal,
 
     /// Construct a detailed dependency graph.
-    DependencyGraph(DependencyGraphArgs),
+    DependencyGraph {
+        #[command(flatten)]
+        quantiles: QuantilesArg,
+
+        #[command(flatten)]
+        dep_graph_args: DependencyGraphArgs
+    },
 
     /// Run all analyses.
     All {
@@ -111,12 +118,12 @@ pub struct DependencyGraphArgs {
     pub min_multiplier: f64,
 
     /// Path where to write the graph in DOT format.
-    #[arg(long, short = 'o', value_parser = PathBufValueParser::new().try_map(to_directory_path_buf))]
+    #[arg(long, short = 'o', value_parser = PathBufValueParser::new().try_map(|p| to_directory_path_buf(p, true)))]
     pub output_path: PathBuf,
 }
 
-#[derive(Debug, Parser, Clone)]
-pub struct AnalysisArgsCommon {
+#[derive(Debug, Parser, Clone, Deref)]
+pub struct QuantilesArg {
     /// Quantiles to compute for the latency and duration analysis.
     ///
     /// The quantiles must be in the range [0, 1].
@@ -125,6 +132,13 @@ pub struct AnalysisArgsCommon {
     /// 0 (minimum), 0.10, 0.5 (median), 0.90, 0.99, 1 (maximum)
     #[arg(long, value_parser, value_delimiter = ',', num_args = 1.., default_value = "0,0.10,0.5,0.90,0.99,1")]
     pub quantiles: Vec<Quantile>,
+}
+
+#[derive(Debug, Parser, Clone)]
+pub struct AnalysisArgsCommon {
+
+    #[command(flatten)]
+    pub quantiles: QuantilesArg,
 
     /// Export the latency measurements to a JSON file.
     #[arg(long = "json-dir", value_parser)]
@@ -173,10 +187,18 @@ impl Args {
                     .set(common.clone())
                     .expect("Failed to set global analysis CLI arguments");
             }
-            Utilization { .. } | UtilizationReal | DependencyGraph { .. } => {
+            Utilization { .. } | UtilizationReal => {
                 ANALYSIS_CLI_ARGS
                     .set(AnalysisArgsCommon {
-                        quantiles: vec![],
+                        quantiles: QuantilesArg { quantiles: vec![] },
+                        json_dir_path: None,
+                    })
+                    .expect("Failed to set global analysis CLI arguments");
+            }
+            DependencyGraph { quantiles, .. } => {
+                ANALYSIS_CLI_ARGS
+                    .set(AnalysisArgsCommon {
+                        quantiles: quantiles.clone(),
                         json_dir_path: None,
                     })
                     .expect("Failed to set global analysis CLI arguments");

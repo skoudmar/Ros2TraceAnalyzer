@@ -34,6 +34,7 @@ impl<'a> std::fmt::Display for DisplayDurationStats<'a> {
             .get()
             .expect("CLI arguments should be set")
             .quantiles
+            .quantiles
         {
             let quantile = *sorted.quantile(*q).unwrap();
             write!(f, "{}{}={}", self.1, q, DurationDisplayImprecise(quantile))?;
