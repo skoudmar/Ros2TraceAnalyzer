@@ -114,6 +114,7 @@ You can visualize individual data by using Jupyter notebooks in the
 example, as follows:
 
 ```sh
+Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 message-latency --json-dir json
 jq '.[]|select(.topic=="/clock" and .subscriber_node=="/rviz2")|.latencies[]' json/message_latency.json | gnuplot -p -e 'plot "-"'
 ```
 
