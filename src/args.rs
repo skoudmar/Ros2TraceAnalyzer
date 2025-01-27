@@ -98,11 +98,11 @@ pub enum AnalysisSubcommand {
 
 #[derive(Debug, clap::Args)]
 pub struct DependencyGraphArgs {
-    /// Color edges based on the latency measurements.
+    /// Color edges based on their median latency.
     #[arg(long)]
     pub color: bool,
 
-    /// Set the edge thickness based on the latency measurements.
+    /// Set the edge thickness based on their median latency.
     #[arg(long)]
     pub thickness: bool,
 
@@ -117,8 +117,8 @@ pub struct DependencyGraphArgs {
     #[arg(long, default_value = "5.0")]
     pub min_multiplier: f64,
 
-    /// Path where to write the graph in DOT format.
-    #[arg(long, short = 'o', value_parser = PathBufValueParser::new().try_map(|p| to_directory_path_buf(p, true)))]
+    /// Directory where to write the graph in DOT format.
+    #[arg(long = "output-dir", short = 'o', value_parser = PathBufValueParser::new().try_map(|p| to_directory_path_buf(p, true)))]
     pub output_path: PathBuf,
 }
 
@@ -136,7 +136,6 @@ pub struct QuantilesArg {
 
 #[derive(Debug, Parser, Clone)]
 pub struct AnalysisArgsCommon {
-
     #[command(flatten)]
     pub quantiles: QuantilesArg,
 
@@ -216,7 +215,7 @@ fn to_directory_path_buf(path: PathBuf, create: bool) -> Result<PathBuf, &'stati
             std::fs::create_dir(&path).map_err(|_| "Failed to create directory")?;
             return Ok(path);
         }
-        
+
         return Err("Path does not exist.");
     }
 

@@ -72,11 +72,11 @@ Arguments:
 
 ```
 
-To gain overview of timing in your application, generate a dependency
-graph and view it with [xdot.py][]:
+To gain **overview of timing in your application**, generate a
+dependency graph and view it with [xdot.py][]:
 
 ```sh
-Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 dependency-graph -o graph/
+Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 dependency-graph -o graph/ --thickness
 xdot graph/dependency_graph.dot
 ```
 
@@ -88,14 +88,15 @@ You will see something similar to this figure:
 > Latest xdot relase (1.4) doesn't display newlines in tooltips
 > correctly. To see tooltips correctly, use the master branch.
 
-**Detailed dependency graph** options:
-```
--o, --output-path <OUTPUT_PATH>   mandatory option specifying the output directory for the graph
---color                           Color edges based on the edge weight.
---thickness                       Set edge thickness based on edge weight.
---min-multiplier <MIN_MULTIPLIER> Set the maximum value of the color or thickness range to be
-                                  lower bounded by MIN_MULTIPLIER times the minimum value.
-```
+Selected options for dependency-graph:
+- `-o, --output-dir <DIR>` Mandatory option specifying the output
+  directory for the graph
+- `--color` Color edges based on their median latency
+- `--thickness` Set edge thickness based on their median latency
+- `--min-multiplier <MIN_MULT>` Set the maximum value of the color or
+  thickness range to be lower bounded by `MIN_MULT` multiple of the
+  minimum value, i.e. the range will be: [min, _max_(max, min *
+  `MIN_MULT`)]
 
 **Message latency** and **Callback** analyses options:
 ```
@@ -111,5 +112,4 @@ You will see something similar to this figure:
 
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/
-
 [xdot.py]: https://github.com/jrfonseca/xdot.py
