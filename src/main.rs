@@ -265,7 +265,10 @@ fn run_analysis_based_on_args(args: &Args) -> Result<()> {
             let utilization = analysis::Utilization::new(&analysis);
             utilization.print_stats_real();
         }
-        args::AnalysisSubcommand::DependencyGraph{dep_graph_args: dep_args, ..} => {
+        args::AnalysisSubcommand::DependencyGraph {
+            dep_graph_args: dep_args,
+            ..
+        } => {
             let mut analysis = analysis::DependencyGraph::new();
             run_analysis(args, &mut analysis, &mut iter)?;
             let dot_output = analysis.display_as_dot(
