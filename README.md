@@ -126,28 +126,47 @@ times. To analyze theoretical worst-case utilization, add `--quantile 1.0`. For 
 Example output of utilization analysis is shown below:
 
 ```sh
-Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 dependency-graph utilization --quantile 0.5
+Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 dependency-graph utilization --quantile 0.9
 ```
 
 ```
-Utilization statistics for duration quantile 0.5:
-Thread 1737379 on steelpick has utilization 36.13906 %
-     36.13906 % from Callback (node="/transform_listener_impl_2e3cec40", Subscriber("/tf_static"))
-Thread 1737381 on steelpick has utilization 14.44460 %
-     14.32256 % from Callback (node="/transform_listener_impl_2e4c2f70", Subscriber("/tf_static"))
-      0.12204 % from Callback (node="/transform_listener_impl_2e4c2f70", Subscriber("/tf"))
-Thread 1737160 on steelpick has utilization  1.85107 %
-      1.80842 % from Callback (node="/alks", Timer(20 ms))
-      0.02318 % from Callback (node="/alks", Subscriber("/clock"))
-      0.00425 % from Callback (node="/alks", Subscriber("/FR/EPS/LHEPS04"))
-      0.00302 % from Callback (node="/alks", Subscriber("/FR/ZFAS/EML04"))
-      0.00261 % from Callback (node="/alks", Subscriber("/FR/ESP_PAG/ESP21"))
-      0.00242 % from Callback (node="/alks", Subscriber("/FR/ZFAS/BV2LinienEgoLinks"))
-      0.00194 % from Callback (node="/alks", Subscriber("/FR/ZFAS/BV2LinienEgoRechts"))
-      0.00181 % from Callback (node="/alks", Subscriber("/joy"))
-      0.00176 % from Callback (node="/alks", Subscriber("/FR/ZFAS/BV2LinienNebenspuren"))
-      0.00167 % from Callback (node="/alks", Subscriber("/FR/ZFAS/EML01"))
+Utilization statistics for duration quantile 0.9:
+Thread 1737160 on steelpick has utilization 19.16940 %
+     19.10737 % from Callback (node="/alks", Timer(20 ms))
+      0.03355 % from Callback (node="/alks", Subscriber("/clock"))
+      0.00598 % from Callback (node="/alks", Subscriber("/FR/EPS/LHEPS04"))
+      0.00430 % from Callback (node="/alks", Subscriber("/FR/ZFAS/EML04"))
+      0.00398 % from Callback (node="/alks", Subscriber("/FR/ESP_PAG/ESP21"))
+      0.00349 % from Callback (node="/alks", Subscriber("/FR/ZFAS/BV2LinienEgoLinks"))
+      0.00290 % from Callback (node="/alks", Subscriber("/FR/ZFAS/BV2LinienEgoRechts"))
+      0.00269 % from Callback (node="/alks", Subscriber("/joy"))
+      0.00265 % from Callback (node="/alks", Subscriber("/FR/ZFAS/BV2LinienNebenspuren"))
+      0.00248 % from Callback (node="/alks", Subscriber("/FR/ZFAS/EML01"))
+Thread 1737158 on steelpick has utilization  2.10334 %
+      0.58935 % from Callback (node="/rviz2", Subscriber("/carla/ego_vehicle/vehicle_status"))
+      0.55587 % from Callback (node="/rviz2", Subscriber("/carla/status"))
+      0.22955 % from Callback (node="/rviz2", Subscriber("/sensor_stack/cameras/zed2/zed_node/left/image_rect_color"))
+      0.20924 % from Callback (node="/rviz2", Subscriber("/alks/goal"))
+      0.17058 % from Callback (node="/rviz2", Subscriber("/debug/alks_markers"))
+      0.09388 % from Callback (node="/rviz2", Subscriber("/FRviz/lines"))
+      0.06875 % from Callback (node="/rviz2", Subscriber("/FRviz/line_labels"))
+      0.06213 % from Callback (node="/rviz2", Subscriber("/alks/req_pose"))
+      0.05595 % from Callback (node="/rviz2", Subscriber("/sensor_stack/cameras/zed2/zed_node/left/image_rect_color"))
+      0.01816 % from Callback (node="/rviz2", Subscriber("/carla/available_scenarios"))
+      0.01735 % from Callback (node="/rviz2", Subscriber("/vehicle/status/velocity_status"))
+      0.01686 % from Callback (node="/rviz2", Subscriber("/parameter_events"))
+      0.01147 % from Callback (node="/rviz2", Subscriber("/vehicle/status/steering_status"))
+      0.00419 % from Callback (node="/rviz2", Subscriber("/sensor_stack/cameras/zed2/zed_node/left/camera_info"))
 ```
+
+> [!NOTE]
+> The utilization analysis is based solely on timestamps from ROS
+> callbacks. It ignores kernel scheduling events such as context
+> switches and other activities executed by the application outside of
+> callbacks. Therefore, the result are not guaranteed to be always
+> correct. However, they are already useful indication for when
+> something goes wrong in your application.
+
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/
 [xdot.py]: https://github.com/jrfonseca/xdot.py
