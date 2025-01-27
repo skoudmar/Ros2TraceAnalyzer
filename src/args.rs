@@ -140,7 +140,7 @@ pub struct AnalysisArgsCommon {
     pub quantiles: QuantilesArg,
 
     /// Export the latency measurements to a JSON file.
-    #[arg(long = "json-dir", value_parser)]
+    #[arg(long = "json-dir", value_parser = PathBufValueParser::new().try_map(|p| to_directory_path_buf(p, true)))]
     pub json_dir_path: Option<PathBuf>,
 }
 
