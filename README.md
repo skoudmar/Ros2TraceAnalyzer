@@ -80,7 +80,8 @@ Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 dependency-graph -o gra
 xdot graph/dependency_graph.dot
 ```
 
-You will see something similar to this figure:
+You will see something similar to this figure, where tooltips show
+quantiles of measured timing parameters:
 
 ![screenshot of xdot with dependency graph](./doc/alks-dep-graph.png)
 
@@ -98,18 +99,55 @@ Selected options for dependency-graph:
   minimum value, i.e. the range will be: [min, _max_(max, min *
   `MIN_MULT`)]
 
-**Message latency** and **Callback** analyses options:
-```
---quantiles <QUANTILES>...    Print results with these quantiles.
---json-dir  <JSON_DIR_PATH>   Instead of printing aggregated results, export the measured
-                              data into a JSON file in the specified directory.
+**Message latency** and **Callback** analyze message latencies and
+callback execution and inter-arrival times. The resulting data can be
+printed to stdout in aggregated form or exported in full to a JSON
+file. Supported options are:
+
+- `--quantiles <QUANTILES>...` Print results with these quantiles.
+- `--json-dir <JSON_DIR_PATH>` Instead of printing aggregated results,
+  export the measured data into a JSON file in the specified
+  directory.
+
+You can visualize individual data by using Jupyter notebooks in the
+[py-src](./py-src/) directory or directly via command line, for
+example, as follows:
+
+```sh
+jq '.[]|select(.topic=="/clock" and .subscriber_node=="/rviz2")|.latencies[]' json/message_latency.json | gnuplot -p -e 'plot "-"'
 ```
 
-**Utilization** analysis option:
-```
---quantile <QUANTILE>   Quantile used for callback duration calculation.
+![raw graph of measured latencies](./doc/gnuplot-latency.png)
+
+**Utilization** analysis allow to estimate CPU utilization by
+individual threads for different quantiles of callback execution
+times. To analyze theoretical worst-case utilization, add `--quantile 1.0`. For median utilization, use `--quantile 0.5`.
+
+Example output of utilization analysis is shown below:
+
+```sh
+Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 dependency-graph utilization --quantile 0.5
 ```
 
+```
+Utilization statistics for duration quantile 0.5:
+Thread 1737379 on steelpick has utilization 36.13906 %
+     36.13906 % from Callback (node="/transform_listener_impl_2e3cec40", Subscriber("/tf_static"))
+Thread 1737381 on steelpick has utilization 14.44460 %
+     14.32256 % from Callback (node="/transform_listener_impl_2e4c2f70", Subscriber("/tf_static"))
+      0.12204 % from Callback (node="/transform_listener_impl_2e4c2f70", Subscriber("/tf"))
+Thread 1737160 on steelpick has utilization  1.85107 %
+      1.80842 % from Callback (node="/alks", Timer(20 ms))
+      0.02318 % from Callback (node="/alks", Subscriber("/clock"))
+      0.00425 % from Callback (node="/alks", Subscriber("/FR/EPS/LHEPS04"))
+      0.00302 % from Callback (node="/alks", Subscriber("/FR/ZFAS/EML04"))
+      0.00261 % from Callback (node="/alks", Subscriber("/FR/ESP_PAG/ESP21"))
+      0.00242 % from Callback (node="/alks", Subscriber("/FR/ZFAS/BV2LinienEgoLinks"))
+      0.00194 % from Callback (node="/alks", Subscriber("/FR/ZFAS/BV2LinienEgoRechts"))
+      0.00181 % from Callback (node="/alks", Subscriber("/joy"))
+      0.00176 % from Callback (node="/alks", Subscriber("/FR/ZFAS/BV2LinienNebenspuren"))
+      0.00167 % from Callback (node="/alks", Subscriber("/FR/ZFAS/EML01"))
+```
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/
 [xdot.py]: https://github.com/jrfonseca/xdot.py
