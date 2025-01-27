@@ -25,9 +25,9 @@ pub enum OutputFormat {
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true, subcommand_precedence_over_arg = true)]
 pub struct Args {
-    /// Path to a directory containing the trace to analyze
+    /// Paths to directories to search for the trace to analyze
     ///
-    /// Can be a super-directory of the trace directory.
+    /// All subdirectories are automatically searched too.
     #[arg(value_parser = PathBufValueParser::new().try_map(|p| to_directory_path_buf(p, false)), num_args = 1.., required = true)]
     trace_paths: Vec<PathBuf>,
 
@@ -52,6 +52,15 @@ pub struct Args {
 
 #[derive(Debug, Subcommand)]
 pub enum AnalysisSubcommand {
+    /// Construct a detailed dependency graph with timing statistics.
+    DependencyGraph {
+        #[command(flatten)]
+        quantiles: QuantilesArg,
+
+        #[command(flatten)]
+        dep_graph_args: DependencyGraphArgs,
+    },
+
     /// Analyze the latency of the messages.
     MessageLatency {
         #[command(flatten)]
@@ -72,15 +81,6 @@ pub enum AnalysisSubcommand {
     },
     /// Analyze the utilization of the system based on the real execution times.
     UtilizationReal,
-
-    /// Construct a detailed dependency graph.
-    DependencyGraph {
-        #[command(flatten)]
-        quantiles: QuantilesArg,
-
-        #[command(flatten)]
-        dep_graph_args: DependencyGraphArgs
-    },
 
     /// Run all analyses.
     All {
