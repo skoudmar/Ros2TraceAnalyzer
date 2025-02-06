@@ -859,7 +859,7 @@ fn get_node_name_and_tooltip(
     }
 }
 
-impl<'a> std::fmt::Display for DisplayAsDot<'a> {
+impl std::fmt::Display for DisplayAsDot<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let cluster_names = self
             .ros_nodes

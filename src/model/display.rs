@@ -85,7 +85,7 @@ impl std::fmt::Display for Publisher {
 
 pub(super) struct DisplayPublisherWithoutNode<'a>(pub &'a Publisher);
 
-impl<'a> std::fmt::Display for DisplayPublisherWithoutNode<'a> {
+impl std::fmt::Display for DisplayPublisherWithoutNode<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -128,7 +128,7 @@ pub fn get_subscriber_topic_from_weak(
 
 pub(super) struct DisplaySubscriberWithoutNode<'a>(pub &'a Subscriber);
 
-impl<'a> std::fmt::Display for DisplaySubscriberWithoutNode<'a> {
+impl std::fmt::Display for DisplaySubscriberWithoutNode<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let callback = self
             .0
@@ -249,7 +249,7 @@ pub fn get_timer_period_from_weak(timer_weak: &Weak<Mutex<Timer>>) -> WeakKnown<
 
 pub(super) struct TimerDisplayWithoutNode<'a>(pub &'a Timer);
 
-impl<'a> std::fmt::Display for TimerDisplayWithoutNode<'a> {
+impl std::fmt::Display for TimerDisplayWithoutNode<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let callback = self
             .0

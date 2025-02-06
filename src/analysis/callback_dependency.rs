@@ -11,7 +11,7 @@ use super::{ArcMutWrapper, EventAnalysis, PublicationInCallback};
 pub mod graph {
     use crate::model::display::DisplayCallbackSummary;
     use crate::model::Callback;
-    use crate::visualization;
+
     use crate::visualization::graphviz_export;
     use std::sync::{Arc, Mutex};
 

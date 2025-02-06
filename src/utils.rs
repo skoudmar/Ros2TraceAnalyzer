@@ -288,7 +288,7 @@ impl<'a, T: Display> DisplayArcMutex<'a, T> {
     }
 }
 
-impl<'a, T: Display> Display for DisplayArcMutex<'a, T> {
+impl<T: Display> Display for DisplayArcMutex<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.skip {
             return write!(f, "...");
@@ -298,7 +298,7 @@ impl<'a, T: Display> Display for DisplayArcMutex<'a, T> {
     }
 }
 
-impl<'a, T: Debug> Debug for DisplayArcMutex<'a, T> {
+impl<T: Debug> Debug for DisplayArcMutex<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.skip {
             return write!(f, "...");
@@ -337,7 +337,7 @@ impl<'a, T> DisplayArcWeakMutex<'a, T> {
     }
 }
 
-impl<'a, T: Display> std::fmt::Display for DisplayArcWeakMutex<'a, T> {
+impl<T: Display> std::fmt::Display for DisplayArcWeakMutex<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.skip {
             return write!(f, "...");
@@ -350,7 +350,7 @@ impl<'a, T: Display> std::fmt::Display for DisplayArcWeakMutex<'a, T> {
     }
 }
 
-impl<'a, T, F> std::fmt::Display for DisplayArcWeakMutexMapped<'a, T, F>
+impl<T, F> std::fmt::Display for DisplayArcWeakMutexMapped<'_, T, F>
 where
     F: Fn(&T, &mut std::fmt::Formatter<'_>) -> std::fmt::Result,
 {
@@ -363,7 +363,7 @@ where
     }
 }
 
-impl<'a, T: Debug> Debug for DisplayArcWeakMutex<'a, T> {
+impl<T: Debug> Debug for DisplayArcWeakMutex<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.skip {
             return write!(f, "...");
@@ -469,7 +469,7 @@ impl std::fmt::Display for DurationDisplayImprecise {
 
 pub struct DebugOptionHex<'a, T>(pub &'a Option<T>);
 
-impl<'a, T: std::fmt::LowerHex> std::fmt::Debug for DebugOptionHex<'a, T> {
+impl<T: std::fmt::LowerHex> std::fmt::Debug for DebugOptionHex<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.0 {
             Some(value) => f

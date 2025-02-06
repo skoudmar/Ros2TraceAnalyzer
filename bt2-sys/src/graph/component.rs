@@ -367,7 +367,7 @@ impl<'a> std::ops::Deref for BtComponentClassSinkConst<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for BtComponentClassConst<'a> {
+impl std::fmt::Debug for BtComponentClassConst<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BtComponentClassConst")
             .field("type", &self.get_type())
@@ -376,7 +376,7 @@ impl<'a> std::fmt::Debug for BtComponentClassConst<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for BtComponentClassSourceConst<'a> {
+impl std::fmt::Debug for BtComponentClassSourceConst<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BtComponentClassSourceConst")
             .field("name", &self.name())
@@ -384,7 +384,7 @@ impl<'a> std::fmt::Debug for BtComponentClassSourceConst<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for BtComponentClassFilterConst<'a> {
+impl std::fmt::Debug for BtComponentClassFilterConst<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BtComponentClassFilterConst")
             .field("name", &self.name())
@@ -392,7 +392,7 @@ impl<'a> std::fmt::Debug for BtComponentClassFilterConst<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for BtComponentClassSinkConst<'a> {
+impl std::fmt::Debug for BtComponentClassSinkConst<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BtComponentClassSinkConst")
             .field("name", &self.name())
