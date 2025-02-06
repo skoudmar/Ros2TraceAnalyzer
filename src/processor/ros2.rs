@@ -87,9 +87,9 @@ impl Processor {
     pub(super) fn process_rcl_publisher_init(
         &mut self,
         event: &raw_events::ros2::RclPublisherInit,
-        time: Time,
+        _time: Time,
         context_id: ContextId,
-        context: &Context,
+        _context: &Context,
     ) -> processed_events::ros2::RclPublisherInit {
         let publisher_by_rmw_arc = self
             .publishers_by_rmw
@@ -678,9 +678,9 @@ impl Processor {
     pub(super) fn process_rcl_service_init(
         &mut self,
         event: &raw_events::ros2::RclServiceInit,
-        time: Time,
+        _time: Time,
         context_id: ContextId,
-        context: &Context,
+        _context: &Context,
     ) -> Result<processed_events::ros2::RclServiceInit> {
         let service_arc = self
             .services_by_rcl
