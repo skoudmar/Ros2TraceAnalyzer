@@ -228,7 +228,7 @@ impl<'a> Utilization<'a> {
                 utilization * 100.0,
             );
             let mut utilization_per_callback = callbacks
-                .into_iter()
+                .iter()
                 .filter_map(|callback_arc| {
                     per_callback_utilization
                         .get(callback_arc)
