@@ -52,8 +52,11 @@ impl Drop for BtGraph {
     }
 }
 
-#[repr(transparent)]
-pub struct BtGraphBuilder(BtGraph);
+pub struct BtGraphBuilder {
+    /// SAFETY: The graph must not be run in the builder.
+    graph: BtGraph,
+    failed_configuration: bool,
+}
 
 impl BtGraphBuilder {
     const MIP_VERSION: u64 = 0;
@@ -67,14 +70,16 @@ impl BtGraphBuilder {
     pub fn new() -> Result<Self, OutOfMemory> {
         let graph = unsafe { bt_graph_create(Self::MIP_VERSION) };
         let graph = NonNull::new(graph).ok_or(OutOfMemory)?;
-        Ok(Self(BtGraph(graph)))
-    }
-
-    const fn as_ptr(&self) -> *mut bt_graph {
-        self.0.as_ptr()
+        Ok(Self {
+            graph: BtGraph(graph),
+            failed_configuration: false,
+        })
     }
 
     /// Add a source component to the graph.
+    ///
+    /// # Panics
+    /// If graph is faulty, i.e., previous configuration failed.
     ///
     /// # Safety
     /// The caller must ensure that the name is not used by another component in the graph
@@ -86,12 +91,14 @@ impl BtGraphBuilder {
         params: Option<BtValueMap>,
         log_level: LogLevel,
     ) -> Result<BtComponentSourceConst<'a>, AddComponentError> {
+        let mut guard = ConfigFailsafe::check(&mut self.failed_configuration);
+
         let mut component_ptr = ptr::null();
         let params_ptr = params.as_ref().map_or(ptr::null(), |p| p.as_ptr());
         unsafe {
-            // Safety: `params_ptr` null is allowed for emply params and `component_ptr` is a valid pointer.
+            // Safety: `params_ptr` null is allowed for empty params and `component_ptr` is a valid pointer.
             bt_graph_add_source_component(
-                self.as_ptr(),
+                self.graph.as_ptr(),
                 component_class.as_ptr(),
                 name.as_ptr(),
                 params_ptr,
@@ -102,11 +109,15 @@ impl BtGraphBuilder {
         .into_result()?;
 
         let component = unsafe { BtComponentSourceConst::new_unchecked(component_ptr) };
+        guard.set_success();
 
         Ok(component)
     }
 
     /// Add a filter component to the graph.
+    ///
+    /// # Panics
+    /// If graph is faulty, i.e., previous configuration failed.
     ///
     /// # Safety
     /// The caller must ensure that the name is not used by another component in the graph
@@ -118,12 +129,14 @@ impl BtGraphBuilder {
         params: Option<BtValueMap>,
         log_level: LogLevel,
     ) -> Result<BtComponentFilterConst<'a>, AddComponentError> {
+        let mut guard = ConfigFailsafe::check(&mut self.failed_configuration);
+
         let mut component_ptr = ptr::null();
         let params_ptr = params.as_ref().map_or(ptr::null(), |p| p.as_ptr());
         unsafe {
-            // Safety: `params_ptr` null is allowed for emply params and `component_ptr` is a valid pointer.
+            // Safety: `params_ptr` null is allowed for empty params and `component_ptr` is a valid pointer.
             bt_graph_add_filter_component(
-                self.as_ptr(),
+                self.graph.as_ptr(),
                 component_class.as_ptr(),
                 name.as_ptr(),
                 params_ptr,
@@ -134,11 +147,15 @@ impl BtGraphBuilder {
         .into_result()?;
 
         let component = unsafe { BtComponentFilterConst::new_unchecked(component_ptr) };
+        guard.set_success();
 
         Ok(component)
     }
 
     /// Add a sink component to the graph.
+    ///
+    /// # Panics
+    /// If graph is faulty, i.e., previous configuration failed.
     ///
     /// # Safety
     /// The caller must ensure that the name is not used by another component in the graph
@@ -150,12 +167,14 @@ impl BtGraphBuilder {
         params: Option<BtValueMap>,
         log_level: LogLevel,
     ) -> Result<BtComponentSinkConst<'a>, AddComponentError> {
+        let mut guard = ConfigFailsafe::check(&mut self.failed_configuration);
+
         let mut component_ptr = ptr::null();
         let params_ptr = params.as_ref().map_or(ptr::null(), |p| p.as_ptr());
         unsafe {
-            // Safety: `params_ptr` null is allowed for emply params and `component_ptr` is a valid pointer.
+            // Safety: `params_ptr` null is allowed for empty params and `component_ptr` is a valid pointer.
             bt_graph_add_sink_component(
-                self.as_ptr(),
+                self.graph.as_ptr(),
                 component_class.as_ptr(),
                 name.as_ptr(),
                 params_ptr,
@@ -166,11 +185,15 @@ impl BtGraphBuilder {
         .into_result()?;
 
         let component = unsafe { BtComponentSinkConst::new_unchecked(component_ptr) };
+        guard.set_success();
 
         Ok(component)
     }
 
     /// Add a simple sink component to the graph.
+    ///
+    /// # Panics
+    /// If graph is faulty, i.e., previous configuration failed.
     ///
     /// # Safety
     /// The caller must ensure that the name is not used by another component in the graph
@@ -185,10 +208,12 @@ impl BtGraphBuilder {
         finalize_fn: bt_graph_simple_sink_component_finalize_func,
         user_data: *mut std::ffi::c_void,
     ) -> Result<BtComponentSinkConst<'a>, AddComponentError> {
+        let mut guard = ConfigFailsafe::check(&mut self.failed_configuration);
+
         let mut component_ptr = ptr::null();
         unsafe {
             bt_graph_add_simple_sink_component(
-                self.as_ptr(),
+                self.graph.as_ptr(),
                 name.as_ptr(),
                 initialize_fn,
                 consume_fn,
@@ -200,30 +225,84 @@ impl BtGraphBuilder {
         .into_result()?;
 
         let component = unsafe { BtComponentSinkConst::new_unchecked(component_ptr) };
+        guard.set_success();
 
         Ok(component)
     }
 
+    /// Connect two ports.
+    ///
+    /// # Panics
+    /// If graph is faulty, i.e., previous configuration failed.
+    ///
+    /// # Safety
+    /// The caller must ensure that the ports are not already connected.
+    /// The ports must be from components of this graph.
     pub unsafe fn connect_ports_unchecked(
         &mut self,
         output: BtPortOutput,
         input: BtPortInput,
     ) -> Result<(), ConnectPortsError> {
+        let mut guard = ConfigFailsafe::check(&mut self.failed_configuration);
         unsafe {
             bt_graph_connect_ports(
-                self.as_ptr(),
+                self.graph.as_ptr(),
                 output.as_ptr(),
                 input.as_ptr(),
                 ptr::null_mut(),
             )
         }
-        .into_result()
+        .into_result()?;
+
+        guard.set_success();
+        Ok(())
     }
 
     /// Build the graph.
+    ///
+    /// # Panics
+    /// If graph is faulty, i.e., previous configuration failed.
     #[must_use]
     pub fn build(self) -> BtGraph {
-        self.0
+        assert!(
+            !self.failed_configuration,
+            "Cannot build a graph that has failed configuration"
+        );
+        self.graph
+    }
+}
+
+struct ConfigFailsafe<'a> {
+    success: bool,
+    failed_configuration: &'a mut bool,
+}
+
+impl<'a> ConfigFailsafe<'a> {
+    pub fn check(failed_configuration: &'a mut bool) -> Self {
+        assert!(
+            !*failed_configuration,
+            "Cannot configure a graph that has already failed"
+        );
+        Self {
+            success: false,
+            failed_configuration,
+        }
+    }
+
+    pub fn fail(&mut self) {
+        *self.failed_configuration = true;
+    }
+
+    pub fn set_success(&mut self) {
+        self.success = true;
+    }
+}
+
+impl Drop for ConfigFailsafe<'_> {
+    fn drop(&mut self) {
+        if !self.success {
+            self.fail();
+        }
     }
 }
 
