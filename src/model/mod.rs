@@ -1282,7 +1282,11 @@ impl CallbackInstance {
             CallbackCaller::Subscription(weak) => {
                 let subscriber = weak.get_arc().unwrap();
                 let mut subscriber = subscriber.lock().unwrap();
-                let message = subscriber.take_message().unwrap();
+                let message = subscriber.take_message().unwrap_or_else(|| {
+                    panic!(
+                        "Subscriber does not have a message to trigger the callback at time {start_time}.\n{subscriber:#?}\n{callback:#?}",
+                    )
+                });
                 CallbackTrigger::SubscriptionMessage(message)
             }
             CallbackCaller::Service(weak) => {
