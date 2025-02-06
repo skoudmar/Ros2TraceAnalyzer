@@ -13,8 +13,14 @@ use crate::raw_bindings::{
     bt_component_class_get_help, bt_component_class_get_name, bt_component_class_get_type,
     bt_component_class_sink, bt_component_class_sink_as_component_class_const,
     bt_component_class_source, bt_component_class_source_as_component_class_const,
-    bt_component_class_type, bt_component_filter, bt_component_get_class_type, bt_component_sink,
-    bt_component_source,
+    bt_component_class_type, bt_component_filter,
+    bt_component_filter_borrow_input_port_by_index_const,
+    bt_component_filter_borrow_output_port_by_index_const,
+    bt_component_filter_get_input_port_count, bt_component_filter_get_output_port_count,
+    bt_component_get_class_type, bt_component_sink,
+    bt_component_sink_borrow_input_port_by_index_const, bt_component_sink_get_input_port_count,
+    bt_component_source, bt_component_source_borrow_output_port_by_index_const,
+    bt_component_source_get_output_port_count, bt_port_input, bt_port_output,
 };
 use crate::utils::ConstNonNull;
 use crate::value::{BtValue, BtValueMap};
@@ -110,6 +116,19 @@ impl<'a> BtComponentSourceConst<'a> {
     pub fn upcast(self) -> BtComponentConst<'a> {
         unsafe { BtComponentConst::new(self.as_ptr().cast()) }
     }
+
+    #[must_use]
+    pub fn get_output_port_count(&self) -> u64 {
+        unsafe { bt_component_source_get_output_port_count(self.as_ptr()) }
+    }
+
+    #[must_use]
+    pub fn get_output_port(&self, index: u64) -> BtPortOutput<'a> {
+        assert!(index < self.get_output_port_count());
+        let port =
+            unsafe { bt_component_source_borrow_output_port_by_index_const(self.as_ptr(), index) };
+        BtPortOutput(port, PhantomData)
+    }
 }
 
 impl<'a> BtComponentFilterConst<'a> {
@@ -125,6 +144,32 @@ impl<'a> BtComponentFilterConst<'a> {
     pub fn upcast(self) -> BtComponentConst<'a> {
         unsafe { BtComponentConst::new(self.as_ptr().cast()) }
     }
+
+    #[must_use]
+    pub fn get_input_port_count(&self) -> u64 {
+        unsafe { bt_component_filter_get_input_port_count(self.as_ptr()) }
+    }
+
+    #[must_use]
+    pub fn get_output_port_count(&self) -> u64 {
+        unsafe { bt_component_filter_get_output_port_count(self.as_ptr()) }
+    }
+
+    #[must_use]
+    pub fn get_input_port(&self, index: u64) -> BtPortInput<'a> {
+        assert!(index < self.get_input_port_count());
+        let port =
+            unsafe { bt_component_filter_borrow_input_port_by_index_const(self.as_ptr(), index) };
+        BtPortInput(port, PhantomData)
+    }
+
+    #[must_use]
+    pub fn get_output_port(&self, index: u64) -> BtPortOutput<'a> {
+        assert!(index < self.get_output_port_count());
+        let port =
+            unsafe { bt_component_filter_borrow_output_port_by_index_const(self.as_ptr(), index) };
+        BtPortOutput(port, PhantomData)
+    }
 }
 
 impl<'a> BtComponentSinkConst<'a> {
@@ -139,6 +184,39 @@ impl<'a> BtComponentSinkConst<'a> {
     #[must_use]
     pub fn upcast(self) -> BtComponentConst<'a> {
         unsafe { BtComponentConst::new(self.as_ptr().cast()) }
+    }
+
+    #[must_use]
+    pub fn get_input_port_count(&self) -> u64 {
+        unsafe { bt_component_sink_get_input_port_count(self.as_ptr()) }
+    }
+
+    #[must_use]
+    pub fn get_input_port(&self, index: u64) -> BtPortInput<'a> {
+        assert!(index < self.get_input_port_count());
+        let port =
+            unsafe { bt_component_sink_borrow_input_port_by_index_const(self.as_ptr(), index) };
+        BtPortInput(port, PhantomData)
+    }
+}
+
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub struct BtPortInput<'a>(*const bt_port_input, PhantomData<&'a bt_component>);
+
+impl BtPortInput<'_> {
+    pub(crate) const fn as_ptr(&self) -> *const bt_port_input {
+        self.0
+    }
+}
+
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub struct BtPortOutput<'a>(*const bt_port_output, PhantomData<&'a bt_component>);
+
+impl BtPortOutput<'_> {
+    pub(crate) const fn as_ptr(&self) -> *const bt_port_output {
+        self.0
     }
 }
 
