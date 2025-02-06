@@ -103,21 +103,22 @@ pub enum Event {
 }
 
 pub fn get_full_event(message: &BtEventMessageConst) -> Option<FullEvent> {
-    let event = message.get_event();
-    let context = context_from_event(&event);
-    let time = time_from_message(message);
+    let bt_event = message.get_event();
 
-    let binding = event.get_class();
-    let full_name = binding.get_name().unwrap();
+    let bt_event_class = bt_event.get_class();
+    let full_name = bt_event_class.get_name().unwrap();
     let provider = full_name.split(':').next().unwrap();
 
     let event = match provider {
-        "ros2" => Event::Ros2(ros2::Event::from_event(&event).expect("Should match all events")),
-        "r2r" => Event::R2r(r2r::Event::from_event(&event).expect("Should match all events")),
+        "ros2" => Event::Ros2(ros2::Event::from_event(&bt_event)?),
+        "r2r" => Event::R2r(r2r::Event::from_event(&bt_event)?),
         _ => {
             return None;
         }
     };
+
+    let context = context_from_event(&bt_event);
+    let time = time_from_message(message);
 
     Some(FullEvent {
         context,
