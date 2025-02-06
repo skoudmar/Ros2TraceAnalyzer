@@ -3,7 +3,8 @@ use std::ptr::{self, NonNull};
 
 use component::{
     BtComponentClassFilterConst, BtComponentClassSinkConst, BtComponentClassSourceConst,
-    BtComponentFilterConst, BtComponentSinkConst, BtComponentSourceConst,
+    BtComponentFilterConst, BtComponentSinkConst, BtComponentSourceConst, BtPortInput,
+    BtPortOutput,
 };
 use thiserror::Error;
 
@@ -11,8 +12,9 @@ use crate::error::{BtErrorWrapper, IntoResult, OutOfMemory};
 use crate::logging::LogLevel;
 use crate::raw_bindings::{
     bt_graph, bt_graph_add_component_status, bt_graph_add_filter_component,
-    bt_graph_add_sink_component, bt_graph_add_source_component, bt_graph_create, bt_graph_put_ref,
-    bt_graph_run, bt_graph_run_once, bt_graph_run_once_status, bt_graph_run_status,
+    bt_graph_add_sink_component, bt_graph_add_source_component, bt_graph_connect_ports,
+    bt_graph_connect_ports_status, bt_graph_create, bt_graph_put_ref, bt_graph_run,
+    bt_graph_run_once, bt_graph_run_once_status, bt_graph_run_status,
 };
 use crate::value::BtValueMap;
 
@@ -163,6 +165,22 @@ impl BtGraphBuilder {
         Ok(component)
     }
 
+    pub unsafe fn connect_ports_unchecked(
+        &mut self,
+        output: BtPortOutput,
+        input: BtPortInput,
+    ) -> Result<(), ConnectPortsError> {
+        unsafe {
+            bt_graph_connect_ports(
+                self.as_ptr(),
+                output.as_ptr(),
+                input.as_ptr(),
+                ptr::null_mut(),
+            )
+        }
+        .into_result()
+    }
+
     /// Build the graph.
     #[must_use]
     pub fn build(self) -> BtGraph {
@@ -184,6 +202,27 @@ impl IntoResult<(), AddComponentError> for bt_graph_add_component_status {
             Self::BT_GRAPH_ADD_COMPONENT_STATUS_OK => Ok(()),
             Self::BT_GRAPH_ADD_COMPONENT_STATUS_MEMORY_ERROR => Err(OutOfMemory.into()),
             Self::BT_GRAPH_ADD_COMPONENT_STATUS_ERROR => Err(BtErrorWrapper::get()
+                .expect("Error should be provided by the C API")
+                .into()),
+            _ => unreachable!("Unknown bt_graph_add_component_status value: {:?}", self),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ConnectPortsError {
+    #[error(transparent)]
+    OutOfMemory(#[from] OutOfMemory),
+    #[error(transparent)]
+    Error(#[from] BtErrorWrapper),
+}
+
+impl IntoResult<(), ConnectPortsError> for bt_graph_connect_ports_status {
+    fn into_result(self) -> Result<(), ConnectPortsError> {
+        match self {
+            Self::BT_GRAPH_CONNECT_PORTS_STATUS_OK => Ok(()),
+            Self::BT_GRAPH_CONNECT_PORTS_STATUS_MEMORY_ERROR => Err(OutOfMemory.into()),
+            Self::BT_GRAPH_CONNECT_PORTS_STATUS_ERROR => Err(BtErrorWrapper::get()
                 .expect("Error should be provided by the C API")
                 .into()),
             _ => unreachable!("Unknown bt_graph_add_component_status value: {:?}", self),
