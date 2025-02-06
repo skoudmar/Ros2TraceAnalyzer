@@ -127,24 +127,6 @@ impl FromStr for Quantile {
     }
 }
 
-pub fn calculate_min_max_avg(elements: &[i64]) -> Option<(i64, i64, i64)> {
-    let first = *elements.first()?;
-    let mut min = first;
-    let mut max = first;
-
-    for &element in elements.iter().skip(1) {
-        if element < min {
-            min = element;
-        } else if element > max {
-            max = element;
-        }
-    }
-
-    let avg = elements.mean()?;
-
-    Some((min, max, avg))
-}
-
 pub trait Mean {
     type Output;
 
