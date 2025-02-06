@@ -94,7 +94,7 @@ impl<'a> ProcessedEventsIter<'a> {
     }
 }
 
-impl<'a> Iterator for ProcessedEventsIter<'a> {
+impl Iterator for ProcessedEventsIter<'_> {
     type Item = Result<processed_events::FullEvent>;
 
     fn next(&mut self) -> Option<Self::Item> {

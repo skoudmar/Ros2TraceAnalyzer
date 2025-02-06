@@ -133,7 +133,7 @@ pub trait Mean {
     fn mean(&self) -> Option<Self::Output>;
 }
 
-impl<'a> Mean for &'a [i64] {
+impl Mean for &[i64] {
     type Output = i64;
 
     fn mean(&self) -> Option<Self::Output> {
