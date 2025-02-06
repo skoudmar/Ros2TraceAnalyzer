@@ -19,10 +19,17 @@ pub mod component;
 pub mod plugin;
 
 #[repr(transparent)]
-pub struct BtGraphBuilder(NonNull<bt_graph>);
+pub struct BtGraph(NonNull<bt_graph>);
+
+impl BtGraph {
+    #[must_use]
+    pub const fn as_ptr(&self) -> *mut bt_graph {
+        self.0.as_ptr()
+    }
+}
 
 #[repr(transparent)]
-pub struct BtGraph(NonNull<bt_graph>);
+pub struct BtGraphBuilder(BtGraph);
 
 impl BtGraphBuilder {
     const MIP_VERSION: u64 = 0;
@@ -35,7 +42,8 @@ impl BtGraphBuilder {
     /// If the memory allocation fails.
     pub fn new() -> Result<Self, OutOfMemory> {
         let graph = unsafe { bt_graph_create(Self::MIP_VERSION) };
-        Ok(Self(NonNull::new(graph).ok_or(OutOfMemory)?))
+        let graph = NonNull::new(graph).ok_or(OutOfMemory)?;
+        Ok(Self(BtGraph(graph)))
     }
 
     const fn as_ptr(&self) -> *mut bt_graph {
@@ -135,9 +143,10 @@ impl BtGraphBuilder {
         Ok(component)
     }
 
+    /// Build the graph.
     #[must_use]
-    pub const fn build(self) -> BtGraph {
-        BtGraph(self.0)
+    pub fn build(self) -> BtGraph {
+        self.0
     }
 }
 
