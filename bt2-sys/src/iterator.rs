@@ -1,14 +1,20 @@
 use std::cell::RefCell;
-use std::ffi::{c_void, CStr};
+use std::ffi::{c_void, CStr, CString};
 use std::ptr::NonNull;
 use std::rc::Rc;
 
-use crate::error::{BtError, BtResult, IntoResult};
+use thiserror::Error;
+
+use crate::error::{BtError, BtResult, IntoResult, OutOfMemory};
+use crate::graph::plugin::{BtPlugin, BtPluginLoadError};
+use crate::graph::{AddComponentError, BtGraph, BtGraphBuilder, ConnectPortsError};
+use crate::logging::LogLevel;
 use crate::message::{BtMessageArrayConst, BtMessageConst};
 use crate::raw_bindings::{
-    bt_graph_simple_sink_component_consume_func_status, bt_message_iterator, destroy_trace_context,
-    init_trace, next_events, sink, trace_context,
+    bt_graph_run_once_status, bt_graph_simple_sink_component_consume_func_status,
+    bt_message_iterator, sink,
 };
+use crate::value::{BtValueArray, BtValueMap, BtValueString};
 use crate::wrappers::BtMessageIterator;
 use crate::{rethrow, throw};
 
@@ -21,7 +27,7 @@ pub(crate) enum MessageIteratorState {
 struct BatchMessageIteratorInner(RefCell<Option<BtMessageArrayConst>>);
 
 pub(crate) struct BatchMessageIterator {
-    trace_context: *mut trace_context,
+    graph: BtGraph,
     internal: Rc<BatchMessageIteratorInner>,
 }
 
@@ -86,8 +92,29 @@ impl BatchMessageIterator {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum IteratorConstructionError {
+    #[error(transparent)]
+    OutOfMemory(#[from] OutOfMemory),
+
+    #[error("Failed to load a plugin: {0}")]
+    PluginError(#[from] BtPluginLoadError),
+
+    #[error("Failed to load component: {0}")]
+    ComponentLoadError(&'static str),
+
+    #[error("Failed to add component to graph: {0}")]
+    AddComponentError(#[from] AddComponentError),
+
+    #[error("Failed to connect ports: {0}")]
+    ConnectPortsError(#[from] ConnectPortsError),
+
+    #[error(transparent)]
+    Error(BtError),
+}
+
 impl BatchMessageIterator {
-    pub fn new(trace_path: &CStr) -> Self {
+    pub fn new(trace_paths: &[&CStr]) -> Self {
         let shared = Rc::new(BatchMessageIteratorInner::default());
         let shared_ptr = Rc::into_raw(shared.clone());
         let sink = sink {
@@ -97,13 +124,89 @@ impl BatchMessageIterator {
             user_data: shared_ptr as *mut c_void,
         };
 
-        let trace_context = unsafe { init_trace(trace_path.as_ptr(), &sink) };
-        debug_assert!(!trace_context.is_null());
+        let graph_result = Self::construct_graph(trace_paths, sink, LogLevel::Info);
 
-        Self {
-            trace_context,
-            internal: shared,
+        match graph_result {
+            Ok(graph) => Self {
+                graph,
+                internal: shared,
+            },
+            Err(e) => {
+                let _ = unsafe { Rc::from_raw(shared_ptr) };
+                panic!("Failed to construct trace processing graph: {e}");
+            }
         }
+    }
+
+    fn construct_graph(
+        trace_paths: &[&CStr],
+        sink: sink,
+        log_level: LogLevel,
+    ) -> Result<BtGraph, IteratorConstructionError> {
+        let mut graph = BtGraphBuilder::new()?;
+
+        let ctf_plugin = BtPlugin::find_anywhere(c"ctf")?;
+        let utils_plugin = BtPlugin::find_anywhere(c"utils")?;
+
+        let source_class = ctf_plugin
+            .borrow_source_component_class_by_name(c"fs")
+            .ok_or(IteratorConstructionError::ComponentLoadError("fs"))?;
+        let filter_class = utils_plugin
+            .borrow_filter_component_class_by_name(c"muxer")
+            .ok_or(IteratorConstructionError::ComponentLoadError("muxer"))?;
+
+        let mut source_components = Vec::with_capacity(trace_paths.len());
+        for (i, trace_path) in trace_paths.into_iter().enumerate() {
+            let mut path = BtValueArray::new()?;
+            path.push(&BtValueString::new_cstr(*trace_path)?.into())?;
+            let mut params = BtValueMap::new()?;
+            params.insert_with_cstr_key(c"inputs", &path.into())?;
+
+            let source_comp_name = format!("source_{i}");
+            let source_comp_name = CString::new(source_comp_name).unwrap();
+            let source = unsafe {
+                graph.add_source_component_unchecked(
+                    source_class,
+                    &source_comp_name,
+                    Some(params),
+                    log_level,
+                )
+            }?;
+
+            source_components.push(source);
+        }
+
+        let muxer = unsafe {
+            graph.add_filter_component_unchecked(filter_class, c"muxer", None, log_level)
+        }?;
+
+        let mut muxer_input_ports_used = 0;
+        for source in source_components {
+            let port_count = source.get_output_port_count();
+
+            for i in 0..port_count {
+                let out_port = source.get_output_port(i);
+                let in_port = muxer.get_input_port(muxer_input_ports_used);
+                unsafe { graph.connect_ports_unchecked(out_port, in_port) }?;
+                muxer_input_ports_used += 1;
+            }
+        }
+
+        let sink = unsafe {
+            graph.add_simple_sink_component_unchecked(
+                c"rust_sink",
+                sink.initialize_func,
+                sink.consume_func,
+                sink.finalize_func,
+                sink.user_data,
+            )
+        }?;
+
+        let out_port = muxer.get_output_port(0);
+        let in_port = sink.get_input_port(0);
+        unsafe { graph.connect_ports_unchecked(out_port, in_port) }?;
+
+        Ok(graph.build())
     }
 
     fn next_batch(&mut self) -> BtResult<MessageIteratorState> {
@@ -112,17 +215,21 @@ impl BatchMessageIterator {
         drop(taken);
         drop(internal);
 
-        unsafe { next_events(self.trace_context) }.into_result()
+        let mut status = bt_graph_run_once_status::BT_GRAPH_RUN_ONCE_STATUS_AGAIN;
+
+        while status == bt_graph_run_once_status::BT_GRAPH_RUN_ONCE_STATUS_AGAIN {
+            unsafe {
+                status = self.graph.run_once();
+            }
+        }
+
+        status.into_result()
     }
 }
 
 impl Drop for BatchMessageIterator {
     fn drop(&mut self) {
         let _ = self.internal.0.borrow_mut().take();
-
-        unsafe {
-            destroy_trace_context(self.trace_context);
-        }
     }
 }
 
@@ -153,9 +260,9 @@ pub struct MessageIterator {
 
 impl MessageIterator {
     #[must_use]
-    pub fn new(trace_path: &CStr) -> Self {
+    pub fn new(trace_paths: &[&CStr]) -> Self {
         Self {
-            batch_iterator: BatchMessageIterator::new(trace_path),
+            batch_iterator: BatchMessageIterator::new(trace_paths),
             current_batch: None,
             current_index: 0,
         }

@@ -12,7 +12,7 @@ fn main() {
         .expect("Usage: ./count_events <trace-path>");
     let trace_path_cstring = CString::new(trace_path).unwrap();
 
-    let message_iterator = MessageIterator::new(&trace_path_cstring);
+    let message_iterator = MessageIterator::new(&[&trace_path_cstring]);
 
     let mut counter = HashMap::new();
     let mut total_events = 0;

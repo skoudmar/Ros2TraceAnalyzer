@@ -37,9 +37,9 @@ struct ProcessedEventsIter<'a> {
 }
 
 impl<'a> ProcessedEventsIter<'a> {
-    fn new(trace_path: &CStr) -> Self {
+    fn new(trace_paths: &[&CStr]) -> Self {
         Self {
-            iter: MessageIterator::new(trace_path),
+            iter: MessageIterator::new(trace_paths),
             on_unprocessed_event: |_event| {}, // Do nothing by default
             analyses: Vec::new(),
             processor: processor::Processor::new(),
@@ -211,7 +211,7 @@ fn prepare_trace_paths(args: &Args) -> Result<Vec<CString>> {
 
     ensure!(
         !trace_paths.is_empty(),
-        "No traces found in the provided path."
+        "No traces found in the provided paths."
     );
 
     println!("Found traces:");
@@ -219,16 +219,13 @@ fn prepare_trace_paths(args: &Args) -> Result<Vec<CString>> {
         println!("  {}", path.to_string_lossy());
     }
 
-    if trace_paths.len() > 1 {
-        bail!("Processing multiple traces is not supported yet.");
-    }
-
     Ok(trace_paths)
 }
 
 fn run_analysis_based_on_args(args: &Args) -> Result<()> {
     let trace_paths = prepare_trace_paths(args)?;
-    let mut iter = ProcessedEventsIter::new(&trace_paths[0]);
+    let trace_paths_cstr: Vec<_> = trace_paths.iter().map(CString::as_c_str).collect();
+    let mut iter = ProcessedEventsIter::new(&trace_paths_cstr);
 
     match &args.subcommand {
         args::AnalysisSubcommand::MessageLatency { common } => {
@@ -304,14 +301,14 @@ fn run_all(args: &Args) -> Result<()> {
         bail!("Expected 'all' subcommand.");
     };
     let trace_paths = prepare_trace_paths(args)?;
+    let trace_paths_cstr: Vec<_> = trace_paths.iter().map(CString::as_c_str).collect();
+    let mut iter = ProcessedEventsIter::new(&trace_paths_cstr);
 
     let mut message_latency_analysis = analysis::MessageLatency::new();
     let mut callback_analysis = analysis::CallbackDuration::new();
     let mut callback_dependency_analysis = analysis::CallbackDependency::new();
     let mut spin_to_callback_analysis = analysis::MessageTakeToCallbackLatency::new();
     let mut dependency_graph = analysis::DependencyGraph::new();
-
-    let mut iter = ProcessedEventsIter::new(&trace_paths[0]);
 
     iter.add_analysis(&mut message_latency_analysis);
     iter.add_analysis(&mut callback_analysis);
