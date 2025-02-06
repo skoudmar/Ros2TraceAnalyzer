@@ -12,9 +12,11 @@ use crate::error::{BtErrorWrapper, IntoResult, OutOfMemory};
 use crate::logging::LogLevel;
 use crate::raw_bindings::{
     bt_graph, bt_graph_add_component_status, bt_graph_add_filter_component,
-    bt_graph_add_sink_component, bt_graph_add_source_component, bt_graph_connect_ports,
-    bt_graph_connect_ports_status, bt_graph_create, bt_graph_put_ref, bt_graph_run,
-    bt_graph_run_once, bt_graph_run_once_status, bt_graph_run_status,
+    bt_graph_add_simple_sink_component, bt_graph_add_sink_component, bt_graph_add_source_component,
+    bt_graph_connect_ports, bt_graph_connect_ports_status, bt_graph_create, bt_graph_put_ref,
+    bt_graph_run, bt_graph_run_once, bt_graph_run_once_status, bt_graph_run_status,
+    bt_graph_simple_sink_component_consume_func, bt_graph_simple_sink_component_finalize_func,
+    bt_graph_simple_sink_component_initialize_func,
 };
 use crate::value::BtValueMap;
 
@@ -155,6 +157,40 @@ impl BtGraphBuilder {
                 name.as_ptr(),
                 params_ptr,
                 log_level.into(),
+                &mut component_ptr,
+            )
+        }
+        .into_result()?;
+
+        let component = unsafe { BtComponentSinkConst::new_unchecked(component_ptr) };
+
+        Ok(component)
+    }
+
+    /// Add a simple sink component to the graph.
+    ///
+    /// # Safety
+    /// The caller must ensure that the name is not used by another component in the graph
+    /// and that the returned component's lifetime is shorter than the graph.
+    ///
+    /// The `initialize_fn`, `consume_fn`, and `finalize_fn` must be valid function pointers or `None`.
+    pub unsafe fn add_simple_sink_component_unchecked<'a>(
+        &mut self,
+        name: &CStr,
+        initialize_fn: bt_graph_simple_sink_component_initialize_func,
+        consume_fn: bt_graph_simple_sink_component_consume_func,
+        finalize_fn: bt_graph_simple_sink_component_finalize_func,
+        user_data: *mut std::ffi::c_void,
+    ) -> Result<BtComponentSinkConst<'a>, AddComponentError> {
+        let mut component_ptr = ptr::null();
+        unsafe {
+            bt_graph_add_simple_sink_component(
+                self.as_ptr(),
+                name.as_ptr(),
+                initialize_fn,
+                consume_fn,
+                finalize_fn,
+                user_data,
                 &mut component_ptr,
             )
         }
