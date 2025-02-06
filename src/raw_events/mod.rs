@@ -55,7 +55,7 @@ pub fn context_from_event(event: &BtEventConst) -> Context {
         .get_environment_entry_by_name_cstr(c"hostname")
         .expect("Trace missing hostname environment entry")
     else {
-        panic!("Missing hostname environment entry");
+        panic!("Unexpected type (int) of hostname environment entry");
     };
     let hostname = hostname
         .get()
@@ -68,21 +68,21 @@ pub fn context_from_event(event: &BtEventConst) -> Context {
         .into_struct();
     let vpid = common_context
         .get_field_by_name_cstr(c"vpid")
-        .expect("Missing vpid")
+        .expect("Missing vpid in event context")
         .into_int()
         .get_value()
         .try_into()
         .unwrap();
     let vtid = common_context
         .get_field_by_name_cstr(c"vtid")
-        .expect("Missing vtid")
+        .expect("Missing vtid in event context")
         .into_int()
         .get_value()
         .try_into()
         .unwrap();
     let procname = common_context
         .get_field_by_name_cstr(c"procname")
-        .expect("Missing procname")
+        .expect("Missing procname  in event context")
         .into_string()
         .get_value()
         .to_string();
