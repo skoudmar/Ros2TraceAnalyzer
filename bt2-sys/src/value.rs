@@ -71,7 +71,7 @@ pub enum BtValueTypedConst<'a> {
     Map(BtValueMapConst<'a>),
 }
 
-impl<'a> BtValueTypedConst<'a> {
+impl BtValueTypedConst<'_> {
     #[must_use]
     pub const fn get_type(&self) -> BtValueType {
         match self {
@@ -176,7 +176,7 @@ impl<'a> BtValueConst<'a> {
 
 impl_try_from_using_cast!('a => BtValueTypedConst::Null, BtValueConst<'a>, BtValueNullConst<'a>);
 
-impl<'a> BtValueBoolConst<'a> {
+impl BtValueBoolConst<'_> {
     #[must_use]
     pub fn get(&self) -> bool {
         0 != unsafe { bt_value_bool_get(self.as_ptr()) }
@@ -185,7 +185,7 @@ impl<'a> BtValueBoolConst<'a> {
 
 impl_try_from_using_cast!('a => BtValueTypedConst::Bool, BtValueConst<'a>, BtValueBoolConst<'a>);
 
-impl<'a> BtValueUnsignedIntegerConst<'a> {
+impl BtValueUnsignedIntegerConst<'_> {
     #[must_use]
     pub fn get(&self) -> u64 {
         unsafe { bt_value_integer_unsigned_get(self.as_ptr()) }
@@ -194,7 +194,7 @@ impl<'a> BtValueUnsignedIntegerConst<'a> {
 
 impl_try_from_using_cast!('a => BtValueTypedConst::UnsignedInteger, BtValueConst<'a>, BtValueUnsignedIntegerConst<'a>);
 
-impl<'a> BtValueSignedIntegerConst<'a> {
+impl BtValueSignedIntegerConst<'_> {
     #[must_use]
     pub fn get(&self) -> i64 {
         unsafe { bt_value_integer_signed_get(self.as_ptr()) }
@@ -205,7 +205,7 @@ impl_try_from_using_cast!('a => BtValueTypedConst::SignedInteger, BtValueConst<'
 
 impl<'a> BtValueStringConst<'a> {
     /// Get the contained string value.
-    pub fn get(&self) -> Result<&str, str::Utf8Error> {
+    pub fn get(&self) -> Result<&'a str, str::Utf8Error> {
         unsafe {
             let ptr = bt_value_string_get(self.as_ptr());
             debug_assert!(!ptr.is_null());
@@ -216,7 +216,7 @@ impl<'a> BtValueStringConst<'a> {
 
 impl_try_from_using_cast!('a => BtValueTypedConst::String, BtValueConst<'a>, BtValueStringConst<'a>);
 
-impl<'a> BtValueRealConst<'a> {
+impl BtValueRealConst<'_> {
     #[must_use]
     pub fn get(&self) -> f64 {
         unsafe { bt_value_real_get(self.as_ptr()) }

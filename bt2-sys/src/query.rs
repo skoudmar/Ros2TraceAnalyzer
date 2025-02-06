@@ -113,8 +113,8 @@ pub enum SupportInfoParams<'a> {
 }
 
 impl<'a> SupportInfoParams<'a> {
-    const fn input(&self) -> &CStr {
-        match self {
+    const fn input(&self) -> &'a CStr {
+        match *self {
             SupportInfoParams::File(s)
             | SupportInfoParams::Directory(s)
             | SupportInfoParams::String(s) => s,

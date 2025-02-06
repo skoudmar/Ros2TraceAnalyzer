@@ -156,9 +156,9 @@ impl BatchMessageIterator {
             .ok_or(IteratorConstructionError::ComponentLoadError("muxer"))?;
 
         let mut source_components = Vec::with_capacity(trace_paths.len());
-        for (i, trace_path) in trace_paths.into_iter().enumerate() {
+        for (i, trace_path) in trace_paths.iter().enumerate() {
             let mut path = BtValueArray::new()?;
-            path.push(&BtValueString::new_cstr(*trace_path)?.into())?;
+            path.push(&BtValueString::new_cstr(trace_path)?.into())?;
             let mut params = BtValueMap::new()?;
             params.insert_with_cstr_key(c"inputs", &path.into())?;
 

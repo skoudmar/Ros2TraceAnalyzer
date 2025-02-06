@@ -15,7 +15,7 @@ use crate::utils::ConstNonNull;
 #[repr(transparent)]
 pub struct BtEventConst<'a>(ConstNonNull<bt_event>, PhantomData<&'a BtMessageConst>);
 
-impl<'a> BtEventConst<'a> {
+impl BtEventConst<'_> {
     /// Create a new `BtEventConst` from a raw pointer.
     ///
     /// # Safety
@@ -89,7 +89,7 @@ impl<'a> BtEventConst<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for BtEventConst<'a> {
+impl std::fmt::Debug for BtEventConst<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let class = self.get_class();
         f.debug_struct(stringify!(BtEventConst))

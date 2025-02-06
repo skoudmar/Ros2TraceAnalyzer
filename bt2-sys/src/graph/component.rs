@@ -52,7 +52,7 @@ pub enum BtComponentCasted<'a> {
     Sink(BtComponentSinkConst<'a>),
 }
 
-impl<'a> BtComponentCasted<'a> {
+impl BtComponentCasted<'_> {
     #[must_use]
     pub const fn as_type(&self) -> BtComponentType {
         match self {
@@ -88,7 +88,7 @@ pub struct BtComponentSinkConst<'a>(
     PhantomData<&'a bt_component_sink>,
 );
 
-impl<'a> BtComponentConst<'a> {
+impl BtComponentConst<'_> {
     pub(crate) unsafe fn new(ptr: *const bt_component) -> Self {
         Self(ConstNonNull::new_unchecked(ptr), PhantomData)
     }

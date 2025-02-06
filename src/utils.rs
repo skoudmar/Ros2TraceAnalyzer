@@ -459,7 +459,7 @@ impl std::fmt::Display for DurationDisplayImprecise {
 
         let decimals = 3;
         // https://stackoverflow.com/a/76572321/902448
-        let shift = decimals as i32 - value.abs().log10().ceil() as i32;
+        let shift = decimals - value.abs().log10().ceil() as i32;
         let shift_factor = 10_f64.powi(shift);
         let rounded_value = (value * shift_factor).round() / shift_factor;
 
