@@ -77,14 +77,15 @@ impl BtGraphBuilder {
     /// Add a source component to the graph.
     ///
     /// # Safety
-    /// The caller must ensure that the name is not used by another component in the graph.
-    pub unsafe fn add_source_component_unchecked(
+    /// The caller must ensure that the name is not used by another component in the graph
+    /// and that the returned component's lifetime is shorter than the graph.
+    pub unsafe fn add_source_component_unchecked<'a>(
         &mut self,
         component_class: BtComponentClassSourceConst,
         name: &CStr,
         params: Option<BtValueMap>,
         log_level: LogLevel,
-    ) -> Result<BtComponentSourceConst, AddComponentError> {
+    ) -> Result<BtComponentSourceConst<'a>, AddComponentError> {
         let mut component_ptr = ptr::null();
         let params_ptr = params.as_ref().map_or(ptr::null(), |p| p.as_ptr());
         unsafe {
@@ -108,14 +109,15 @@ impl BtGraphBuilder {
     /// Add a filter component to the graph.
     ///
     /// # Safety
-    /// The caller must ensure that the name is not used by another component in the graph.
-    pub unsafe fn add_filter_component_unchecked(
+    /// The caller must ensure that the name is not used by another component in the graph
+    /// and that the returned component's lifetime is shorter than the graph.
+    pub unsafe fn add_filter_component_unchecked<'a>(
         &mut self,
         component_class: BtComponentClassFilterConst,
         name: &CStr,
         params: Option<BtValueMap>,
         log_level: LogLevel,
-    ) -> Result<BtComponentFilterConst, AddComponentError> {
+    ) -> Result<BtComponentFilterConst<'a>, AddComponentError> {
         let mut component_ptr = ptr::null();
         let params_ptr = params.as_ref().map_or(ptr::null(), |p| p.as_ptr());
         unsafe {
@@ -139,14 +141,15 @@ impl BtGraphBuilder {
     /// Add a sink component to the graph.
     ///
     /// # Safety
-    /// The caller must ensure that the name is not used by another component in the graph.
-    pub unsafe fn add_sink_component_unchecked(
+    /// The caller must ensure that the name is not used by another component in the graph
+    /// and that the returned component's lifetime is shorter than the graph.
+    pub unsafe fn add_sink_component_unchecked<'a>(
         &mut self,
         component_class: BtComponentClassSinkConst,
         name: &CStr,
         params: Option<BtValueMap>,
         log_level: LogLevel,
-    ) -> Result<BtComponentSinkConst, AddComponentError> {
+    ) -> Result<BtComponentSinkConst<'a>, AddComponentError> {
         let mut component_ptr = ptr::null();
         let params_ptr = params.as_ref().map_or(ptr::null(), |p| p.as_ptr());
         unsafe {
