@@ -1,5 +1,6 @@
 use std::ffi::{CStr, CString};
 use std::fmt::Display;
+use std::mem;
 
 use thiserror::Error;
 
@@ -7,8 +8,8 @@ use crate::iterator::MessageIteratorState;
 use crate::raw_bindings::{
     bt_current_thread_error_append_cause_from_unknown, bt_current_thread_move_error,
     bt_current_thread_take_error, bt_error, bt_error_borrow_cause_by_index,
-    bt_error_cause_get_message, bt_error_get_cause_count, bt_graph_run_once_status,
-    bt_message_iterator_next_status,
+    bt_error_cause_get_message, bt_error_get_cause_count, bt_error_release,
+    bt_graph_run_once_status, bt_message_iterator_next_status,
 };
 use crate::utils::ConstNonNull;
 
@@ -83,7 +84,8 @@ impl BtError {
         unsafe {
             if let Some(cause) = cause {
                 // Return taken error back to library
-                bt_current_thread_move_error(cause.as_ptr());
+                bt_current_thread_move_error(cause.as_ptr()); // This consumes the error
+                mem::forget(cause); // Prevent drop - we don't own it anymore
             }
 
             bt_current_thread_error_append_cause_from_unknown(
@@ -107,6 +109,14 @@ impl BtErrorWrapper {
     #[inline]
     pub(crate) const fn as_ptr(&self) -> *const bt_error {
         self.0.as_ptr()
+    }
+}
+
+impl Drop for BtErrorWrapper {
+    fn drop(&mut self) {
+        unsafe {
+            bt_error_release(self.as_ptr());
+        }
     }
 }
 
