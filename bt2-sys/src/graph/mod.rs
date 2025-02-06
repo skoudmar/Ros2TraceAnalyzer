@@ -11,7 +11,8 @@ use crate::error::{BtErrorWrapper, IntoResult, OutOfMemory};
 use crate::logging::LogLevel;
 use crate::raw_bindings::{
     bt_graph, bt_graph_add_component_status, bt_graph_add_filter_component,
-    bt_graph_add_sink_component, bt_graph_add_source_component, bt_graph_create,
+    bt_graph_add_sink_component, bt_graph_add_source_component, bt_graph_create, bt_graph_put_ref,
+    bt_graph_run, bt_graph_run_once, bt_graph_run_once_status, bt_graph_run_status,
 };
 use crate::value::BtValueMap;
 
@@ -22,9 +23,28 @@ pub mod plugin;
 pub struct BtGraph(NonNull<bt_graph>);
 
 impl BtGraph {
-    #[must_use]
-    pub const fn as_ptr(&self) -> *mut bt_graph {
+    pub fn builder() -> Result<BtGraphBuilder, OutOfMemory> {
+        BtGraphBuilder::new()
+    }
+
+    const fn as_ptr(&self) -> *mut bt_graph {
         self.0.as_ptr()
+    }
+
+    pub unsafe fn run(&mut self) -> bt_graph_run_status {
+        unsafe { bt_graph_run(self.as_ptr()) }
+    }
+
+    pub unsafe fn run_once(&mut self) -> bt_graph_run_once_status {
+        unsafe { bt_graph_run_once(self.as_ptr()) }
+    }
+}
+
+impl Drop for BtGraph {
+    fn drop(&mut self) {
+        unsafe {
+            bt_graph_put_ref(self.as_ptr());
+        }
     }
 }
 
