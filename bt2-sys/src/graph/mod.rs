@@ -35,10 +35,12 @@ impl BtGraph {
         self.0.as_ptr()
     }
 
+    /// Run the graph to completion.
     pub unsafe fn run(&mut self) -> bt_graph_run_status {
         unsafe { bt_graph_run(self.as_ptr()) }
     }
 
+    /// Run the graph once.
     pub unsafe fn run_once(&mut self) -> bt_graph_run_once_status {
         unsafe { bt_graph_run_once(self.as_ptr()) }
     }
