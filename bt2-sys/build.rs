@@ -3,15 +3,6 @@ use std::path::PathBuf;
 
 fn main() {
     generate_bindings();
-
-    compile_sink_plugin();
-}
-
-fn compile_sink_plugin() {
-    cc::Build::new().file("src-c/graph.c").compile("bt2-graph");
-
-    println!("cargo:rerun-if-changed=src-c/graph.h");
-    println!("cargo:rerun-if-changed=src-c/graph.c");
 }
 
 fn generate_bindings() {
@@ -25,7 +16,6 @@ fn generate_bindings() {
     // Generate bindings
     let bindings = bindgen::Builder::default()
         .header("src/bindings.h")
-        .header("src-c/graph.h")
         .default_enum_style(bindgen::EnumVariation::NewType {
             is_bitfield: false,
             is_global: false,

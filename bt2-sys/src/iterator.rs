@@ -7,12 +7,13 @@ use thiserror::Error;
 
 use crate::error::{BtError, BtResult, IntoResult, OutOfMemory};
 use crate::graph::plugin::{BtPlugin, BtPluginLoadError};
+use crate::graph::simple_sink::SimpleSink;
 use crate::graph::{AddComponentError, BtGraph, BtGraphBuilder, ConnectPortsError};
 use crate::logging::LogLevel;
 use crate::message::{BtMessageArrayConst, BtMessageConst};
 use crate::raw_bindings::{
     bt_graph_run_once_status, bt_graph_simple_sink_component_consume_func_status,
-    bt_message_iterator, sink,
+    bt_message_iterator,
 };
 use crate::value::{BtValueArray, BtValueMap, BtValueString};
 use crate::wrappers::BtMessageIterator;
@@ -117,10 +118,10 @@ impl BatchMessageIterator {
     pub fn new(trace_paths: &[&CStr]) -> Self {
         let shared = Rc::new(BatchMessageIteratorInner::default());
         let shared_ptr = Rc::into_raw(shared.clone());
-        let sink = sink {
-            initialize_func: None,
-            consume_func: Some(Self::consume),
-            finalize_func: Some(Self::finalize),
+        let sink = SimpleSink {
+            initialize_fn: None,
+            consume_fn: Self::consume,
+            finalize_fn: Some(Self::finalize),
             user_data: shared_ptr as *mut c_void,
         };
 
@@ -140,7 +141,7 @@ impl BatchMessageIterator {
 
     fn construct_graph(
         trace_paths: &[&CStr],
-        sink: sink,
+        sink: SimpleSink,
         log_level: LogLevel,
     ) -> Result<BtGraph, IteratorConstructionError> {
         let mut graph = BtGraphBuilder::new()?;
@@ -195,9 +196,9 @@ impl BatchMessageIterator {
         let sink = unsafe {
             graph.add_simple_sink_component_unchecked(
                 c"rust_sink",
-                sink.initialize_func,
-                sink.consume_func,
-                sink.finalize_func,
+                sink.initialize_fn,
+                sink.consume_fn,
+                sink.finalize_fn,
                 sink.user_data,
             )
         }?;
