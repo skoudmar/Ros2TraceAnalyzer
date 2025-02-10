@@ -1,5 +1,6 @@
 pub(crate) mod display;
 
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
@@ -240,12 +241,19 @@ pub struct Subscriber {
     queue_depth: Known<usize>,
 
     callback: Known<Arc<Mutex<Callback>>>,
-    taken_message: Option<Arc<Mutex<SubscriptionMessage>>>,
+    // TODO: messages that are taken but not yet processed by the callback cause a memory leak
+    // at the end of the program. (strong reference count cycle: Subscriber -> Message -> Subscriber)
+    // For now, we just limit the number of messages stored here.
+    taken_message: VecDeque<Arc<Mutex<SubscriptionMessage>>>,
 
     removed: bool,
 }
 
 impl Subscriber {
+    // The maximum number of taken messages that the subscriber stores.
+    // This constant was chosen to match the number of messages stored by the R2R's channels.
+    const TAKEN_MESSAGES_MAX: usize = 11;
+
     pub fn rmw_init(
         &mut self,
         rmw_handle: u64,
@@ -341,7 +349,24 @@ impl Subscriber {
         message: Arc<Mutex<SubscriptionMessage>>,
     ) -> Option<Arc<Mutex<SubscriptionMessage>>> {
         assert!(!self.is_removed());
-        self.taken_message.replace(message)
+
+        // We store a maximum of `TAKEN_MESSAGES_MAX` messages. These messages are used by callbacks.
+        // Usually, in C++ on single-threaded executor only one message is stored. However, in Rust r2r
+        // multiple messages can be taken before the callback is called. This is why we store multiple
+        // messages.
+        // Because Python do not include tracepoints for callbacks but do for message taking (in rcl and rmw),
+        // messages are added but not removed.
+        // We need to bound the number of messages stored.
+        // TODO: Find better way to handle this
+        let ret = if self.taken_message.len() >= Self::TAKEN_MESSAGES_MAX {
+            self.taken_message.pop_front()
+        } else {
+            None
+        };
+
+        self.taken_message.push_back(message);
+
+        ret
     }
 
     pub fn get_rmw_handle(&self) -> Known<u64> {
@@ -357,7 +382,7 @@ impl Subscriber {
     }
 
     pub fn take_message(&mut self) -> Option<Arc<Mutex<SubscriptionMessage>>> {
-        self.taken_message.take()
+        self.taken_message.pop_front()
     }
 
     pub fn get_topic(&self) -> Known<&str> {
