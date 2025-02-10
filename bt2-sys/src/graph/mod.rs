@@ -35,11 +35,27 @@ impl BtGraph {
     }
 
     /// Run the graph to completion.
+    ///
+    /// This function will block until the graph is done, error occurs, or is interrupted.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure all of the following:
+    /// - Every filter or sink component has at least one input port connected.
+    /// - Every source or filter component has at least one output port connected.
+    /// - The graph has at least one sink component.
     pub unsafe fn run(&mut self) -> bt_graph_run_status {
         unsafe { bt_graph_run(self.as_ptr()) }
     }
 
     /// Run the graph once.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure all of the following:
+    /// - Every filter or sink component has at least one input port connected.
+    /// - Every source or filter component has at least one output port connected.
+    /// - The graph has at least one sink component.
     pub unsafe fn run_once(&mut self) -> bt_graph_run_once_status {
         unsafe { bt_graph_run_once(self.as_ptr()) }
     }
