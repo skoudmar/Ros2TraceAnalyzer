@@ -115,7 +115,7 @@ pub enum IteratorConstructionError {
 }
 
 impl BatchMessageIterator {
-    pub fn new(trace_paths: &[&CStr]) -> Self {
+    pub fn new(trace_paths: &[&CStr], log_level: LogLevel) -> Self {
         let shared = Rc::new(BatchMessageIteratorInner::default());
         let shared_ptr = Rc::into_raw(shared.clone());
         let sink = SimpleSink {
@@ -125,7 +125,7 @@ impl BatchMessageIterator {
             user_data: shared_ptr as *mut c_void,
         };
 
-        let graph_result = Self::construct_graph(trace_paths, sink, LogLevel::Info);
+        let graph_result = Self::construct_graph(trace_paths, sink, log_level);
 
         match graph_result {
             Ok(graph) => Self {
@@ -261,9 +261,9 @@ pub struct MessageIterator {
 
 impl MessageIterator {
     #[must_use]
-    pub fn new(trace_paths: &[&CStr]) -> Self {
+    pub fn new(trace_paths: &[&CStr], log_level: LogLevel) -> Self {
         Self {
-            batch_iterator: BatchMessageIterator::new(trace_paths),
+            batch_iterator: BatchMessageIterator::new(trace_paths, log_level),
             current_batch: None,
             current_index: 0,
         }

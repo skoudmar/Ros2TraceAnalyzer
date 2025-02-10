@@ -17,6 +17,7 @@ use std::io::{BufWriter, Write};
 use analysis::{AnalysisOutputExt, EventAnalysis};
 use args::{find_trace_paths, is_trace_path, AnalysisSubcommand, Args};
 use bt2_sys::iterator::MessageIterator;
+use bt2_sys::logging::LogLevel;
 use bt2_sys::message::BtMessageType;
 use clap::Parser;
 use color_eyre::eyre::{bail, ensure, Context, Result};
@@ -36,10 +37,28 @@ struct ProcessedEventsIter<'a> {
     other_messages: usize,
 }
 
+fn convert(level: clap_verbosity_flag::Level) -> LogLevel {
+    match level {
+        clap_verbosity_flag::Level::Error => LogLevel::Error,
+        clap_verbosity_flag::Level::Warn => LogLevel::Warning,
+        clap_verbosity_flag::Level::Info => LogLevel::Info,
+        clap_verbosity_flag::Level::Debug => LogLevel::Debug,
+        clap_verbosity_flag::Level::Trace => LogLevel::Trace,
+    }
+}
+
 impl<'a> ProcessedEventsIter<'a> {
-    fn new(trace_paths: &[&CStr]) -> Self {
+    fn new<L: clap_verbosity_flag::LogLevel>(
+        trace_paths: &[&CStr],
+        verbosity: &clap_verbosity_flag::Verbosity<L>,
+    ) -> Self {
+        let log_level = convert(
+            verbosity
+                .log_level()
+                .unwrap_or(clap_verbosity_flag::Level::Error),
+        );
         Self {
-            iter: MessageIterator::new(trace_paths),
+            iter: MessageIterator::new(trace_paths, log_level),
             on_unprocessed_event: |_event| {}, // Do nothing by default
             analyses: Vec::new(),
             processor: processor::Processor::new(),
@@ -225,7 +244,7 @@ fn prepare_trace_paths(args: &Args) -> Result<Vec<CString>> {
 fn run_analysis_based_on_args(args: &Args) -> Result<()> {
     let trace_paths = prepare_trace_paths(args)?;
     let trace_paths_cstr: Vec<_> = trace_paths.iter().map(CString::as_c_str).collect();
-    let mut iter = ProcessedEventsIter::new(&trace_paths_cstr);
+    let mut iter = ProcessedEventsIter::new(&trace_paths_cstr, &args.verbose);
 
     match &args.subcommand {
         args::AnalysisSubcommand::MessageLatency { common } => {
@@ -302,7 +321,7 @@ fn run_all(args: &Args) -> Result<()> {
     };
     let trace_paths = prepare_trace_paths(args)?;
     let trace_paths_cstr: Vec<_> = trace_paths.iter().map(CString::as_c_str).collect();
-    let mut iter = ProcessedEventsIter::new(&trace_paths_cstr);
+    let mut iter = ProcessedEventsIter::new(&trace_paths_cstr, &args.verbose);
 
     let mut message_latency_analysis = analysis::MessageLatency::new();
     let mut callback_analysis = analysis::CallbackDuration::new();

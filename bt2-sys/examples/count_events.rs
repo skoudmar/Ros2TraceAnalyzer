@@ -4,6 +4,7 @@ use std::env;
 use std::ffi::CString;
 
 use bt2_sys::iterator::MessageIterator;
+use bt2_sys::logging::LogLevel;
 use bt2_sys::message::BtMessageType;
 
 fn main() {
@@ -12,7 +13,7 @@ fn main() {
         .expect("Usage: ./count_events <trace-path>");
     let trace_path_cstring = CString::new(trace_path).unwrap();
 
-    let message_iterator = MessageIterator::new(&[&trace_path_cstring]);
+    let message_iterator = MessageIterator::new(&[&trace_path_cstring], LogLevel::Debug);
 
     let mut counter = HashMap::new();
     let mut total_events = 0;
