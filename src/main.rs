@@ -358,6 +358,7 @@ fn run_all(args: &Args) -> Result<()> {
 
     print_headline(" Message Latency Analysis ");
     if let Some(json_dir) = &common.json_dir_path {
+        println!("Writing output to {}", json_dir.display());
         message_latency_analysis.write_json_to_output_dir(json_dir)?;
     } else {
         message_latency_analysis.print_stats();
@@ -365,6 +366,7 @@ fn run_all(args: &Args) -> Result<()> {
 
     print_headline(" Callback Analysis ");
     if let Some(json_dir) = &common.json_dir_path {
+        println!("Writing output to {}", json_dir.display());
         callback_analysis.write_json_to_output_dir(json_dir)?;
     } else {
         callback_analysis.print_stats();
