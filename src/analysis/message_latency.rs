@@ -8,7 +8,7 @@ use crate::analysis::utils::DisplayDurationStats;
 use crate::model::display::get_node_name_from_weak;
 use crate::model::{Publisher, Subscriber, SubscriptionMessage};
 use crate::processed_events::{ros2, Event, FullEvent};
-use crate::utils::Known;
+use crate::utils::{DurationDisplayImprecise, Known};
 
 use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};
 
@@ -192,7 +192,14 @@ impl MessageLatency {
             } else {
                 println!("    Publisher: Unknown");
             }
-            println!("\t{}", DisplayDurationStats::new(&stat.latencies, "\n\t"));
+            let display = DisplayDurationStats::new(&stat.latencies, "\n\t");
+            println!("\t{display}");
+            let (mean, std_dev) = display.mean_and_std_dev();
+            println!(
+                "\tMean: {}, Std. dev.: {}",
+                DurationDisplayImprecise(mean),
+                DurationDisplayImprecise(std_dev as i64)
+            );
         }
     }
 }
