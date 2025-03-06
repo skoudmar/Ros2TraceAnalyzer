@@ -385,7 +385,12 @@ fn run_all(args: &Args) -> Result<()> {
         .print_stats();
 
     print_headline(" Spin to Callback latency Analysis ");
-    spin_to_callback_analysis.print_stats();
+    if let Some(json_dir) = &common.json_dir_path {
+        println!("Writing output to {}", json_dir.display());
+        spin_to_callback_analysis.write_json_to_output_dir(json_dir)?;
+    } else {
+        spin_to_callback_analysis.print_stats();
+    }
 
     print_headline(" Utilization Analysis ");
     let utilization = analysis::Utilization::new(&callback_analysis);

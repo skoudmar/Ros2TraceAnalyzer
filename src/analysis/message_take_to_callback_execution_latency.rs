@@ -5,8 +5,9 @@ use crate::analysis::utils::DisplayDurationStats;
 use crate::model::display::DisplayCallbackSummary;
 use crate::model::{Callback, CallbackInstance, CallbackTrigger};
 use crate::processed_events::{ros2, Event, FullEvent};
+use crate::utils::DurationDisplayImprecise;
 
-use super::{ArcMutWrapper, EventAnalysis};
+use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};
 
 #[derive(Debug, Default)]
 pub struct MessageTakeToCallbackLatency {
@@ -46,9 +47,13 @@ impl MessageTakeToCallbackLatency {
 
             println!("- [{i:4}] Callback {}:", DisplayCallbackSummary(&callback));
             println!("    Call count: {}", latencies.len());
+            let display = DisplayDurationStats::with_comma(latencies);
+            println!("    Latency: {display}");
+            let (mean, std_dev) = display.mean_and_std_dev();
             println!(
-                "    Latency: {}",
-                DisplayDurationStats::with_comma(latencies)
+                "    Mean: {}, Std. dev.: {}",
+                DurationDisplayImprecise(mean),
+                DurationDisplayImprecise(std_dev as i64)
             );
         }
     }
@@ -67,5 +72,35 @@ impl EventAnalysis for MessageTakeToCallbackLatency {
 
     fn finalize(&mut self) {
         // Nothing to do
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+struct ExportEntry {
+    topic: String,
+    latencies: Vec<i64>,
+}
+
+impl AnalysisOutput for MessageTakeToCallbackLatency {
+    const FILE_NAME: &'static str = "take_to_callback_latency";
+
+    fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
+        let latencies: Vec<ExportEntry> = self
+            .latencies
+            .iter()
+            .map(|(callback, latencies)| ExportEntry {
+                topic: callback
+                    .0
+                    .lock()
+                    .unwrap()
+                    .get_caller()
+                    .unwrap()
+                    .get_caller_as_string()
+                    .unwrap(),
+                latencies: latencies.clone(),
+            })
+            .collect();
+
+        serde_json::to_writer(file, &latencies)
     }
 }

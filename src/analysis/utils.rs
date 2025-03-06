@@ -20,6 +20,23 @@ impl<'a> DisplayDurationStats<'a> {
     pub(crate) fn print(&self) {
         println!("{self}");
     }
+
+    pub fn mean_and_std_dev(&self) -> (i64, f64) {
+        let mean =
+            (self.0.iter().copied().map(i128::from).sum::<i128>() / self.0.len() as i128) as i64;
+        if self.0.len() == 1 {
+            return (mean, f64::NAN);
+        }
+        let variance = self
+            .0
+            .iter()
+            .map(|&x| (x - mean))
+            .map(|x| i128::from(x) * i128::from(x))
+            .sum::<i128>()
+            / (self.0.len() - 1) as i128;
+        let std_dev = (variance as f64).sqrt();
+        (mean, std_dev)
+    }
 }
 
 impl std::fmt::Display for DisplayDurationStats<'_> {
