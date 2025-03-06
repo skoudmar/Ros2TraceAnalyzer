@@ -1413,6 +1413,18 @@ impl SpinInstance {
         self.timeouted = Known::Known(true);
         self.wake_time = Known::Known(wake_time);
     }
+
+    pub fn get_start_time(&self) -> Time {
+        self.start_time
+    }
+
+    pub fn get_wake_time(&self) -> Option<Time> {
+        self.wake_time.into()
+    }
+
+    pub fn get_end_time(&self) -> Option<Time> {
+        self.end_time.into()
+    }
 }
 
 impl CyclicDependency for SpinInstance {

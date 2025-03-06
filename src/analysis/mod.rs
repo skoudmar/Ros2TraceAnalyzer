@@ -30,6 +30,9 @@ pub use message_take_to_callback_execution_latency::MessageTakeToCallbackLatency
 pub mod utilization;
 pub use utilization::Utilization;
 
+pub mod spin_duration;
+pub use spin_duration::SpinDuration;
+
 pub trait EventAnalysis {
     /// Initialize the analysis
     ///

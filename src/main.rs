@@ -328,12 +328,14 @@ fn run_all(args: &Args) -> Result<()> {
     let mut callback_dependency_analysis = analysis::CallbackDependency::new();
     let mut spin_to_callback_analysis = analysis::MessageTakeToCallbackLatency::new();
     let mut dependency_graph = analysis::DependencyGraph::new();
+    let mut spin_duration_analysis = analysis::SpinDuration::new();
 
     iter.add_analysis(&mut message_latency_analysis);
     iter.add_analysis(&mut callback_analysis);
     iter.add_analysis(&mut callback_dependency_analysis);
     iter.add_analysis(&mut spin_to_callback_analysis);
     iter.add_analysis(&mut dependency_graph);
+    iter.add_analysis(&mut spin_duration_analysis);
 
     if args.should_print_unprocessed_events() {
         iter.set_on_unprocessed_event(|event| {
@@ -398,6 +400,14 @@ fn run_all(args: &Args) -> Result<()> {
 
     print_headline(" Real Utilization Analysis ");
     utilization.print_stats_real();
+
+    print_headline(" Spin duration Analysis ");
+    if let Some(json_dir) = &common.json_dir_path {
+        println!("Writing output to {}", json_dir.display());
+        spin_duration_analysis.write_json_to_output_dir(json_dir)?;
+    } else {
+        spin_duration_analysis.print_stats();
+    }
 
     let out_dir = &dependency_graph_arg.output_path;
 
