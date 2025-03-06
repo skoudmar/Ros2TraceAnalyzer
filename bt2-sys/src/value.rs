@@ -247,11 +247,13 @@ impl<'a> BtValueArrayConst<'a> {
 impl_try_from_using_cast!('a => BtValueTypedConst::Array, BtValueConst<'a>, BtValueArrayConst<'a>);
 
 impl<'a> BtValueMapConst<'a> {
+    #[must_use]
     pub fn get(&self, key: &str) -> Option<BtValueConst<'a>> {
         let key = CString::new(key).expect("Key must not contain null byte");
         self.get_with_cstr_key(&key)
     }
 
+    #[must_use]
     pub fn get_with_cstr_key(&self, key: &CStr) -> Option<BtValueConst<'a>> {
         let ptr = unsafe { bt_value_map_borrow_entry_value_const(self.as_ptr(), key.as_ptr()) };
         ConstNonNull::new(ptr).map(|ptr| unsafe { BtValueConst::new(ptr) })

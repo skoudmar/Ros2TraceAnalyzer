@@ -113,7 +113,7 @@ pub struct DependencyGraphArgs {
     /// The minimum multiplier is used to set the maximum value in gradients
     /// to be at least `min-multiplier` times the minimum value.
     ///
-    /// The gradient range is exactly [minimum value, max(maximum value, minimum value * min_multiplier)].
+    /// The gradient range is exactly [minimum value, max(maximum value, minimum value * `min_multiplier`)].
     #[arg(long, default_value = "5.0")]
     pub min_multiplier: f64,
 

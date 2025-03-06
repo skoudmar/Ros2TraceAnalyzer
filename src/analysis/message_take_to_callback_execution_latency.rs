@@ -22,21 +22,18 @@ impl MessageTakeToCallbackLatency {
     fn process_callback_start(&mut self, callback: Arc<Mutex<CallbackInstance>>) {
         let callback_instance = callback.lock().unwrap();
 
-        match callback_instance.get_trigger() {
-            CallbackTrigger::SubscriptionMessage(msg) => {
-                let message = msg.lock().unwrap();
-                let receive_time = message.get_receive_time().unwrap();
-                let start_time = callback_instance.get_start_time();
-                let latency = start_time.timestamp_nanos() - receive_time.timestamp_nanos();
+        if let CallbackTrigger::SubscriptionMessage(msg) = callback_instance.get_trigger() {
+            let message = msg.lock().unwrap();
+            let receive_time = message.get_receive_time().unwrap();
+            let start_time = callback_instance.get_start_time();
+            let latency = start_time.timestamp_nanos() - receive_time.timestamp_nanos();
 
-                self.latencies
-                    .entry(callback_instance.get_callback().into())
-                    .or_default()
-                    .push(latency);
-            }
-            _ => {
-                // Ignore other triggers
-            }
+            self.latencies
+                .entry(callback_instance.get_callback().into())
+                .or_default()
+                .push(latency);
+        } else {
+            // Ignore other triggers
         }
     }
 

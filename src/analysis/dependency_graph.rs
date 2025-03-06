@@ -937,7 +937,7 @@ impl std::fmt::Display for DisplayAsDot<'_> {
                     let thickness =
                         (weight - min_latency) as f64 / (max_latency - min_latency) as f64;
                     let thickness = MIN_PENWIDTH + thickness * (MAX_PENWIDTH - MIN_PENWIDTH);
-                    graph_edge.set_attribute("penwidth", &format!("{}", thickness));
+                    graph_edge.set_attribute("penwidth", &format!("{thickness}"));
                 }
             }
         }
