@@ -143,7 +143,7 @@ pub struct Args {
 
 impl Args {
     pub fn get() -> &'static Args {
-        CLI_ARGS.get_or_init(|| Self::parse())
+        CLI_ARGS.get_or_init(Self::parse)
     }
 
     pub fn trace_paths(&self) -> &[PathBuf] {

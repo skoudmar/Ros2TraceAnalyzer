@@ -90,6 +90,9 @@ mod event_iterator {
             &mut self,
             analyses: impl IntoIterator<Item = &'a mut dyn analysis::EventAnalysis>,
         ) {
+            // False positive - fix breaks the code
+            // https://github.com/rust-lang/rust-clippy/issues/13185
+            #[allow(clippy::manual_inspect)]
             self.analyses.extend(analyses.into_iter().map(|analysis| {
                 analysis.initialize();
                 analysis
