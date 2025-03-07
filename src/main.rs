@@ -12,171 +12,185 @@ mod statistics;
 mod utils;
 mod visualization;
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::io::{BufWriter, Write};
 
 use analysis::{AnalysisOutputExt, EventAnalysis};
 use args::{find_trace_paths, is_trace_path, AnalysisSubcommand, Args};
-use bt2_sys::iterator::MessageIterator;
-use bt2_sys::logging::LogLevel;
-use bt2_sys::message::BtMessageType;
 use clap::Parser;
 use color_eyre::eyre::{bail, ensure, Context, Result};
 use color_eyre::owo_colors::OwoColorize;
 
-struct ProcessedEventsIter<'a> {
-    iter: MessageIterator,
-    on_unprocessed_event: fn(raw_events::FullEvent),
-    analyses: Vec<&'a mut dyn analysis::EventAnalysis>,
-    processor: processor::Processor,
+mod event_iterator {
+    use std::ffi::CStr;
 
-    // Counters
-    ros_processed_events: usize,
-    ros_unsupported_events: usize,
-    ros_processing_failures: usize,
-    other_events: usize,
-    other_messages: usize,
-}
+    use bt2_sys::message::BtMessageType;
 
-fn convert(level: clap_verbosity_flag::Level) -> LogLevel {
-    match level {
-        clap_verbosity_flag::Level::Error => LogLevel::Error,
-        clap_verbosity_flag::Level::Warn => LogLevel::Warning,
-        clap_verbosity_flag::Level::Info => LogLevel::Info,
-        clap_verbosity_flag::Level::Debug => LogLevel::Debug,
-        clap_verbosity_flag::Level::Trace => LogLevel::Trace,
+    use color_eyre::eyre::Result;
+
+    use bt2_sys::logging::LogLevel;
+
+    use bt2_sys::iterator::MessageIterator;
+
+    use crate::{analysis, processed_events, processor, raw_events};
+
+    pub(crate) struct ProcessedEventsIter<'a> {
+        pub(crate) iter: MessageIterator,
+        pub(crate) on_unprocessed_event: fn(raw_events::FullEvent),
+        pub(crate) analyses: Vec<&'a mut dyn analysis::EventAnalysis>,
+        pub(crate) processor: processor::Processor,
+
+        // Counters
+        pub(crate) ros_processed_events: usize,
+        pub(crate) ros_unsupported_events: usize,
+        pub(crate) ros_processing_failures: usize,
+        pub(crate) other_events: usize,
+        pub(crate) other_messages: usize,
     }
-}
 
-impl<'a> ProcessedEventsIter<'a> {
-    fn new<L: clap_verbosity_flag::LogLevel>(
-        trace_paths: &[&CStr],
-        verbosity: &clap_verbosity_flag::Verbosity<L>,
-    ) -> Self {
-        let log_level = convert(
-            verbosity
-                .log_level()
-                .unwrap_or(clap_verbosity_flag::Level::Error),
-        );
-        Self {
-            iter: MessageIterator::new(trace_paths, log_level),
-            on_unprocessed_event: |_event| {}, // Do nothing by default
-            analyses: Vec::new(),
-            processor: processor::Processor::new(),
-
-            ros_processed_events: 0,
-            ros_unsupported_events: 0,
-            ros_processing_failures: 0,
-            other_events: 0,
-            other_messages: 0,
+    pub(crate) fn convert(level: clap_verbosity_flag::Level) -> LogLevel {
+        match level {
+            clap_verbosity_flag::Level::Error => LogLevel::Error,
+            clap_verbosity_flag::Level::Warn => LogLevel::Warning,
+            clap_verbosity_flag::Level::Info => LogLevel::Info,
+            clap_verbosity_flag::Level::Debug => LogLevel::Debug,
+            clap_verbosity_flag::Level::Trace => LogLevel::Trace,
         }
     }
 
-    fn add_analysis(&mut self, analysis: &'a mut dyn analysis::EventAnalysis) {
-        analysis.initialize();
-        self.analyses.push(analysis);
-    }
+    impl<'a> ProcessedEventsIter<'a> {
+        pub(crate) fn new<L: clap_verbosity_flag::LogLevel>(
+            trace_paths: &[&CStr],
+            verbosity: &clap_verbosity_flag::Verbosity<L>,
+        ) -> Self {
+            let log_level = convert(
+                verbosity
+                    .log_level()
+                    .unwrap_or(clap_verbosity_flag::Level::Error),
+            );
+            Self {
+                iter: MessageIterator::new(trace_paths, log_level),
+                on_unprocessed_event: |_event| {}, // Do nothing by default
+                analyses: Vec::new(),
+                processor: processor::Processor::new(),
 
-    fn set_on_unprocessed_event(&mut self, on_unprocessed_event: fn(raw_events::FullEvent)) {
-        self.on_unprocessed_event = on_unprocessed_event;
-    }
-
-    fn log_counters(&self) {
-        log::info!(target: "trace_counters",
-            "Ros events:\n\
-            - processed: {}\n\
-            - failed to process: {}\n\
-            - unsupported: {}\n\
-            Other events: {}\n\
-            Other messages: {}",
-            self.ros_processed_events,
-            self.ros_processing_failures,
-            self.ros_unsupported_events,
-            self.other_events,
-            self.other_messages
-        );
-    }
-
-    fn print_counters(&self) {
-        println!(
-            "Ros events:\n\
-            - processed: {}\n\
-            - failed to process: {}\n\
-            - unsupported: {}\n\
-            Other events: {}\n\
-            Other messages: {}",
-            self.ros_processed_events,
-            self.ros_processing_failures,
-            self.ros_unsupported_events,
-            self.other_events,
-            self.other_messages
-        );
-    }
-}
-
-impl Iterator for ProcessedEventsIter<'_> {
-    type Item = Result<processed_events::FullEvent>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        for message in self.iter.by_ref() {
-            let event = match message.get_type() {
-                BtMessageType::StreamBeginning
-                | BtMessageType::StreamEnd
-                | BtMessageType::PacketBeginning
-                | BtMessageType::PacketEnd => {
-                    // Silently skip these messages
-                    continue;
-                }
-                BtMessageType::DiscardedEvents
-                | BtMessageType::DiscardedPackets
-                | BtMessageType::MessageIteratorInactivity => {
-                    log::warn!(
-                        "Skipping babeltrace2 message of type {:?}",
-                        message.get_type()
-                    );
-                    self.other_messages += 1;
-                    continue;
-                }
-                BtMessageType::Event => {
-                    let event_msg = message.into_event_msg();
-                    raw_events::get_full_event(&event_msg).ok_or(event_msg)
-                }
-            };
-
-            let Ok(event) = event else {
-                let event_msg = event.unwrap_err();
-                let event = event_msg.get_event();
-                log::debug!("Unsupported event: {event:?}");
-
-                // Skip unsupported events
-                self.other_events += 1;
-                continue;
-            };
-            match self.processor.process_raw_event(event) {
-                Ok(processor::MaybeProcessed::Processed(processed)) => {
-                    self.ros_processed_events += 1;
-                    for analysis in &mut self.analyses {
-                        (*analysis).process_event(&processed);
-                    }
-                    return Some(Ok(processed));
-                }
-                Ok(processor::MaybeProcessed::Raw(raw)) => {
-                    self.ros_unsupported_events += 1;
-                    (self.on_unprocessed_event)(raw);
-                    continue;
-                }
-                Err(err) => {
-                    self.ros_processing_failures += 1;
-                    return Some(Err(err));
-                }
+                ros_processed_events: 0,
+                ros_unsupported_events: 0,
+                ros_processing_failures: 0,
+                other_events: 0,
+                other_messages: 0,
             }
         }
 
-        for analysis in &mut self.analyses {
-            analysis.finalize();
+        pub(crate) fn add_analysis(&mut self, analysis: &'a mut dyn analysis::EventAnalysis) {
+            analysis.initialize();
+            self.analyses.push(analysis);
         }
 
-        None
+        pub(crate) fn set_on_unprocessed_event(
+            &mut self,
+            on_unprocessed_event: fn(raw_events::FullEvent),
+        ) {
+            self.on_unprocessed_event = on_unprocessed_event;
+        }
+
+        pub(crate) fn log_counters(&self) {
+            log::info!(target: "trace_counters",
+                "Ros events:\n\
+            - processed: {}\n\
+            - failed to process: {}\n\
+            - unsupported: {}\n\
+            Other events: {}\n\
+            Other messages: {}",
+                self.ros_processed_events,
+                self.ros_processing_failures,
+                self.ros_unsupported_events,
+                self.other_events,
+                self.other_messages
+            );
+        }
+
+        pub(crate) fn print_counters(&self) {
+            println!(
+                "Ros events:\n\
+            - processed: {}\n\
+            - failed to process: {}\n\
+            - unsupported: {}\n\
+            Other events: {}\n\
+            Other messages: {}",
+                self.ros_processed_events,
+                self.ros_processing_failures,
+                self.ros_unsupported_events,
+                self.other_events,
+                self.other_messages
+            );
+        }
+    }
+
+    impl Iterator for ProcessedEventsIter<'_> {
+        type Item = Result<processed_events::FullEvent>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            for message in self.iter.by_ref() {
+                let event = match message.get_type() {
+                    BtMessageType::StreamBeginning
+                    | BtMessageType::StreamEnd
+                    | BtMessageType::PacketBeginning
+                    | BtMessageType::PacketEnd => {
+                        // Silently skip these messages
+                        continue;
+                    }
+                    BtMessageType::DiscardedEvents
+                    | BtMessageType::DiscardedPackets
+                    | BtMessageType::MessageIteratorInactivity => {
+                        log::warn!(
+                            "Skipping babeltrace2 message of type {:?}",
+                            message.get_type()
+                        );
+                        self.other_messages += 1;
+                        continue;
+                    }
+                    BtMessageType::Event => {
+                        let event_msg = message.into_event_msg();
+                        raw_events::get_full_event(&event_msg).ok_or(event_msg)
+                    }
+                };
+
+                let Ok(event) = event else {
+                    let event_msg = event.unwrap_err();
+                    let event = event_msg.get_event();
+                    log::debug!("Unsupported event: {event:?}");
+
+                    // Skip unsupported events
+                    self.other_events += 1;
+                    continue;
+                };
+                match self.processor.process_raw_event(event) {
+                    Ok(processor::MaybeProcessed::Processed(processed)) => {
+                        self.ros_processed_events += 1;
+                        for analysis in &mut self.analyses {
+                            (*analysis).process_event(&processed);
+                        }
+                        return Some(Ok(processed));
+                    }
+                    Ok(processor::MaybeProcessed::Raw(raw)) => {
+                        self.ros_unsupported_events += 1;
+                        (self.on_unprocessed_event)(raw);
+                        continue;
+                    }
+                    Err(err) => {
+                        self.ros_processing_failures += 1;
+                        return Some(Err(err));
+                    }
+                }
+            }
+
+            for analysis in &mut self.analyses {
+                analysis.finalize();
+            }
+
+            None
+        }
     }
 }
 
@@ -187,7 +201,7 @@ fn print_headline(headline: &str) {
 fn run_analysis<'a, A: EventAnalysis>(
     args: &Args,
     analysis: &'a mut A,
-    iter: &mut ProcessedEventsIter<'a>,
+    iter: &mut event_iterator::ProcessedEventsIter<'a>,
 ) -> Result<()> {
     iter.add_analysis(analysis);
 
@@ -245,7 +259,7 @@ fn prepare_trace_paths(args: &Args) -> Result<Vec<CString>> {
 fn run_analysis_based_on_args(args: &Args) -> Result<()> {
     let trace_paths = prepare_trace_paths(args)?;
     let trace_paths_cstr: Vec<_> = trace_paths.iter().map(CString::as_c_str).collect();
-    let mut iter = ProcessedEventsIter::new(&trace_paths_cstr, &args.verbose);
+    let mut iter = event_iterator::ProcessedEventsIter::new(&trace_paths_cstr, &args.verbose);
 
     match &args.subcommand {
         args::AnalysisSubcommand::MessageLatency { common } => {
@@ -322,7 +336,7 @@ fn run_all(args: &Args) -> Result<()> {
     };
     let trace_paths = prepare_trace_paths(args)?;
     let trace_paths_cstr: Vec<_> = trace_paths.iter().map(CString::as_c_str).collect();
-    let mut iter = ProcessedEventsIter::new(&trace_paths_cstr, &args.verbose);
+    let mut iter = event_iterator::ProcessedEventsIter::new(&trace_paths_cstr, &args.verbose);
 
     let mut message_latency_analysis = analysis::MessageLatency::new();
     let mut callback_analysis = analysis::CallbackDuration::new();

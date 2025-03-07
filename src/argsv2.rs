@@ -1,10 +1,15 @@
-use std::ffi::CString;
+use std::borrow::Cow;
+use std::ffi::{CStr, CString};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+use bt2_sys::graph::component::BtComponentType;
+use bt2_sys::query::support_info;
 use clap::builder::ArgPredicate;
 use clap::Parser;
 use clap_verbosity_flag::{Verbosity, WarnLevel};
+use color_eyre::eyre::ensure;
+use walkdir::WalkDir;
 
 use crate::statistics::Quantile;
 
@@ -14,7 +19,7 @@ mod filenames {
     pub const DEPENDENCY_GRAPH: &str = "dependency_graph.dot";
     pub const MESSAGE_LATENCY: &str = "message_latency.json";
     pub const CALLBACK_DURATION: &str = "callback_duration.json";
-    pub const CALLBACK_PUBLICATIONS: &str = "callback_publications.json";
+    pub const CALLBACK_PUBLICATIONS: &str = "callback_publications.txt";
     pub const CALLBACK_DEPENDENCY: &str = "callback_dependency.dot";
     pub const MESSAGE_TAKE_TO_CALLBACK_LATENCY: &str = "message_take_to_callback_latency.json";
     pub const UTILIZATION: &str = "utilization.json";
@@ -36,20 +41,61 @@ pub struct Args {
     #[arg(long, short = 'o')]
     out_dir: Option<PathBuf>,
 
-    #[command(flatten)]
-    analysis: Analysis,
-
     /// Run all analyses with their default output filenames
     ///
     /// The output `filename` can be changed by specific analysis option.
     ///
     /// This is enabled by default unless specific analysis option is provided.
-    #[arg(
-        long,
+    #[arg(long,
         default_value = "true",
-        default_value_if("Analysis", ArgPredicate::IsPresent, "false")
-    )]
+        default_value_ifs([
+            ("dependency_graph", ArgPredicate::IsPresent, "false"),
+            ("message_latency", ArgPredicate::IsPresent, "false"),
+            ("callback_duration", ArgPredicate::IsPresent, "false"),
+            ("callback_publications", ArgPredicate::IsPresent, "false"),
+            ("callback_dependency", ArgPredicate::IsPresent, "false"),
+            ("message_take_to_callback_latency", ArgPredicate::IsPresent, "false"),
+            ("utilization", ArgPredicate::IsPresent, "false"),
+            ("real_utilization", ArgPredicate::IsPresent, "false"),
+            ("spin_duration", ArgPredicate::IsPresent, "false"),
+            ]))]
     all: bool,
+
+    /// Construct a detailed dependency graph with timing statistics in DOT format.
+    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::DEPENDENCY_GRAPH, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::DEPENDENCY_GRAPH))]
+    dependency_graph: Option<PathBuf>,
+
+    /// Analyze the latency of messages
+    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::MESSAGE_LATENCY, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::MESSAGE_LATENCY))]
+    message_latency: Option<PathBuf>,
+
+    /// Analyze the callback duration and inter-arrival time.
+    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::CALLBACK_DURATION, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::CALLBACK_DURATION))]
+    callback_duration: Option<PathBuf>,
+
+    /// Analyze the publications made by callbacks
+    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::CALLBACK_PUBLICATIONS, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::CALLBACK_PUBLICATIONS))]
+    callback_publications: Option<PathBuf>,
+
+    /// Generate a callback dependency graph in DOT format
+    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::CALLBACK_DEPENDENCY, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::CALLBACK_DEPENDENCY))]
+    callback_dependency: Option<PathBuf>,
+
+    /// Analyze the latency between message take and callback execution
+    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::MESSAGE_TAKE_TO_CALLBACK_LATENCY, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::MESSAGE_TAKE_TO_CALLBACK_LATENCY))]
+    message_take_to_callback_latency: Option<PathBuf>,
+
+    /// Analyze system utilization based on quantile callback durations
+    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::UTILIZATION, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::UTILIZATION))]
+    utilization: Option<PathBuf>,
+
+    /// Analyze system utilization based on real execution times
+    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::REAL_UTILIZATION, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::REAL_UTILIZATION))]
+    real_utilization: Option<PathBuf>,
+
+    /// Analyze the duration of executor spins
+    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::SPIN_DURATION, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::SPIN_DURATION))]
+    spin_duration: Option<PathBuf>,
 
     /// Quantiles to compute for the latency and duration analysis.
     ///
@@ -66,8 +112,8 @@ pub struct Args {
     quantiles: Vec<Quantile>,
 
     /// Callback duration quantile to use for utilization analysis
-    #[arg(long, value_parser)]
-    utilization_quantile: Option<Quantile>,
+    #[arg(long, value_parser, default_value = "0.9")]
+    utilization_quantile: Quantile,
 
     /// Set the edge thickness in dependency graph based on its median latency.
     #[arg(long)]
@@ -85,8 +131,8 @@ pub struct Args {
     /// to be at least `min-multiplier` times the minimum value.
     ///
     /// The gradient range is exactly [minimum value, max(maximum value, minimum value * `min_multiplier`)].
-    #[arg(long)]
-    min_multiplier: bool,
+    #[arg(long, default_value = "5.0")]
+    min_multiplier: f64,
 
     /// Paths to directories to search for the trace to analyze
     ///
@@ -95,47 +141,11 @@ pub struct Args {
     trace_paths: Vec<PathBuf>,
 }
 
-#[derive(clap::Args, Debug, Clone)]
-#[group(required = false, multiple = true)]
-pub struct Analysis {
-    /// Construct a detailed dependency graph with timing statistics in DOT format.
-    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::DEPENDENCY_GRAPH, num_args = 0..=1, require_equals = true, default_value_if("all", ArgPredicate::IsPresent, filenames::DEPENDENCY_GRAPH))]
-    dependency_graph: Option<PathBuf>,
-
-    /// Analyze the latency of messages
-    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::MESSAGE_LATENCY, num_args = 0..=1, require_equals = true, default_value_if("all", ArgPredicate::IsPresent, filenames::MESSAGE_LATENCY))]
-    message_latency: Option<PathBuf>,
-
-    /// Analyze the callback duration and inter-arrival time.
-    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::CALLBACK_DURATION, num_args = 0..=1, require_equals = true, default_value_if("all", ArgPredicate::IsPresent, filenames::CALLBACK_DURATION))]
-    callback_duration: Option<PathBuf>,
-
-    /// Analyze the publications made by callbacks
-    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::CALLBACK_PUBLICATIONS, num_args = 0..=1, require_equals = true, default_value_if("all", ArgPredicate::IsPresent, filenames::CALLBACK_PUBLICATIONS))]
-    callback_publications: Option<PathBuf>,
-
-    /// Generate a callback dependency graph in DOT format
-    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::CALLBACK_DEPENDENCY, num_args = 0..=1, require_equals = true, default_value_if("all", ArgPredicate::IsPresent, filenames::CALLBACK_DEPENDENCY))]
-    callback_dependency: Option<PathBuf>,
-
-    /// Analyze the latency between message take and callback execution
-    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::MESSAGE_TAKE_TO_CALLBACK_LATENCY, num_args = 0..=1, require_equals = true, default_value_if("all", ArgPredicate::IsPresent, filenames::MESSAGE_TAKE_TO_CALLBACK_LATENCY))]
-    message_take_to_callback_latency: Option<PathBuf>,
-
-    /// Analyze system utilization based on quantile callback durations
-    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::UTILIZATION, num_args = 0..=1, require_equals = true, default_value_if("all", ArgPredicate::IsPresent, filenames::UTILIZATION))]
-    utilization: Option<PathBuf>,
-
-    /// Analyze system utilization based on real execution times
-    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::REAL_UTILIZATION, num_args = 0..=1, require_equals = true, default_value_if("all", ArgPredicate::IsPresent, filenames::REAL_UTILIZATION))]
-    real_utilization: Option<PathBuf>,
-
-    /// Analyze the duration of executor spins
-    #[arg(long, value_name = "FILENAME", default_missing_value = filenames::SPIN_DURATION, num_args = 0..=1, require_equals = true, default_value_if("all", ArgPredicate::IsPresent, filenames::SPIN_DURATION))]
-    spin_duration: Option<PathBuf>,
-}
-
 impl Args {
+    pub fn get() -> &'static Args {
+        CLI_ARGS.get_or_init(|| Self::parse())
+    }
+
     pub fn trace_paths(&self) -> &[PathBuf] {
         &self.trace_paths
     }
@@ -151,67 +161,203 @@ impl Args {
         self.exact_trace_path
     }
 
-    pub fn output_dir(&self) -> Option<&PathBuf> {
-        self.out_dir.as_ref()
-    }
-
-    pub(crate) fn set_as_global(self) {
-        CLI_ARGS
-            .set(self)
-            .expect("Failed to set global CLI arguments");
-    }
-}
-
-fn to_directory_path_buf(path: PathBuf, create: bool) -> Result<PathBuf, &'static str> {
-    CString::new(path.to_str().ok_or("Path must be encoded as UTF-8")?)
-        .map_err(|_| "Path must not contain null bytes")?;
-
-    if !path.exists() {
-        if create {
-            std::fs::create_dir(&path).map_err(|_| "Failed to create directory")?;
-            return Ok(path);
+    fn concatenate_with_out_path<'a>(&'a self, path: &'a Path) -> Cow<'a, Path> {
+        if path.is_absolute() {
+            path.into()
+        } else if let Some(out_dir) = &self.out_dir {
+            out_dir.join(path).into()
+        } else {
+            path.into()
         }
-
-        return Err("Path does not exist.");
     }
 
-    if path.is_dir() {
-        Ok(path)
-    } else {
-        Err("Path is not a directory.")
+    pub fn dependency_graph_enabled(&self) -> bool {
+        self.dependency_graph.is_some()
+    }
+
+    pub fn message_latency_enabled(&self) -> bool {
+        self.message_latency.is_some()
+    }
+
+    pub fn callback_duration_enabled(&self) -> bool {
+        self.callback_duration.is_some()
+    }
+
+    pub fn callback_publications_enabled(&self) -> bool {
+        self.callback_publications.is_some()
+    }
+
+    pub fn callback_dependency_enabled(&self) -> bool {
+        self.callback_dependency.is_some()
+    }
+
+    pub fn message_take_to_callback_latency_enabled(&self) -> bool {
+        self.message_take_to_callback_latency.is_some()
+    }
+
+    pub fn utilization_enabled(&self) -> bool {
+        self.utilization.is_some()
+    }
+
+    pub fn real_utilization_enabled(&self) -> bool {
+        self.real_utilization.is_some()
+    }
+
+    pub fn spin_duration_enabled(&self) -> bool {
+        self.spin_duration.is_some()
+    }
+
+    pub fn dependency_graph_path(&self) -> Option<Cow<Path>> {
+        self.dependency_graph
+            .as_ref()
+            .map(|p| self.concatenate_with_out_path(p))
+    }
+
+    pub fn message_latency_path(&self) -> Option<Cow<Path>> {
+        self.message_latency
+            .as_ref()
+            .map(|p| self.concatenate_with_out_path(p))
+    }
+
+    pub fn callback_duration_path(&self) -> Option<Cow<Path>> {
+        self.callback_duration
+            .as_ref()
+            .map(|p| self.concatenate_with_out_path(p))
+    }
+
+    pub fn callback_publications_path(&self) -> Option<Cow<Path>> {
+        self.callback_publications
+            .as_ref()
+            .map(|p| self.concatenate_with_out_path(p))
+    }
+
+    pub fn callback_dependency_path(&self) -> Option<Cow<Path>> {
+        self.callback_dependency
+            .as_ref()
+            .map(|p| self.concatenate_with_out_path(p))
+    }
+
+    pub fn message_take_to_callback_latency_path(&self) -> Option<Cow<Path>> {
+        self.message_take_to_callback_latency
+            .as_ref()
+            .map(|p| self.concatenate_with_out_path(p))
+    }
+
+    pub fn utilization_path(&self) -> Option<Cow<Path>> {
+        self.utilization
+            .as_ref()
+            .map(|p| self.concatenate_with_out_path(p))
+    }
+
+    pub fn real_utilization_path(&self) -> Option<Cow<Path>> {
+        self.real_utilization
+            .as_ref()
+            .map(|p| self.concatenate_with_out_path(p))
+    }
+
+    pub fn spin_duration_path(&self) -> Option<Cow<Path>> {
+        self.spin_duration
+            .as_ref()
+            .map(|p| self.concatenate_with_out_path(p))
+    }
+
+    pub fn quantiles(&self) -> &[Quantile] {
+        &self.quantiles
+    }
+
+    pub fn utilization_quantile(&self) -> Quantile {
+        self.utilization_quantile
+    }
+
+    pub const fn thickness(&self) -> bool {
+        self.thickness
+    }
+
+    pub const fn color(&self) -> bool {
+        self.color
+    }
+
+    pub const fn min_multiplier(&self) -> f64 {
+        self.min_multiplier
     }
 }
 
-const TRACE_PATH_LIKELIHOOD_THRESHOLD: f64 = 0.5;
+// Valid trace path should have a weight set to 0.75 so we set the threshold slightly lower.
+const TRACE_PATH_LIKELIHOOD_THRESHOLD: f64 = 0.74;
 
-pub fn is_trace_path(path: &Path) -> bool {
-    // Implementation would need bt2_sys support
-    // Simplified version for now:
-    path.is_dir() && path.exists()
+pub fn is_trace_path(path: &CStr) -> bool {
+    let support_info_query =
+        support_info::Query::new_prepared("ctf", "fs", BtComponentType::Source)
+            .expect("Failed to prepare support info query");
+
+    let path_cstr = CString::new(path.to_str().unwrap()).unwrap();
+
+    let result = support_info_query
+        .query(bt2_sys::query::SupportInfoParams::Directory(&path_cstr))
+        .expect("Failed to query support info");
+
+    result.weight() > TRACE_PATH_LIKELIHOOD_THRESHOLD
 }
 
-pub fn find_trace_paths(search_path: &Path, exact: bool) -> Vec<PathBuf> {
-    if exact {
-        if is_trace_path(search_path) {
-            return vec![search_path.to_path_buf()];
-        }
-        return Vec::new();
-    }
+pub fn find_trace_paths(search_path: &Path) -> Vec<CString> {
+    let support_info_query =
+        support_info::Query::new_prepared("ctf", "fs", BtComponentType::Source)
+            .expect("Failed to prepare support info query");
 
     let mut trace_paths = Vec::new();
+    for dir in WalkDir::new(search_path)
+        .into_iter()
+        .filter_entry(|e| e.file_type().is_dir())
+    {
+        let dir = dir.expect("Failed to read directory");
+        let path = dir.path();
+        let path_cstr = CString::new(path.to_str().unwrap()).unwrap();
 
-    // Walk the directory and find trace paths
-    // Simplified implementation
-    if let Ok(entries) = std::fs::read_dir(search_path) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() && is_trace_path(&path) {
-                trace_paths.push(path);
-            }
+        let result = support_info_query
+            .query(bt2_sys::query::SupportInfoParams::Directory(&path_cstr))
+            .expect("Failed to query support info");
+
+        if result.weight() > TRACE_PATH_LIKELIHOOD_THRESHOLD {
+            trace_paths.push(path_cstr);
         }
     }
 
     trace_paths
+}
+
+pub fn prepare_trace_paths() -> color_eyre::Result<Vec<CString>> {
+    let trace_paths: Vec<_> = if Args::get().is_exact_path() {
+        Args::get()
+            .trace_paths_cstring()
+            .into_iter()
+            .filter_map(|path| {
+                if is_trace_path(&path) {
+                    Some(path)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    } else {
+        Args::get()
+            .trace_paths()
+            .iter()
+            .map(AsRef::as_ref)
+            .flat_map(find_trace_paths)
+            .collect()
+    };
+
+    ensure!(
+        !trace_paths.is_empty(),
+        "No traces found in the provided paths."
+    );
+
+    println!("Found traces:");
+    for path in &trace_paths {
+        println!("  {}", path.to_string_lossy());
+    }
+
+    Ok(trace_paths)
 }
 
 #[cfg(test)]
@@ -274,7 +420,6 @@ mod test {
             .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
 
         assert_eq!(args.out_dir, Some(PathBuf::from("/tmp")));
-        assert_eq!(args.output_dir(), Some(&PathBuf::from("/tmp")));
     }
 
     #[test]
@@ -309,14 +454,14 @@ mod test {
 
         assert!(!args.all); // Should be automatically set to false when any analysis flag is used
         assert_eq!(
-            args.analysis.dependency_graph,
+            args.dependency_graph,
             Some(PathBuf::from(filenames::DEPENDENCY_GRAPH))
         );
         assert_eq!(
-            args.analysis.message_latency,
+            args.message_latency,
             Some(PathBuf::from("custom_latency.json"))
         );
-        assert_eq!(args.analysis.callback_duration, None);
+        assert_eq!(args.callback_duration, None);
     }
 
     #[test]
@@ -362,15 +507,35 @@ mod test {
 
         assert!(args.all);
         assert_eq!(
-            args.analysis.dependency_graph,
+            args.dependency_graph,
             Some(PathBuf::from(filenames::DEPENDENCY_GRAPH))
         );
         assert_eq!(
-            args.analysis.message_latency,
+            args.message_latency,
             Some(PathBuf::from("custom_latency.json"))
         );
         assert_eq!(
-            args.analysis.callback_duration,
+            args.callback_duration,
+            Some(PathBuf::from(filenames::CALLBACK_DURATION))
+        );
+    }
+
+    #[test]
+    fn test_implicit_all_flag() {
+        let args = Args::try_parse_from(["program", "/tmp/trace"])
+            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+
+        assert!(args.all);
+        assert_eq!(
+            args.dependency_graph,
+            Some(PathBuf::from(filenames::DEPENDENCY_GRAPH))
+        );
+        assert_eq!(
+            args.message_latency,
+            Some(PathBuf::from(filenames::MESSAGE_LATENCY))
+        );
+        assert_eq!(
+            args.callback_duration,
             Some(PathBuf::from(filenames::CALLBACK_DURATION))
         );
     }
