@@ -2,6 +2,7 @@
 
 mod analysis;
 mod args;
+mod argsv2;
 mod events_common;
 mod model;
 mod processed_events;
