@@ -71,8 +71,6 @@ struct SpinDurationEntry {
 }
 
 impl AnalysisOutput for SpinDuration {
-    const FILE_NAME: &'static str = "spin_duration";
-
     fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
         let spin_durations: Vec<SpinDurationEntry> = self
             .processing_durations

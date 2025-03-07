@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::vec::Vec;
 
-use crate::args::ANALYSIS_CLI_ARGS;
+use crate::argsv2::Args;
 use crate::events_common::Context;
 use crate::model::display::{get_node_name_from_weak, DisplayCallbackSummary};
 use crate::model::{Callback, CallbackInstance, Time};
@@ -149,10 +149,8 @@ impl CallbackDuration {
         durations.sort_unstable();
         let durations_sorted = Sorted::from_sorted(durations).unwrap();
 
-        let duration_quantiles = ANALYSIS_CLI_ARGS
-            .get()
-            .expect("CLI args should be set")
-            .quantiles
+        let duration_quantiles = Args::get()
+            .quantiles()
             .iter()
             .map(|q| {
                 let duration = *durations_sorted.quantile(*q).expect("Should not be empty");
@@ -283,8 +281,6 @@ impl EventAnalysis for CallbackDuration {
 }
 
 impl AnalysisOutput for CallbackDuration {
-    const FILE_NAME: &'static str = "callback_duration";
-
     fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
         let records = self.get_records();
         serde_json::to_writer(file, &records)

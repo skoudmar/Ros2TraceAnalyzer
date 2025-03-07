@@ -89,17 +89,19 @@ impl PublicationInCallback {
         &self.dependency
     }
 
-    pub(crate) fn print_stats(&self) {
-        println!("Publication in callback statistics:");
+    pub(crate) fn write_stats(&self, output: &mut impl std::io::Write) -> std::io::Result<()> {
+        writeln!(output, "Publication in callbacks statistic:")?;
         for (i, (publisher, callback)) in self.dependency.iter().enumerate() {
             let publisher = publisher.0.lock().unwrap();
             let callback = callback.0.lock().unwrap();
-            println!(
+            writeln!(
+                output,
                 "- [{i:4}] Callback {}\n\t-> Publisher {}",
                 DisplayCallbackSummary(&callback),
                 DisplayDebug(publisher.get_topic())
-            );
+            )?;
         }
+        Ok(())
     }
 }
 

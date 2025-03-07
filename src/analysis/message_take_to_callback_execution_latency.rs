@@ -79,8 +79,6 @@ struct ExportEntry {
 }
 
 impl AnalysisOutput for MessageTakeToCallbackLatency {
-    const FILE_NAME: &'static str = "take_to_callback_latency";
-
     fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
         let latencies: Vec<ExportEntry> = self
             .latencies

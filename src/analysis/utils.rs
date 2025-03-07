@@ -1,4 +1,4 @@
-use crate::args::ANALYSIS_CLI_ARGS;
+use crate::argsv2::Args;
 use crate::statistics::Sorted;
 use crate::utils::DurationDisplayImprecise;
 
@@ -47,12 +47,7 @@ impl std::fmt::Display for DisplayDurationStats<'_> {
 
         let sorted = Sorted::from_unsorted(self.0);
         write!(f, "count={}", sorted.len())?;
-        for q in &ANALYSIS_CLI_ARGS
-            .get()
-            .expect("CLI arguments should be set")
-            .quantiles
-            .quantiles
-        {
+        for q in Args::get().quantiles() {
             let quantile = *sorted.quantile(*q).unwrap();
             write!(f, "{}{}={}", self.1, q, DurationDisplayImprecise(quantile))?;
         }
