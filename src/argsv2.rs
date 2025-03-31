@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 use bt2_sys::graph::component::BtComponentType;
 use bt2_sys::query::support_info;
 use clap::builder::ArgPredicate;
-use clap::Parser;
+use clap::{Parser, ValueHint};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 use color_eyre::eyre::ensure;
 use walkdir::WalkDir;
@@ -38,7 +38,7 @@ pub struct Args {
     exact_trace_path: bool,
 
     /// Directory to write output files
-    #[arg(long, short = 'o')]
+    #[arg(long, short = 'o', value_hint = ValueHint::DirPath)]
     out_dir: Option<PathBuf>,
 
     /// Run all analyses with their default output filenames
@@ -112,7 +112,7 @@ pub struct Args {
     quantiles: Vec<Quantile>,
 
     /// Callback duration quantile to use for utilization analysis
-    #[arg(long, value_parser, default_value = "0.9")]
+    #[arg(long, value_parser, default_value = "0.9", value_name = "QUANTILE")]
     utilization_quantile: Quantile,
 
     /// Set the edge thickness in dependency graph based on its median latency.
@@ -137,7 +137,7 @@ pub struct Args {
     /// Paths to directories to search for the trace to analyze
     ///
     /// All subdirectories are automatically searched too.
-    #[arg(value_parser/*  = PathBufValueParser::new().try_map(|p| to_directory_path_buf(p, false)) */, num_args = 1.., required = true)]
+    #[arg(value_parser, num_args = 1.., required = true, value_hint = ValueHint::DirPath)]
     trace_paths: Vec<PathBuf>,
 }
 
