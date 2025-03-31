@@ -549,4 +549,35 @@ mod test {
             Some(PathBuf::from(filenames::CALLBACK_DURATION))
         );
     }
+
+    #[test]
+    fn test_path_concatenation() {
+        let args = Args::try_parse_from([
+            "program",
+            "-o",
+            "/tmp",
+            "--all",
+            "--dependency-graph",
+            "--message-latency=dir/custom_latency.json",
+            "--callback-duration=/callback.json",
+            "/tmp/trace",
+        ])
+        .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+
+        assert_eq!(
+            args.dependency_graph_path(),
+            Some(Cow::Owned(PathBuf::from("/tmp/dependency_graph.dot"))),
+            "Implicit filename should be concatenated with out_dir"
+        );
+        assert_eq!(
+            args.message_latency_path(),
+            Some(Cow::Owned(PathBuf::from("/tmp/dir/custom_latency.json"))),
+            "Relative path should be concatenated with out_dir"
+        );
+        assert_eq!(
+            args.callback_duration_path(),
+            Some(Cow::Owned(PathBuf::from("/callback.json"))),
+            "Absolute path should not be concatenated with out_dir"
+        );
+    }
 }
