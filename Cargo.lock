@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "Ros2TraceAnalyzer"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bt2-derive",
  "bt2-sys",
