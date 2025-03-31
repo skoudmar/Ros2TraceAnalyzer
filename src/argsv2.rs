@@ -22,29 +22,14 @@ mod filenames {
     pub const CALLBACK_PUBLICATIONS: &str = "callback_publications.txt";
     pub const CALLBACK_DEPENDENCY: &str = "callback_dependency.dot";
     pub const MESSAGE_TAKE_TO_CALLBACK_LATENCY: &str = "message_take_to_callback_latency.json";
-    pub const UTILIZATION: &str = "utilization.json";
-    pub const REAL_UTILIZATION: &str = "real_utilization.json";
+    pub const UTILIZATION: &str = "utilization.txt";
+    pub const REAL_UTILIZATION: &str = "real_utilization.txt";
     pub const SPIN_DURATION: &str = "spin_duration.json";
 }
 
 #[derive(Debug, Clone, Parser)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Args {
-    #[command(flatten)]
-    pub verbose: Verbosity<WarnLevel>,
-
-    /// If provided, only the directory specified by `TRACE_PATH` is searched for traces, not its subdirectories.
-    #[arg(long)]
-    exact_trace_path: bool,
-
-    /// Directory to write output files
-    ///
-    /// If not provided, the current working directory is used.
-    ///
-    /// When analysis output filename is specified and it is not an absolute path, it is resolved relative to `OUT_DIR`.
-    #[arg(long, short = 'o', value_hint = ValueHint::DirPath)]
-    out_dir: Option<PathBuf>,
-
     /// Run all analyses with their default output filenames
     ///
     /// The output `filename` can be changed by specific analysis option.
@@ -101,6 +86,14 @@ pub struct Args {
     #[arg(long, value_name = "FILENAME", default_missing_value = filenames::SPIN_DURATION, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::SPIN_DURATION))]
     spin_duration: Option<PathBuf>,
 
+    /// Directory to write output files
+    ///
+    /// If not provided, the current working directory is used.
+    ///
+    /// When analysis output filename is specified and it is not an absolute path, it is resolved relative to `OUT_DIR`.
+    #[arg(long, short = 'o', value_hint = ValueHint::DirPath)]
+    out_dir: Option<PathBuf>,
+
     /// Quantiles to compute for the latency and duration analysis.
     ///
     /// The quantiles must be in the range [0, 1].
@@ -143,6 +136,13 @@ pub struct Args {
     /// All subdirectories are automatically searched too.
     #[arg(value_parser, num_args = 1.., required = true, value_hint = ValueHint::DirPath)]
     trace_paths: Vec<PathBuf>,
+
+    #[command(flatten)]
+    pub verbose: Verbosity<WarnLevel>,
+
+    /// Only the directories specified by `TRACE_PATHS` are searched for traces, not their subdirectories.
+    #[arg(long)]
+    exact_trace_path: bool,
 }
 
 impl Args {

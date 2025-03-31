@@ -53,23 +53,58 @@ Record traces of your ROS application:
 Then you can use `Ros2TraceAnalyzer` subcommands to obtain various
 information from the trace.
 
-<!-- `$ cargo run -- -h | sed '/Options:/,$ d'` -->
+<!-- `$ cargo run -- -h | sed 's/ \[default:/\n          \[default:/g'` -->
 
 ```
-Usage: Ros2TraceAnalyzer [OPTIONS] <TRACE_PATHS>... <COMMAND>
-
-Commands:
-  dependency-graph  Construct a detailed dependency graph with timing statistics
-  message-latency   Analyze the latency of the messages
-  callback          Analyze the callback duration and inter-arrival time
-  utilization       Analyze the utilization of the system based on the quantile callback durations
-  utilization-real  Analyze the utilization of the system based on the real execution times
-  all               Run all analyses
-  help              Print this message or the help of the given subcommand(s)
+Usage: Ros2TraceAnalyzer [OPTIONS] <TRACE_PATHS>...
 
 Arguments:
   <TRACE_PATHS>...  Paths to directories to search for the trace to analyze
 
+Options:
+      --all
+          Run all analyses with their default output filenames
+      --dependency-graph[=<FILENAME>]
+          Construct a detailed dependency graph with timing statistics in DOT format
+      --message-latency[=<FILENAME>]
+          Analyze the latency of messages
+      --callback-duration[=<FILENAME>]
+          Analyze the callback duration and inter-arrival time
+      --callback-publications[=<FILENAME>]
+          Analyze the publications made by callbacks
+      --callback-dependency[=<FILENAME>]
+          Generate a callback dependency graph in DOT format
+      --message-take-to-callback-latency[=<FILENAME>]
+          Analyze the latency between message take and callback execution
+      --utilization[=<FILENAME>]
+          Analyze system utilization based on quantile callback durations
+      --real-utilization[=<FILENAME>]
+          Analyze system utilization based on real execution times
+      --spin-duration[=<FILENAME>]
+          Analyze the duration of executor spins
+  -o, --out-dir <OUT_DIR>
+          Directory to write output files
+      --quantiles <QUANTILES>
+          Quantiles to compute for the latency and duration analysis
+          [default: 0,0.10,0.5,0.90,0.99,1]
+      --utilization-quantile <QUANTILE>
+          Callback duration quantile to use for utilization analysis
+          [default: 0.9]
+      --thickness
+          Set the edge thickness in dependency graph based on its median latency
+      --color
+          Color edge in dependency graph based on its median latency
+      --min-multiplier <MIN_MULTIPLIER>
+          Minimum multiplier for edge coloring or thickness
+          [default: 5.0]
+  -v, --verbose...
+          Increase logging verbosity
+  -q, --quiet...
+          Decrease logging verbosity
+      --exact-trace-path
+          Only the directories specified by `TRACE_PATHS` are searched for traces, not their subdirectories
+  -h, --help
+          Print help (see more with '--help')
 ```
 
 To gain **overview of timing in your application**, generate a
@@ -105,16 +140,13 @@ printed to stdout in aggregated form or exported in full to a JSON
 file. Supported options are:
 
 - `--quantiles <QUANTILES>...` Print results with these quantiles.
-- `--json-dir <JSON_DIR_PATH>` Instead of printing aggregated results,
-  export the measured data into a JSON file in the specified
-  directory.
 
 You can visualize individual data by using Jupyter notebooks in the
 [py-src](./py-src/) directory or directly via command line, for
 example, as follows:
 
 ```sh
-Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 message-latency --json-dir json
+Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 --message-latency -o json
 jq '.[]|select(.topic=="/clock" and .subscriber_node=="/rviz2")|.latencies[]' json/message_latency.json | gnuplot -p -e 'plot "-"'
 ```
 
@@ -127,7 +159,7 @@ times. To analyze theoretical worst-case utilization, add `--quantile 1.0`. For 
 Example output of utilization analysis is shown below:
 
 ```sh
-Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 dependency-graph utilization --quantile 0.9
+Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 --utilization --utilization-quantile 0.9
 ```
 
 ```
