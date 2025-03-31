@@ -33,11 +33,15 @@ pub struct Args {
     #[command(flatten)]
     pub verbose: Verbosity<WarnLevel>,
 
-    /// If set to true, only the directory specified by `TRACE_PATH` is searched for traces, not its subdirectories.
+    /// If provided, only the directory specified by `TRACE_PATH` is searched for traces, not its subdirectories.
     #[arg(long)]
     exact_trace_path: bool,
 
     /// Directory to write output files
+    ///
+    /// If not provided, the current working directory is used.
+    ///
+    /// When analysis output filename is specified and it is not an absolute path, it is resolved relative to `OUT_DIR`.
     #[arg(long, short = 'o', value_hint = ValueHint::DirPath)]
     out_dir: Option<PathBuf>,
 
@@ -128,9 +132,9 @@ pub struct Args {
     /// Can be any positive number.
     ///
     /// The minimum multiplier is used to set the maximum value in gradients
-    /// to be at least `min-multiplier` times the minimum value.
+    /// to be at least `MIN_MULTIPLIER` times the minimum value.
     ///
-    /// The gradient range is exactly [minimum value, max(maximum value, minimum value * `min_multiplier`)].
+    /// The gradient range is exactly [minimum value, max(maximum value, minimum value * `MIN_MULTIPLIER`)].
     #[arg(long, default_value = "5.0")]
     min_multiplier: f64,
 
@@ -371,6 +375,12 @@ mod test {
     #[ignore]
     fn print_help() {
         Args::command().print_help().unwrap();
+    }
+
+    #[test]
+    #[ignore]
+    fn print_long_help() {
+        Args::command().print_long_help().unwrap();
     }
 
     #[test]
