@@ -88,7 +88,7 @@ impl Display for GraphCluster {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Display)]
-#[display("{}", str::from(self))]
+#[display("{}", std::convert::Into::<&'static str>::into(*self))]
 pub enum NodeShape {
     #[default]
     Box,

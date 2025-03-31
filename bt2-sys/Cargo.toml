@@ -9,7 +9,7 @@ license.workspace = true
 categories = ["api-bindings"]
 
 [dependencies]
-derive_more = { version = "1.0.0", features = ["deref", "deref_mut", "from", "into"] }
+derive_more = { version = "2.0.0", features = ["deref", "deref_mut", "from", "into"] }
 thiserror = "2.0"
 
 [build-dependencies]
