@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::sync::{Arc, Mutex};
 
+use bt2_sys::graph;
+
 use crate::analysis::utils::DisplayDurationStats;
 use crate::events_common::Context;
 use crate::model::{
@@ -590,6 +592,27 @@ impl Default for EdgeWeightStats {
     }
 }
 
+struct CallbackWeightStats(i64, i64);
+
+impl CallbackWeightStats {
+    fn new() -> Self {
+        Self(i64::MAX, i64::MIN)
+    }
+
+    fn update(&mut self, duration: i64) {
+        self.0 = self.0.min(duration);
+        self.1 = self.1.max(duration);
+    }
+
+    fn range(&self) -> Option<(i64, i64)> {
+        if self.0 == i64::MAX && self.1 == i64::MIN {
+            None
+        } else {
+            Some((self.0, self.1))
+        }
+    }
+}
+
 struct DisplayAsDotEdge {
     source: usize,
     target: usize,
@@ -609,6 +632,8 @@ pub struct DisplayAsDot<'a> {
     pub_sub_latency_range: Option<(i64, i64)>,
 
     analysis: &'a DependencyGraph,
+
+    callback_weight_stats: HashMap<ArcMutWrapper<model::Node>, CallbackWeightStats>,
 
     // Cli Arguments
     color: bool,
@@ -662,7 +687,9 @@ impl<'a> DisplayAsDot<'a> {
             graph_node_to_ros_node.insert(node, ros_node.clone().into());
         }
 
-        for callback in graph.callback_nodes.keys() {
+        let mut callback_weight_stats = HashMap::new();
+
+        for (callback, callback_value) in graph.callback_nodes.iter() {
             let node = Node::Callback(callback.clone());
             node_to_id.insert(node.clone(), graph_node_id);
             graph_node_id += 1;
@@ -670,6 +697,14 @@ impl<'a> DisplayAsDot<'a> {
             let callback = callback.0.lock().unwrap();
             let ros_node = callback.get_node().unwrap().get_arc().unwrap();
             graph_node_to_ros_node.insert(node, ros_node.clone().into());
+
+            let median = *Sorted::from_unsorted(&callback_value.durations)
+                .median()
+                .unwrap();
+            callback_weight_stats
+                .entry(ros_node.clone().into())
+                .or_insert_with(CallbackWeightStats::new)
+                .update(median);
         }
 
         let unique_used_ros_nodes = graph_node_to_ros_node
@@ -704,6 +739,7 @@ impl<'a> DisplayAsDot<'a> {
             color,
             thickness,
             min_multiplier,
+            callback_weight_stats,
         }
     }
 }
@@ -894,6 +930,23 @@ impl std::fmt::Display for DisplayAsDot<'_> {
             let graph_node = graph.add_node(&node_name, *id);
             graph_node.set_shape(NodeShape::Ellipse);
             graph_node.set_attribute("tooltip", &tooltip);
+
+            if let Node::Callback(callback) = node {
+                if let Some(ros_node) = self.graph_node_to_ros_node.get(node) {
+                    let callback_weight_stats = self.callback_weight_stats.get(ros_node).unwrap();
+                    let (min_duration, max_duration) = callback_weight_stats.range().unwrap();
+                    let data = &self.analysis.callback_nodes[callback].durations;
+                    let median = *Sorted::from_unsorted(data).median().unwrap();
+
+                    const MIN_PENWIDTH: f64 = 0.2;
+                    const MAX_PENWIDTH: f64 = 3.0;
+                    let thickness =
+                        (median - min_duration) as f64 / (max_duration - min_duration) as f64;
+                    let thickness = MIN_PENWIDTH + thickness * (MAX_PENWIDTH - MIN_PENWIDTH);
+
+                    graph_node.set_attribute("penwidth", &format!("{thickness}"));
+                }
+            }
         }
 
         for edge in &self.edges {

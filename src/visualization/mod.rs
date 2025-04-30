@@ -15,7 +15,7 @@ impl ColorGradient {
     pub fn new() -> Self {
         Self {
             gradient: GradientBuilder::new()
-                .html_colors(&["seagreen", "gold", "red"])
+                .html_colors(&["seagreen", "gold", "magenta"])
                 .build()
                 .expect("Failed to build gradient"),
         }
