@@ -1,5 +1,6 @@
 use std::borrow::ToOwned;
 use std::collections::hash_map::Entry;
+use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
 
 use crate::events_common::Context;
@@ -881,10 +882,31 @@ impl Processor {
             .insert(event.callback.into_id(context_id), callback_arc.clone())
             .and_then(filter_out_removed_callers)
             .map_or(Ok(()), |old: Arc<Mutex<Callback>>| {
-                Err(
-                    error::AlreadyExists::with_id(event.callback, &callback_arc, old)
-                        .with_ros2_event(event, time, context),
-                )
+                let mut old = old.lock().unwrap();
+                match old.get_caller() {
+                    Some(CallbackCaller::Subscription(sub)) => {
+                        sub.get_arc().inspect(|sub| {
+                            sub.lock().unwrap().mark_removed();
+                        });
+                    }
+                    Some(CallbackCaller::Service(service)) => {
+                        service.get_arc().inspect(|service| {
+                            service.lock().unwrap().mark_removed();
+                        });
+                    }
+                    Some(CallbackCaller::Timer(timer)) => {
+                        timer.get_arc().inspect(|timer| {
+                            timer.lock().unwrap().mark_removed();
+                        });
+                    }
+                    None => {}
+                }
+                old.mark_removed();
+                Ok::<_, Infallible>(())
+                // Err(
+                //     error::AlreadyExists::with_id(event.callback, old, &callback_arc)
+                //         .with_ros2_event(event, time, context),
+                // )
             })?;
 
         timer_arc

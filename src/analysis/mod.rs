@@ -9,6 +9,9 @@ use derive_more::derive::From;
 
 mod utils;
 
+pub mod end_to_end;
+pub use end_to_end::EndToEndAnalysis;
+
 pub mod dependency_graph;
 pub use dependency_graph::DependencyGraph;
 

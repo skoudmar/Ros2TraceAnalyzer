@@ -165,7 +165,7 @@ impl Args {
         self.exact_trace_path
     }
 
-    fn concatenate_with_out_path<'a>(&'a self, path: &'a Path) -> Cow<'a, Path> {
+    pub fn concatenate_with_out_path<'a>(&'a self, path: &'a Path) -> Cow<'a, Path> {
         if path.is_absolute() {
             path.into()
         } else if let Some(out_dir) = &self.out_dir {

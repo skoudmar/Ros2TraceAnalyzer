@@ -14,7 +14,7 @@ mod visualization;
 use std::ffi::CString;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use analysis::AnalysisOutputExt;
 use argsv2::{prepare_trace_paths, Args};
@@ -152,9 +152,15 @@ mod event_iterator {
                         // Silently skip these messages
                         continue;
                     }
-                    BtMessageType::DiscardedEvents
-                    | BtMessageType::DiscardedPackets
-                    | BtMessageType::MessageIteratorInactivity => {
+                    BtMessageType::DiscardedEvents | BtMessageType::DiscardedPackets => {
+                        log::error!(
+                            "Skipping babeltrace2 message of type {:?}",
+                            message.get_type()
+                        );
+                        self.other_messages += 1;
+                        continue;
+                    }
+                    BtMessageType::MessageIteratorInactivity => {
                         log::warn!(
                             "Skipping babeltrace2 message of type {:?}",
                             message.get_type()
@@ -282,7 +288,9 @@ fn run() -> color_eyre::eyre::Result<()> {
         analysis.spin_duration_analysis = Some(analysis::SpinDuration::new());
     }
 
+    let mut e2e_analysis = analysis::EndToEndAnalysis::default();
     iter.add_add_analysis(analysis.all_as_mut());
+    iter.add_analysis(&mut e2e_analysis);
 
     iter.set_on_unprocessed_event(|event| {
         log::debug!("Unprocessed event: {event:?}");
@@ -375,6 +383,15 @@ fn run() -> color_eyre::eyre::Result<()> {
         writer
             .write_fmt(format_args!("{dot_output}"))
             .wrap_err("Failed to write dependency graph")?;
+    }
+
+    // TODO: Implement args parameter
+    let filename = PathBuf::from("e2e.json");
+    let path = args.concatenate_with_out_path(&filename);
+    {
+        e2e_analysis
+            .write_json_to_output_dir(&path)
+            .wrap_err("Failed to write end-to-end analysis")?;
     }
 
     Ok(())
