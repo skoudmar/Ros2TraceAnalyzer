@@ -8,6 +8,7 @@ use crate::events_common::Context;
 use crate::model::display::get_node_name_from_weak;
 use crate::model::{self, CallbackInstance, PublicationMessage, SubscriptionMessage, Time};
 use crate::processed_events::{ros2, Event, FullEvent};
+use crate::utils::Known;
 
 use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};
 
@@ -301,6 +302,16 @@ impl EndToEndAnalysis {
 
             let mut beginning = chain_part.clone();
             while let Some(previous) = beginning.get_previous() {
+                if let ChainPart::MessagePublication { pub_msg, .. } = previous.as_ref() {
+                    let publisher = pub_msg.0.lock().unwrap().get_publisher().unwrap();
+                    let publisher = publisher.lock().unwrap();
+                    let topic = publisher.get_topic();
+
+                    if topic == Known::from("/carla/ego_vehicle/imu") {
+                        // Skip the IMU topic
+                        break;
+                    }
+                }
                 beginning = previous.clone();
             }
 
