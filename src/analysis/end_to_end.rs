@@ -462,68 +462,68 @@ impl AnalysisOutput for EndToEndAnalysis {
     }
 }
 
-struct LatencyForest {
-    roots: HashMap<Thing, TreeNode>,
-}
+// struct LatencyForest {
+//     roots: HashMap<Thing, TreeNode>,
+// }
 
-impl LatencyForest {
-    fn new() -> Self {
-        Self {
-            roots: HashMap::new(),
-        }
-    }
+// impl LatencyForest {
+//     fn new() -> Self {
+//         Self {
+//             roots: HashMap::new(),
+//         }
+//     }
 
-    fn insert_chain(&mut self, chain: &Arc<ChainPart>) {
-        if chain.get_previous().is_none() {
-            // Single node chain is not supported
-            return;
-        } else if chain.is_extended() {
-            panic!("Pass only full chains to this function");
-        }
+//     fn insert_chain(&mut self, chain: &Arc<ChainPart>) {
+//         if chain.get_previous().is_none() {
+//             // Single node chain is not supported
+//             return;
+//         } else if chain.is_extended() {
+//             panic!("Pass only full chains to this function");
+//         }
 
-        let mut stack = Vec::new();
-        let mut current = chain.clone();
-        while let Some(previous) = current.get_previous() {
-            let mut to_push = previous.clone();
-            std::mem::swap(&mut current, &mut to_push);
-            stack.push(to_push);
-        }
+//         let mut stack = Vec::new();
+//         let mut current = chain.clone();
+//         while let Some(previous) = current.get_previous() {
+//             let mut to_push = previous.clone();
+//             std::mem::swap(&mut current, &mut to_push);
+//             stack.push(to_push);
+//         }
 
-        let mut parent_id = usize::MAX;
-        let (time, thing) = current.get_time_and_thing();
-        let mut node = self.roots.entry(thing).or_insert_with(TreeNode::new);
-        parent_id = node.add_time(parent_id, time);
+//         let mut parent_id = usize::MAX;
+//         let (time, thing) = current.get_time_and_thing();
+//         let mut node = self.roots.entry(thing).or_insert_with(TreeNode::new);
+//         parent_id = node.add_time(parent_id, time);
 
-        while let Some(current) = stack.pop() {
-            let (time, thing) = current.get_time_and_thing();
-            node = node.get_child(thing);
-            node.add_time(parent_id, time);
-        }
-    }
-}
+//         while let Some(current) = stack.pop() {
+//             let (time, thing) = current.get_time_and_thing();
+//             node = node.get_child(thing);
+//             node.add_time(parent_id, time);
+//         }
+//     }
+// }
 
-struct TreeNode {
-    /// (id in parent, time)
-    times: Vec<(usize, Time)>,
-    children: HashMap<Thing, TreeNode>,
-}
+// struct TreeNode {
+//     /// (id in parent, time)
+//     times: Vec<(usize, Time)>,
+//     children: HashMap<Thing, TreeNode>,
+// }
 
-impl TreeNode {
-    fn new() -> Self {
-        Self {
-            times: Vec::new(),
-            children: HashMap::new(),
-        }
-    }
+// impl TreeNode {
+//     fn new() -> Self {
+//         Self {
+//             times: Vec::new(),
+//             children: HashMap::new(),
+//         }
+//     }
 
-    /// Returns the id of this entry
-    fn add_time(&mut self, parent_id: usize, time: Time) -> usize {
-        let id = self.times.len();
-        self.times.push((parent_id, time));
-        id
-    }
+//     /// Returns the id of this entry
+//     fn add_time(&mut self, parent_id: usize, time: Time) -> usize {
+//         let id = self.times.len();
+//         self.times.push((parent_id, time));
+//         id
+//     }
 
-    fn get_child(&mut self, child: Thing) -> &mut Self {
-        self.children.entry(child).or_insert_with(TreeNode::new)
-    }
-}
+//     fn get_child(&mut self, child: Thing) -> &mut Self {
+//         self.children.entry(child).or_insert_with(TreeNode::new)
+//     }
+// }
