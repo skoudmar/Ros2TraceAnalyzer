@@ -111,7 +111,7 @@ To gain **overview of timing in your application**, generate a
 dependency graph and view it with [xdot.py][]:
 
 ```sh
-Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 dependency-graph -o graph/ --thickness
+Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 --dependency-graph -o graph/ --thickness
 xdot graph/dependency_graph.dot
 ```
 
