@@ -577,7 +577,7 @@ impl Processor {
 
         if event.taken {
             let mut subscriber = subscriber.lock().unwrap();
-            if let Some(_old) = subscriber.replace_taken_message(message_arc.clone()) {
+            if let Some(_old) = subscriber.replace_taken_message(message_arc.clone())? {
                 // TODO: Save message to dropped messages
             }
             drop(subscriber);

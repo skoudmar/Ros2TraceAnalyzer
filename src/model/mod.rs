@@ -2,6 +2,7 @@ pub(crate) mod display;
 
 use std::collections::VecDeque;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
@@ -36,6 +37,22 @@ pub struct AlreadyInitializedError {
 impl AlreadyInitializedError {
     pub const fn new(object: &'static str, event_name: &'static str) -> Self {
         Self { object, event_name }
+    }
+}
+
+#[derive(Debug, Error)]
+#[error("Object {object_dbg} has been marked as removed")]
+pub struct RemovedError<T: Debug> {
+    object_dbg: String,
+    type_object: PhantomData<T>,
+}
+
+impl<T: Debug> RemovedError<T> {
+    pub fn new(object: &T) -> Self {
+        Self {
+            object_dbg: format!("{object:?}"),
+            type_object: PhantomData,
+        }
     }
 }
 
@@ -347,8 +364,10 @@ impl Subscriber {
     pub fn replace_taken_message(
         &mut self,
         message: Arc<Mutex<SubscriptionMessage>>,
-    ) -> Option<Arc<Mutex<SubscriptionMessage>>> {
-        assert!(!self.is_removed());
+    ) -> Result<Option<Arc<Mutex<SubscriptionMessage>>>, RemovedError<Self>> {
+        if self.is_removed() {
+            return Err(RemovedError::new(self));
+        }
 
         // We store a maximum of `TAKEN_MESSAGES_MAX` messages. These messages are used by callbacks.
         // Usually, in C++ on single-threaded executor only one message is stored. However, in Rust r2r
