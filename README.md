@@ -203,3 +203,11 @@ Thread 1737158 on steelpick has utilization  2.10334 %
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/
 [xdot.py]: https://github.com/jrfonseca/xdot.py
+
+**Acknowledgment:**
+
+This project was co-financed from the state budget by the Technology
+agency of the Czech Republic under the project TN01000026 *Božek
+Vehicle Engineering National Center of Competence*.
+
+<a href="https://tacr.gov.cz/program/program-narodni-centra-kompetence/"><img width="400" height="109" alt="National Centres of Competence Programme_red_small" src="https://github.com/user-attachments/assets/15931535-8dcb-4d39-9d52-0ad1326fa203" /></a>
