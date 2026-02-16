@@ -149,7 +149,7 @@ impl CallbackDuration {
         durations.sort_unstable();
         let durations_sorted = Sorted::from_sorted(durations).unwrap();
 
-        let duration_quantiles = Args::get()
+        let duration_quantiles = Args::get_analyses_args()
             .quantiles()
             .iter()
             .map(|q| {

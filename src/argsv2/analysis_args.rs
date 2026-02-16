@@ -1,19 +1,8 @@
-use std::borrow::Cow;
-use std::ffi::{CStr, CString};
-use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::{borrow::Cow, ffi::CString, path::{Path, PathBuf}};
 
-use bt2_sys::graph::component::BtComponentType;
-use bt2_sys::query::support_info;
-use clap::builder::ArgPredicate;
-use clap::{Parser, ValueHint};
-use clap_verbosity_flag::{Verbosity, WarnLevel};
-use color_eyre::eyre::ensure;
-use walkdir::WalkDir;
+use clap::{Parser, ValueHint, builder::ArgPredicate};
 
 use crate::statistics::Quantile;
-
-pub static CLI_ARGS: OnceLock<Args> = OnceLock::new();
 
 mod filenames {
     pub const DEPENDENCY_GRAPH: &str = "dependency_graph.dot";
@@ -29,7 +18,7 @@ mod filenames {
 
 #[derive(Debug, Clone, Parser)]
 #[allow(clippy::struct_excessive_bools)]
-pub struct Args {
+pub struct AnalysisArgs {
     /// Run all analyses with their default output filenames
     ///
     /// The output `filename` can be changed by specific analysis option.
@@ -137,19 +126,12 @@ pub struct Args {
     #[arg(value_parser, num_args = 1.., required = true, value_hint = ValueHint::DirPath)]
     trace_paths: Vec<PathBuf>,
 
-    #[command(flatten)]
-    pub verbose: Verbosity<WarnLevel>,
-
     /// Only the directories specified by `TRACE_PATHS` are searched for traces, not their subdirectories.
     #[arg(long)]
     exact_trace_path: bool,
 }
 
-impl Args {
-    pub fn get() -> &'static Args {
-        CLI_ARGS.get_or_init(Self::parse)
-    }
-
+impl AnalysisArgs {
     pub fn trace_paths(&self) -> &[PathBuf] {
         &self.trace_paths
     }
@@ -286,112 +268,18 @@ impl Args {
     }
 }
 
-// Valid trace path should have a weight set to 0.75 so we set the threshold slightly lower.
-const TRACE_PATH_LIKELIHOOD_THRESHOLD: f64 = 0.74;
-
-pub fn is_trace_path(path: &CStr) -> bool {
-    let support_info_query =
-        support_info::Query::new_prepared("ctf", "fs", BtComponentType::Source)
-            .expect("Failed to prepare support info query");
-
-    let path_cstr = CString::new(path.to_str().unwrap()).unwrap();
-
-    let result = support_info_query
-        .query(bt2_sys::query::SupportInfoParams::Directory(&path_cstr))
-        .expect("Failed to query support info");
-
-    result.weight() > TRACE_PATH_LIKELIHOOD_THRESHOLD
-}
-
-pub fn find_trace_paths(search_path: &Path) -> Vec<CString> {
-    let support_info_query =
-        support_info::Query::new_prepared("ctf", "fs", BtComponentType::Source)
-            .expect("Failed to prepare support info query");
-
-    let mut trace_paths = Vec::new();
-    for dir in WalkDir::new(search_path)
-        .into_iter()
-        .filter_entry(|e| e.file_type().is_dir())
-    {
-        let dir = dir.expect("Failed to read directory");
-        let path = dir.path();
-        let path_cstr = CString::new(path.to_str().unwrap()).unwrap();
-
-        let result = support_info_query
-            .query(bt2_sys::query::SupportInfoParams::Directory(&path_cstr))
-            .expect("Failed to query support info");
-
-        if result.weight() > TRACE_PATH_LIKELIHOOD_THRESHOLD {
-            trace_paths.push(path_cstr);
-        }
-    }
-
-    trace_paths
-}
-
-pub fn prepare_trace_paths() -> color_eyre::Result<Vec<CString>> {
-    let trace_paths: Vec<_> = if Args::get().is_exact_path() {
-        Args::get()
-            .trace_paths_cstring()
-            .into_iter()
-            .filter_map(|path| {
-                if is_trace_path(&path) {
-                    Some(path)
-                } else {
-                    None
-                }
-            })
-            .collect()
-    } else {
-        Args::get()
-            .trace_paths()
-            .iter()
-            .map(AsRef::as_ref)
-            .flat_map(find_trace_paths)
-            .collect()
-    };
-
-    ensure!(
-        !trace_paths.is_empty(),
-        "No traces found in the provided paths."
-    );
-
-    println!("Found traces:");
-    for path in &trace_paths {
-        println!("  {}", path.to_string_lossy());
-    }
-
-    Ok(trace_paths)
-}
-
 #[cfg(test)]
 mod test {
-    use clap::{CommandFactory, Parser};
-    use std::path::Path;
+    use std::{borrow::Cow, path::{Path, PathBuf}};
 
-    use super::*;
+    use clap::Parser;
 
-    #[test]
-    #[ignore]
-    fn print_help() {
-        Args::command().print_help().unwrap();
-    }
+    use crate::argsv2::{Args, analysis_args::filenames};
 
-    #[test]
-    #[ignore]
-    fn print_long_help() {
-        Args::command().print_long_help().unwrap();
-    }
-
-    #[test]
-    fn verify_cli() {
-        Args::command().debug_assert();
-    }
-
-    #[test]
     fn test_basic_args_parsing() {
         let args = Args::try_parse_from(["program", "/tmp/trace"])
-            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
+            .as_analysis_args();
 
         assert_eq!(args.trace_paths.len(), 1);
         assert_eq!(args.trace_paths[0], PathBuf::from("/tmp/trace"));
@@ -403,7 +291,8 @@ mod test {
     #[test]
     fn test_multiple_trace_paths() {
         let args = Args::try_parse_from(["program", "/tmp/trace1", "/tmp/trace2"])
-            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
+            .as_analysis_args();
 
         assert_eq!(args.trace_paths.len(), 2);
         assert_eq!(args.trace_paths[0], PathBuf::from("/tmp/trace1"));
@@ -413,7 +302,8 @@ mod test {
     #[test]
     fn test_exact_trace_path_flag() {
         let args = Args::try_parse_from(["program", "--exact-trace-path", "/tmp/trace"])
-            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
+            .as_analysis_args();
 
         assert!(args.exact_trace_path);
         assert!(args.is_exact_path());
@@ -427,7 +317,8 @@ mod test {
         }
 
         let args = Args::try_parse_from(["program", "-o", "/tmp", "/tmp/trace"])
-            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
+            .as_analysis_args();
 
         assert_eq!(args.out_dir, Some(PathBuf::from("/tmp")));
     }
@@ -436,7 +327,8 @@ mod test {
     fn test_quantiles_parsing() {
         let args =
             Args::try_parse_from(["program", "--quantiles", "0,0.25,0.5,0.75,1", "/tmp/trace"])
-                .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+                .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
+                .as_analysis_args();
 
         assert_eq!(args.quantiles.len(), 5);
         assert_eq!(args.quantiles[0], 0.0.try_into().unwrap());
@@ -460,7 +352,8 @@ mod test {
             "--message-latency=custom_latency.json",
             "/tmp/trace",
         ])
-        .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+        .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
+        .as_analysis_args();
 
         assert!(!args.all); // Should be automatically set to false when any analysis flag is used
         assert_eq!(
@@ -513,7 +406,8 @@ mod test {
             "--message-latency=custom_latency.json",
             "/tmp/trace",
         ])
-        .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+        .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
+        .as_analysis_args();
 
         assert!(args.all);
         assert_eq!(
@@ -533,7 +427,8 @@ mod test {
     #[test]
     fn test_implicit_all_flag() {
         let args = Args::try_parse_from(["program", "/tmp/trace"])
-            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+            .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
+            .as_analysis_args();
 
         assert!(args.all);
         assert_eq!(
@@ -562,7 +457,8 @@ mod test {
             "--callback-duration=/callback.json",
             "/tmp/trace",
         ])
-        .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"));
+        .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
+        .as_analysis_args();
 
         assert_eq!(
             args.dependency_graph_path(),
