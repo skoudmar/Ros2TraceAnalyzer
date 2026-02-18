@@ -18,9 +18,9 @@ pub struct ChartArgs {
     #[clap(long, short = 'o', value_name = "OUTPUT", value_hint = ValueHint::AnyPath)]
     output_path: Option<PathBuf>,
 
-    /// Whether the chart should be render from scratch
+    /// Indicates whether the chart should be rendered from scratch.
     ///
-    /// If not, set a preexisting chart will be used only if it matches all parameters.
+    /// If not set, an existing chart will be reused only if it matches all specified parameters.
     #[clap(long, short = 'c', default_value = "false")]
     clean: bool,
 
@@ -61,7 +61,10 @@ pub struct ChartRequest {
     #[command(subcommand)]
     pub plot: ChartVariants,
 
-    /// The size of the rendered image
+    /// The rectangular size of the rendered image in pixels
+    ///
+    /// - For PNG this directly translates to pixels
+    /// - For SVG this is the size in pixels with scale 1.0
     #[clap(long, default_value = "800")]
     pub size: u32,
 
