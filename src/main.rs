@@ -406,7 +406,7 @@ fn main() -> color_eyre::eyre::Result<()> {
 
     let args = Args::get();
     match &args.command {
-        argsv2::TracerCommand::Analyse(analysis_args) => run_analysis(&analysis_args, &args.verbose),
+        argsv2::TracerCommand::Analyze(analysis_args) => run_analysis(&analysis_args, &args.verbose),
         argsv2::TracerCommand::Chart(chart_args) => run_charting(&chart_args),
         argsv2::TracerCommand::Viewer(viewer_args) => run_viewer(&viewer_args),
     }

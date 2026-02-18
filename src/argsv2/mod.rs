@@ -26,32 +26,35 @@ impl Args {
 
     pub fn get_analyses_args() -> &'static analysis_args::AnalysisArgs {
         match &Self::get().command {
-            TracerCommand::Analyse(analysis_args) => &analysis_args,
+            TracerCommand::Analyze(analysis_args) => analysis_args,
             _ => {
-                panic!("Tried to extract Analysis arguments subcommand while Charting subcommand has been provided")
+                panic!("Tried to extract Analysis arguments subcommand but {} subcommand was used", &Self::get().command)
             }
         }
     }
 
-    pub fn as_analysis_args(self) -> analysis_args::AnalysisArgs {
+    pub fn into_analysis_args(self) -> analysis_args::AnalysisArgs {
         match self.command {
-            TracerCommand::Analyse(analysis_args) => analysis_args,
+            TracerCommand::Analyze(analysis_args) => analysis_args,
             _ => {
-                panic!("Tried to extract Analysis arguments subcommand while Charting subcommand has been provided")
+                panic!("Tried to extract Analysis arguments subcommand but {} subcommand was used", self.command)
             }
         }
     }
 }
 
-#[derive(Debug, Subcommand, Clone)]
+#[derive(Debug, Subcommand, Clone, derive_more::Display)]
 pub enum TracerCommand {
-    /// Analyse a Ros2 trace and generate graphs, json or bundle outputs
-    Analyse(analysis_args::AnalysisArgs),
+    /// Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
+    #[display("analyze")]
+    Analyze(analysis_args::AnalysisArgs),
 
-    /// Render a chart of a specific property of a RoS2 interface
+    /// Render a chart of a specific property of a ROS 2 interface
+    #[display("chart")]
     Chart(chart_args::ChartArgs),
     
     /// Start a .dot viewer capable of generating charts on demand
+    #[display("viewer")]
     Viewer(viewer_args::ViewerArgs),
 }
 

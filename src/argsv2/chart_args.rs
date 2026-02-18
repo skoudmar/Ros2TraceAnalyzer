@@ -1,10 +1,10 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use derive_more::Display;
 
 #[derive(Debug, Clone, Args)]
 pub struct ChartArgs {
-    /// Full name of the node to raw the chart for
+    /// Full name of the node to draw the chart for
     ///
     /// The name should include the namespace and node's name
     #[clap(long, short = 'n')]
@@ -18,9 +18,9 @@ pub struct ChartArgs {
     #[clap(long, short = 'o', value_name = "OUTPUT", value_hint = ValueHint::AnyPath)]
     output_path: Option<PathBuf>,
 
-    /// Whether the chart should be rerender from scratch
+    /// Whether the chart should be render from scratch
     ///
-    /// if not set a preexisting chart will be used only if it matches all parameters
+    /// If not, set a preexisting chart will be used only if it matches all parameters.
     #[clap(long, short = 'c', default_value = "false")]
     clean: bool,
 
@@ -33,12 +33,12 @@ impl ChartArgs {
         &self.node
     }
 
-    pub fn input_path(&self) -> &Option<PathBuf> {
-        &self.input_path
+    pub fn input_path(&self) -> Option<&Path> {
+        self.input_path.as_deref()
     }
 
-    pub fn output_path(&self) -> &Option<PathBuf> {
-        &self.output_path
+    pub fn output_path(&self) -> Option<&Path> {
+        self.output_path.as_deref()
     }
 
     pub fn clean(&self) -> bool {
@@ -70,7 +70,7 @@ pub struct ChartRequest {
     pub output_format: ChartOutputFormat
 }
 
-#[derive(Debug, Display, ValueEnum, Clone, Default)]
+#[derive(Debug, Display, ValueEnum, Clone, Copy, Default)]
 pub enum ChartOutputFormat {
     #[default]
     #[display("svg")]
@@ -79,7 +79,7 @@ pub enum ChartOutputFormat {
     PNG
 }
 
-#[derive(Debug, Display, ValueEnum, Clone)]
+#[derive(Debug, Display, ValueEnum, Clone, Copy)]
 pub enum ChartedValue {
     /// Callback execution durations
     #[display("Callback execution time")]
@@ -101,7 +101,7 @@ pub enum ChartedValue {
     MessagesLatency,
 }
 
-#[derive(Debug, Display, Subcommand, Clone)]
+#[derive(Debug, Display, Subcommand, Clone, Copy)]
 pub enum ChartVariants {
     #[display("Histogram")]
     Histogram(HistogramData),
@@ -109,7 +109,7 @@ pub enum ChartVariants {
     Scatter,
 }
 
-#[derive(Debug, Display, Args, Clone)]
+#[derive(Debug, Display, Args, Clone, Copy)]
 #[display("Histogram data {{ bins: {bins:?} }}")]
 pub struct HistogramData {
     /// Number of bins to split the data into
