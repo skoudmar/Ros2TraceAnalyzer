@@ -1,6 +1,8 @@
-use std::{ffi::{CStr, CString}, path::Path};
+use std::ffi::{CStr, CString};
+use std::path::Path;
 
-use bt2_sys::{graph::component::BtComponentType, query::support_info};
+use bt2_sys::graph::component::BtComponentType;
+use bt2_sys::query::support_info;
 use color_eyre::eyre::ensure;
 use walkdir::WalkDir;
 

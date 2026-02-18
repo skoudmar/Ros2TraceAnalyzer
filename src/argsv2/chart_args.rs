@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use derive_more::Display;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Args)]
 pub struct ChartArgs {
@@ -67,7 +67,7 @@ pub struct ChartRequest {
 
     /// The filetype (output format) the rendered image should be in
     #[clap(long, default_value_t = ChartOutputFormat::default())]
-    pub output_format: ChartOutputFormat
+    pub output_format: ChartOutputFormat,
 }
 
 #[derive(Debug, Display, ValueEnum, Clone, Copy, Default)]
@@ -76,7 +76,7 @@ pub enum ChartOutputFormat {
     #[display("svg")]
     SVG,
     #[display("png")]
-    PNG
+    PNG,
 }
 
 #[derive(Debug, Display, ValueEnum, Clone, Copy)]
@@ -114,5 +114,5 @@ pub enum ChartVariants {
 pub struct HistogramData {
     /// Number of bins to split the data into
     #[arg(long, short = 'b', value_name = "BINS")]
-    pub bins: Option<usize>
+    pub bins: Option<usize>,
 }

@@ -17,7 +17,8 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use analysis::AnalysisOutputExt;
-use argsv2::{helpers::prepare_trace_paths, Args};
+use argsv2::helpers::prepare_trace_paths;
+use argsv2::Args;
 use color_eyre::eyre::{Context, Result};
 
 use crate::argsv2::analysis_args::AnalysisArgs;
@@ -252,7 +253,8 @@ impl Analyses {
 fn run_analysis<L: clap_verbosity_flag::LogLevel>(
     args: &AnalysisArgs,
     verbose: &clap_verbosity_flag::Verbosity<L>,
-) -> color_eyre::eyre::Result<()> {    let trace_paths = prepare_trace_paths()?;
+) -> color_eyre::eyre::Result<()> {
+    let trace_paths = prepare_trace_paths()?;
     let trace_paths_cstr: Vec<_> = trace_paths.iter().map(CString::as_c_str).collect();
     let mut iter = event_iterator::ProcessedEventsIter::new(&trace_paths_cstr, verbose);
 
@@ -384,15 +386,11 @@ fn run_analysis<L: clap_verbosity_flag::LogLevel>(
     Ok(())
 }
 
-fn run_charting(
-    args: &ChartArgs,
-) -> color_eyre::eyre::Result<()> {
+fn run_charting(args: &ChartArgs) -> color_eyre::eyre::Result<()> {
     Ok(())
 }
 
-fn run_viewer(
-    args: &ViewerArgs
-) -> color_eyre::eyre::Result<()> {
+fn run_viewer(args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
     Ok(())
 }
 
@@ -406,7 +404,9 @@ fn main() -> color_eyre::eyre::Result<()> {
 
     let args = Args::get();
     match &args.command {
-        argsv2::TracerCommand::Analyze(analysis_args) => run_analysis(&analysis_args, &args.verbose),
+        argsv2::TracerCommand::Analyze(analysis_args) => {
+            run_analysis(&analysis_args, &args.verbose)
+        }
         argsv2::TracerCommand::Chart(chart_args) => run_charting(&chart_args),
         argsv2::TracerCommand::Viewer(viewer_args) => run_viewer(&viewer_args),
     }

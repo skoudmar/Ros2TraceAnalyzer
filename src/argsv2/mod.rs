@@ -5,8 +5,8 @@ use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 pub mod analysis_args;
 pub mod chart_args;
-pub mod viewer_args;
 pub mod helpers;
+pub mod viewer_args;
 
 pub static CLI_ARGS: OnceLock<Args> = OnceLock::new();
 
@@ -28,7 +28,10 @@ impl Args {
         match &Self::get().command {
             TracerCommand::Analyze(analysis_args) => analysis_args,
             _ => {
-                panic!("Tried to extract Analysis arguments subcommand but {} subcommand was used", &Self::get().command)
+                panic!(
+                    "Tried to extract Analysis arguments subcommand but {} subcommand was used",
+                    &Self::get().command
+                )
             }
         }
     }
@@ -37,7 +40,10 @@ impl Args {
         match self.command {
             TracerCommand::Analyze(analysis_args) => analysis_args,
             _ => {
-                panic!("Tried to extract Analysis arguments subcommand but {} subcommand was used", self.command)
+                panic!(
+                    "Tried to extract Analysis arguments subcommand but {} subcommand was used",
+                    self.command
+                )
             }
         }
     }
@@ -52,18 +58,15 @@ pub enum TracerCommand {
     /// Render a chart of a specific property of a ROS 2 interface
     #[display("chart")]
     Chart(chart_args::ChartArgs),
-    
+
     /// Start a .dot viewer capable of generating charts on demand
     #[display("viewer")]
     Viewer(viewer_args::ViewerArgs),
 }
 
-
-
-
 #[cfg(test)]
 mod test {
-    use clap::{CommandFactory};
+    use clap::CommandFactory;
 
     use super::*;
 
@@ -83,5 +86,4 @@ mod test {
     fn verify_cli() {
         Args::command().debug_assert();
     }
-
 }

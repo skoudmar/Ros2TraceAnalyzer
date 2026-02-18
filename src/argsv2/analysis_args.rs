@@ -1,6 +1,9 @@
-use std::{borrow::Cow, ffi::CString, path::{Path, PathBuf}};
+use std::borrow::Cow;
+use std::ffi::CString;
+use std::path::{Path, PathBuf};
 
-use clap::{Parser, ValueHint, builder::ArgPredicate};
+use clap::builder::ArgPredicate;
+use clap::{Parser, ValueHint};
 
 use crate::statistics::Quantile;
 
@@ -270,11 +273,13 @@ impl AnalysisArgs {
 
 #[cfg(test)]
 mod test {
-    use std::{borrow::Cow, path::{Path, PathBuf}};
+    use std::borrow::Cow;
+    use std::path::{Path, PathBuf};
 
     use clap::Parser;
 
-    use crate::argsv2::{Args, analysis_args::filenames};
+    use crate::argsv2::analysis_args::filenames;
+    use crate::argsv2::Args;
 
     #[test]
     fn test_basic_args_parsing() {
@@ -326,10 +331,15 @@ mod test {
 
     #[test]
     fn test_quantiles_parsing() {
-        let args =
-            Args::try_parse_from(["program", "analyze", "--quantiles", "0,0.25,0.5,0.75,1", "/tmp/trace"])
-                .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
-                .into_analysis_args();
+        let args = Args::try_parse_from([
+            "program",
+            "analyze",
+            "--quantiles",
+            "0,0.25,0.5,0.75,1",
+            "/tmp/trace",
+        ])
+        .unwrap_or_else(|e| panic!("Failed to parse arguments: {e}"))
+        .into_analysis_args();
 
         assert_eq!(args.quantiles.len(), 5);
         assert_eq!(args.quantiles[0], 0.0.try_into().unwrap());
@@ -384,7 +394,13 @@ mod test {
     #[test]
     fn test_space_separated_quantiles_rejected() {
         // Space is a value terminator according to the quantiles arg definition
-        let result = Args::try_parse_from(["program", "analyze", "--quantiles", "0.1 0.5 0.9", "/tmp/trace"]);
+        let result = Args::try_parse_from([
+            "program",
+            "analyze",
+            "--quantiles",
+            "0.1 0.5 0.9",
+            "/tmp/trace",
+        ]);
 
         // This should not work due to terminator behavior
         assert!(

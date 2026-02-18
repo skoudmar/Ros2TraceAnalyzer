@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use clap::{Args, ValueHint};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Args)]
 pub struct ViewerArgs {
@@ -16,5 +16,5 @@ pub struct ViewerArgs {
 
     /// The directory with the datafiles (defaults to CWD)
     #[clap(long, short = 'd', value_name = "DATA", value_hint = ValueHint::DirPath)]
-    pub data: Option<PathBuf>
+    pub data: Option<PathBuf>,
 }
