@@ -1,0 +1,81 @@
+name: Extended CI (stable, beta, nightly, MSRV)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      run_reason:
+        description: "Optional note for why this run was started"
+        required: false
+        default: ""
+      msrv:
+        description: "MSRV toolchain to test (e.g. 1.82.0)"
+        required: false
+        default: "1.82.0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: >
+    ${{ github.workflow }}-
+    ${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gated-tests:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    name: ${{ matrix.label }} (${{ matrix.toolchain }})
+    runs-on: ubuntu-latest
+
+    # Require approval only for PR runs.
+    environment: ${{ github.event_name == 'pull_request' && 'ci-approval' || '' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: "stable test"
+            toolchain: stable
+            do_test: true
+            do_build: false
+
+          - label: "MSRV build+test"
+            toolchain: ${{ inputs.msrv || '1.82.0' }}
+            do_test: true
+            do_build: true
+
+          - label: "beta build+test"
+            toolchain: beta
+            do_test: true
+            do_build: true
+
+          - label: "nightly build+test"
+            toolchain: nightly
+            do_test: true
+            do_build: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libbabeltrace2-dev
+
+      - name: Install Rust (${{ matrix.toolchain }})
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: cargo build
+        if: ${{ matrix.do_build }}
+        run: cargo build --locked
+
+      - name: cargo test
+        if: ${{ matrix.do_test }}
+        run: cargo test --locked

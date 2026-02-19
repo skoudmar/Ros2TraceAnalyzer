@@ -1,0 +1,51 @@
+name: fmt (nightly)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rustfmt.toml"
+      - ".rustfmt.toml"
+  push:
+    branches:
+      - "**"
+    paths:
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rustfmt.toml"
+      - ".rustfmt.toml"
+  workflow_dispatch:
+    inputs:
+      run_reason:
+        description: "Optional note for why this run was started"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: >
+    ${{ github.workflow }}-
+    ${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fmt:
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (nightly + rustfmt)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          components: rustfmt
+
+      - name: cargo fmt --check
+        run: cargo fmt --check
