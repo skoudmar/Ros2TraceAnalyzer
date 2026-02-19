@@ -47,7 +47,7 @@ impl std::fmt::Display for DisplayDurationStats<'_> {
 
         let sorted = Sorted::from_unsorted(self.0);
         write!(f, "count={}", sorted.len())?;
-        for q in Args::get().quantiles() {
+        for q in Args::get_analyses_args().quantiles() {
             let quantile = *sorted.quantile(*q).unwrap();
             write!(f, "{}{}={}", self.1, q, DurationDisplayImprecise(quantile))?;
         }
