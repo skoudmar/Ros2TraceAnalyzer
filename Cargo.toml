@@ -22,7 +22,8 @@ env_logger = "0.11.5"
 clap-verbosity-flag = "3.0.4"
 colorgrad = "0.8.0"
 serde_json = "1.0.133"
-
+postcard = { version = "1.1.3", features = [ "alloc" ] }
+rusqlite = "0.38.0"
 
 [workspace]
 members = ["bt2-derive", "bt2-sys"]

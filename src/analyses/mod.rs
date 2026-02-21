@@ -6,6 +6,7 @@ use color_eyre::eyre::Context;
 use crate::analyses::analysis::AnalysisOutputExt;
 use crate::analyses::event_iterator::get_buf_writer_for_path;
 use crate::argsv2::analysis_args::AnalysisArgs;
+use crate::utils::binary_sql_store::BinarySQLStore;
 
 pub mod analysis;
 pub mod event_iterator;
@@ -94,86 +95,123 @@ impl Analyses {
     }
 
     pub fn save_output(&self, args: &AnalysisArgs) -> color_eyre::eyre::Result<()> {
-        if let Some(path) = args.message_latency_path() {
-            let analysis = self.message_latency_analysis.as_ref().unwrap();
-            analysis.write_json_to_output_dir(&path)?;
+        if args
+            .output_format()
+            .contains(&crate::argsv2::analysis_args::OutputFormat::Binary)
+            && let Some(path) = args.binary_bundle_path()
+        {
+            let store = BinarySQLStore::new(path.to_path_buf())?;
+
+            if let Some(a) = &self.message_latency_analysis {
+                a.write_to_binary(&store, "message_latencies")?;
+            }
+
+            if let Some(a) = &self.callback_analysis {
+                a.write_to_binary(&store, "callback_duration")?;
+            }
+
+            if let Some(a) = &self.dependency_graph {
+                store.write("activation_delays", a.activation_delays())?;
+                store.write("publication_delays", a.publication_delays())?;
+                store.write("message_delays", a.messages_delays())?;
+            }
         }
 
-        if let Some(path) = args.callback_duration_path() {
-            let analysis = self.callback_analysis.as_ref().unwrap();
-            analysis.write_json_to_output_dir(&path)?;
+        if args
+            .output_format()
+            .contains(&crate::argsv2::analysis_args::OutputFormat::Dot)
+        {
+            if let Some(path) = args.dependency_graph_path() {
+                let analysis = self.dependency_graph.as_ref().unwrap();
+                let dot_output =
+                    analysis.display_as_dot(args.color(), args.thickness(), args.min_multiplier());
+                let mut writer = get_buf_writer_for_path(&path)?;
+                writer
+                    .write_fmt(format_args!("{dot_output}"))
+                    .wrap_err("Failed to write dependency graph")?;
+            }
+
+            if let Some(path) = args.callback_dependency_path() {
+                let analysis = self.callback_dependency_analysis.as_ref().unwrap();
+
+                let graph = analysis.get_graph().unwrap();
+                let mut writer = get_buf_writer_for_path(&path)?;
+                writer
+                    .write_fmt(format_args!("{}", graph.as_dot()))
+                    .wrap_err("Failed to write dependency graph")?;
+            }
         }
 
-        if let Some(path) = args.callback_publications_path() {
-            let analysis = self.callback_dependency_analysis.as_ref().unwrap();
-            let analysis = analysis.get_publication_in_callback_analysis();
-            let mut writer = get_buf_writer_for_path(&path)?;
-            analysis
-                .write_stats(&mut writer)
-                .wrap_err("Failed to write publication in callback stats")?;
+        if args
+            .output_format()
+            .contains(&crate::argsv2::analysis_args::OutputFormat::Json)
+        {
+            if let Some(path) = args.message_latency_path() {
+                let analysis = self.message_latency_analysis.as_ref().unwrap();
+                analysis.write_json_to_output_dir(&path)?;
+            }
 
-            // TODO: Implement JSON output
-            // analysis.write_json_to_output_dir(&path, None)?;
+            if let Some(path) = args.callback_duration_path() {
+                let analysis = self.callback_analysis.as_ref().unwrap();
+                analysis.write_json_to_output_dir(&path)?;
+            }
+
+            if let Some(path) = args.message_take_to_callback_latency_path() {
+                let analysis = self.message_take_to_callback_analysis.as_ref().unwrap();
+                analysis
+                    .write_json_to_output_dir(&path)
+                    .wrap_err("Failed to write message take to callback latency stats")?;
+            }
+
+            if let Some(path) = args.spin_duration_path() {
+                let analysis = self.spin_duration_analysis.as_ref().unwrap();
+                analysis
+                    .write_json_to_output_dir(&path)
+                    .wrap_err("Failed to write spin duration stats")?;
+            }
         }
 
-        if let Some(path) = args.callback_dependency_path() {
-            let analysis = self.callback_dependency_analysis.as_ref().unwrap();
+        if args
+            .output_format()
+            .contains(&crate::argsv2::analysis_args::OutputFormat::Text)
+        {
+            if let Some(path) = args.callback_publications_path() {
+                let analysis = self.callback_dependency_analysis.as_ref().unwrap();
+                let analysis = analysis.get_publication_in_callback_analysis();
+                let mut writer = get_buf_writer_for_path(&path)?;
+                analysis
+                    .write_stats(&mut writer)
+                    .wrap_err("Failed to write publication in callback stats")?;
 
-            let graph = analysis.get_graph().unwrap();
-            let mut writer = get_buf_writer_for_path(&path)?;
-            writer
-                .write_fmt(format_args!("{}", graph.as_dot()))
-                .wrap_err("Failed to write dependency graph")?;
-        }
+                // TODO: Implement JSON output
+                // analysis.write_json_to_output_dir(&path, None)?;
+            }
 
-        if let Some(path) = args.message_take_to_callback_latency_path() {
-            let analysis = self.message_take_to_callback_analysis.as_ref().unwrap();
-            analysis
-                .write_json_to_output_dir(&path)
-                .wrap_err("Failed to write message take to callback latency stats")?;
-        }
+            if let Some(path) = args.utilization_path() {
+                let analysis = self.callback_analysis.as_ref().unwrap();
+                let utilization = analysis::Utilization::new(analysis);
 
-        if let Some(path) = args.utilization_path() {
-            let analysis = self.callback_analysis.as_ref().unwrap();
-            let utilization = analysis::Utilization::new(analysis);
+                let mut writer = get_buf_writer_for_path(&path)?;
+                utilization
+                    .write_stats(&mut writer, args.utilization_quantile())
+                    .wrap_err("Failed to write utilization stats")?;
 
-            let mut writer = get_buf_writer_for_path(&path)?;
-            utilization
-                .write_stats(&mut writer, args.utilization_quantile())
-                .wrap_err("Failed to write utilization stats")?;
+                // TODO: Implement JSON output
+                // utilization.write_json_to_output_dir(&path, None)?;
+            }
 
-            // TODO: Implement JSON output
-            // utilization.write_json_to_output_dir(&path, None)?;
-        }
+            if let Some(path) = args.real_utilization_path() {
+                let analysis = self.callback_analysis.as_ref().unwrap();
+                let utilization = analysis::Utilization::new(analysis);
 
-        if let Some(path) = args.real_utilization_path() {
-            let analysis = self.callback_analysis.as_ref().unwrap();
-            let utilization = analysis::Utilization::new(analysis);
+                let mut writer = get_buf_writer_for_path(&path)?;
+                utilization
+                    .write_stats_real(&mut writer)
+                    .wrap_err("Failed to write real utilization stats")?;
 
-            let mut writer = get_buf_writer_for_path(&path)?;
-            utilization
-                .write_stats_real(&mut writer)
-                .wrap_err("Failed to write real utilization stats")?;
-
-            // TODO: Implement JSON output
-            // utilization.write_json_to_output_dir(&path)?;
-        }
-
-        if let Some(path) = args.spin_duration_path() {
-            let analysis = self.spin_duration_analysis.as_ref().unwrap();
-            analysis
-                .write_json_to_output_dir(&path)
-                .wrap_err("Failed to write spin duration stats")?;
-        }
-
-        if let Some(path) = args.dependency_graph_path() {
-            let analysis = self.dependency_graph.as_ref().unwrap();
-            let dot_output =
-                analysis.display_as_dot(args.color(), args.thickness(), args.min_multiplier());
-            let mut writer = get_buf_writer_for_path(&path)?;
-            writer
-                .write_fmt(format_args!("{dot_output}"))
-                .wrap_err("Failed to write dependency graph")?;
+                // TODO: Implement JSON output
+                // utilization.write_json_to_output_dir(&path)?;
+            }
         }
 
         Ok(())
