@@ -7,7 +7,7 @@ use serde::Serialize;
 use crate::analysis::utils::DisplayDurationStats;
 use crate::model::display::get_node_name_from_weak;
 use crate::model::{Publisher, Subscriber, SubscriptionMessage};
-use crate::processed_events::{ros2, Event, FullEvent};
+use crate::processed_events::{Event, FullEvent, ros2};
 use crate::utils::{DurationDisplayImprecise, Known};
 
 use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};

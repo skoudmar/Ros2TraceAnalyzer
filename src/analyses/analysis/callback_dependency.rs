@@ -4,13 +4,13 @@ use std::sync::{Arc, Mutex};
 use graph::Graph;
 
 use crate::model::{Callback, CallbackType};
-use crate::processed_events::{ros2, Event, FullEvent};
+use crate::processed_events::{Event, FullEvent, ros2};
 
 use super::{ArcMutWrapper, EventAnalysis, PublicationInCallback};
 
 pub mod graph {
-    use crate::model::display::DisplayCallbackSummary;
     use crate::model::Callback;
+    use crate::model::display::DisplayCallbackSummary;
 
     use crate::visualization::graphviz_export;
     use std::sync::{Arc, Mutex};

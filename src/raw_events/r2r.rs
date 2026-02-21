@@ -1,7 +1,7 @@
 use bt2_derive::TryFromBtFieldConst;
 use bt2_sys::event::BtEventConst;
-use derive_more::derive::From;
 use derive_more::Debug;
+use derive_more::derive::From;
 
 use super::FromBtEvent;
 

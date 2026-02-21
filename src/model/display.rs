@@ -110,8 +110,14 @@ impl std::fmt::Display for Subscriber {
             .as_ref()
             .map(|callback| DisplayArcMutex::new(callback, f.alternate()));
 
-        write!(f, "(topic={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node}, callback={callback:#})",
-            self.topic_name.as_ref().map(DisplayDebug), self.rmw_handle, self.rcl_handle, self.rclcpp_handle, self.queue_depth,
+        write!(
+            f,
+            "(topic={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, node={node}, callback={callback:#})",
+            self.topic_name.as_ref().map(DisplayDebug),
+            self.rmw_handle,
+            self.rcl_handle,
+            self.rclcpp_handle,
+            self.queue_depth,
         )
     }
 }
@@ -136,8 +142,14 @@ impl std::fmt::Display for DisplaySubscriberWithoutNode<'_> {
             .as_ref()
             .map(|callback| DisplayArcMutex::new(callback, false));
 
-        write!(f, "(topic={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, callback={callback:#})",
-            self.0.topic_name.as_ref().map(DisplayDebug), self.0.rmw_handle, self.0.rcl_handle, self.0.rclcpp_handle, self.0.queue_depth,
+        write!(
+            f,
+            "(topic={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, queue_depth={}, callback={callback:#})",
+            self.0.topic_name.as_ref().map(DisplayDebug),
+            self.0.rmw_handle,
+            self.0.rcl_handle,
+            self.0.rclcpp_handle,
+            self.0.queue_depth,
         )
     }
 }
@@ -153,8 +165,13 @@ impl std::fmt::Display for Service {
             .as_ref()
             .map(|callback| DisplayArcMutex::new(callback, f.alternate()));
 
-        write!(f, "(service={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, node={node}, callback={callback:#})",
-            self.name.as_ref().map(DisplayDebug), self.rmw_handle, self.rcl_handle, self.rclcpp_handle,
+        write!(
+            f,
+            "(service={}, handles={{rmw={:x}, rcl={:x}, rclcpp={:x}}}, node={node}, callback={callback:#})",
+            self.name.as_ref().map(DisplayDebug),
+            self.rmw_handle,
+            self.rcl_handle,
+            self.rclcpp_handle,
         )
     }
 }
