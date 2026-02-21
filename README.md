@@ -21,8 +21,8 @@ The Ros2TraceAnalyzer can then be compiled and installed using `cargo` by runnin
 cargo install --git https://github.com/skoudmar/Ros2TraceAnalyzer.git
 ```
 
-Compilation should work with at least Rust version 1.83. Currently, we
-don't make any guarantees for minimum supported Rust version.
+Compilation should work with at least Rust version 1.90. Currently, we
+don't make any guarantees for minimum supported Rust version (MSRV).
 
 ## Usage
 
