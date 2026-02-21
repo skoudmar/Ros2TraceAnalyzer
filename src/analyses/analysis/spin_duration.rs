@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::analysis::utils::DisplayDurationStats;
+use crate::analyses::analysis::utils::DisplayDurationStats;
 use crate::model::Node;
 use crate::processed_events::{self, Event};
 use crate::utils::DurationDisplayImprecise;
@@ -34,6 +34,16 @@ impl SpinDuration {
             );
         }
     }
+
+    fn export(&self) -> Vec<SpinDurationEntryExport> {
+        self.processing_durations
+            .iter()
+            .map(|(node, durations)| SpinDurationEntryExport {
+                node: node.0.lock().unwrap().get_full_name().unwrap().to_owned(),
+                spin_duration: durations.clone(),
+            })
+            .collect()
+    }
 }
 
 impl EventAnalysis for SpinDuration {
@@ -64,23 +74,18 @@ impl EventAnalysis for SpinDuration {
     fn finalize(&mut self) {}
 }
 
-#[derive(Debug, serde::Serialize)]
-struct SpinDurationEntry {
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct SpinDurationEntryExport {
     node: String,
     spin_duration: Vec<i64>,
 }
 
 impl AnalysisOutput for SpinDuration {
     fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
-        let spin_durations: Vec<SpinDurationEntry> = self
-            .processing_durations
-            .iter()
-            .map(|(node, durations)| SpinDurationEntry {
-                node: node.0.lock().unwrap().get_full_name().unwrap().to_owned(),
-                spin_duration: durations.clone(),
-            })
-            .collect();
+        serde_json::to_writer(file, &self.export())
+    }
 
-        serde_json::to_writer(file, &spin_durations)
+    fn get_binary_output(&self) -> impl serde::Serialize {
+        self.export()
     }
 }

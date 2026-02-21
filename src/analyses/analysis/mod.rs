@@ -5,6 +5,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use crate::processed_events::FullEvent;
+use crate::utils::binary_sql_store::{BinarySQLStore, BinarySQLStoreError};
 use derive_more::derive::From;
 
 mod utils;
@@ -50,6 +51,8 @@ pub trait EventAnalysis {
 
 pub trait AnalysisOutput {
     fn write_json(&self, file: &mut BufWriter<File>) -> serde_json::Result<()>;
+
+    fn get_binary_output(&self) -> impl serde::Serialize;
 }
 
 pub trait AnalysisOutputExt: AnalysisOutput {
@@ -58,6 +61,15 @@ pub trait AnalysisOutputExt: AnalysisOutput {
         let out_file = File::create(path)?;
         let mut out_file = BufWriter::new(out_file);
         self.write_json(&mut out_file).map_err(Into::into)
+    }
+
+    fn write_to_binary(
+        &self,
+        store: &BinarySQLStore,
+        store_name: &str,
+    ) -> Result<(), BinarySQLStoreError> {
+        let data = self.get_binary_output();
+        store.write(store_name, data)
     }
 }
 

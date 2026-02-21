@@ -4,13 +4,14 @@ use std::sync::{Arc, Mutex};
 
 use crate::analysis::utils::DisplayDurationStats;
 use crate::events_common::Context;
+use crate::model::display::get_node_name_from_weak;
 use crate::model::{
     self, Callback, CallbackCaller, CallbackInstance, CallbackTrigger, Publisher, Service,
     Subscriber, Time, Timer,
 };
 use crate::processed_events::{Event, FullEvent, r2r, ros2};
 use crate::statistics::Sorted;
-use crate::utils::{DisplayDuration, Known};
+use crate::utils::{DisplayDuration, Known, WeakKnown};
 use crate::visualization::COLOR_GRADIENT;
 use crate::visualization::graphviz_export::{self, NodeShape};
 
@@ -486,6 +487,113 @@ impl DependencyGraph {
             edge_data.latencies.push(latency);
         }
     }
+}
+
+impl DependencyGraph {
+    pub fn activation_delays(&self) -> Vec<ActivationDelayExport> {
+        let timers = self.timer_nodes.iter().map(|(k, v)| {
+            let n = k.0.lock().unwrap();
+            ActivationDelayExport {
+                interface: format!("Timer({})", n.get_period().unwrap_or(0).to_string()),
+                node: n
+                    .get_node()
+                    .map_or(WeakKnown::Unknown, |node_weak| {
+                        get_node_name_from_weak(&node_weak.get_weak())
+                    })
+                    .unwrap_or("".to_owned()),
+                activation_delays: v.activation_delay.clone(),
+            }
+        });
+
+        let callbacks = self.callback_nodes.iter().map(|(k, v)| {
+            let n = k.0.lock().unwrap();
+            ActivationDelayExport {
+                interface: format!(
+                    "Callback({})",
+                    match n.get_caller() {
+                        Some(c) => match c {
+                            CallbackCaller::Subscription(arc_weak) => format!(
+                                "Subscriber(\"{}\")",
+                                arc_weak.get_arc().unwrap().lock().unwrap().get_topic()
+                            ),
+                            v => v.to_string(),
+                        },
+                        None => todo!(),
+                    }
+                ),
+                node: n
+                    .get_node()
+                    .map_or(WeakKnown::Unknown, |node_weak| {
+                        get_node_name_from_weak(&node_weak.get_weak())
+                    })
+                    .unwrap_or("".to_owned()),
+                activation_delays: v.activation_delay.clone(),
+            }
+        });
+
+        timers.chain(callbacks).collect()
+    }
+
+    pub fn publication_delays(&self) -> Vec<PublicationDelayExport> {
+        self.publisher_nodes
+            .iter()
+            .map(|(k, v)| {
+                let n = k.0.lock().unwrap();
+
+                PublicationDelayExport {
+                    interface: format!("Publisher({})", n.get_topic().to_string()),
+                    node: n
+                        .get_node()
+                        .map_or(WeakKnown::Unknown, |node_weak| {
+                            get_node_name_from_weak(&node_weak.get_weak())
+                        })
+                        .unwrap_or("".to_owned()),
+                    publication_delays: v.publication_delay.clone(),
+                }
+            })
+            .collect()
+    }
+
+    pub fn messages_delays(&self) -> Vec<MessagesDelayExport> {
+        self.subscriber_nodes
+            .iter()
+            .map(|(k, v)| {
+                let n = k.0.lock().unwrap();
+
+                MessagesDelayExport {
+                    interface: format!("Subscriber({})", n.get_topic().to_string()),
+                    node: n
+                        .get_node()
+                        .map_or(WeakKnown::Unknown, |node_weak| {
+                            get_node_name_from_weak(&node_weak.get_weak())
+                        })
+                        .unwrap_or("".to_owned()),
+                    messages_delays: v.take_delay.clone(),
+                }
+            })
+            .collect()
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct ActivationDelayExport {
+    pub interface: String,
+    pub node: String,
+    pub activation_delays: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct PublicationDelayExport {
+    pub interface: String,
+    pub node: String,
+    pub publication_delays: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct MessagesDelayExport {
+    pub interface: String,
+    pub node: String,
+    pub messages_delays: Vec<i64>,
 }
 
 impl EventAnalysis for DependencyGraph {

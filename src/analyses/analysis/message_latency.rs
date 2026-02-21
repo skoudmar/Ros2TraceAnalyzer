@@ -2,9 +2,9 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use crate::analysis::utils::DisplayDurationStats;
+use crate::analyses::analysis::utils::DisplayDurationStats;
 use crate::model::display::get_node_name_from_weak;
 use crate::model::{Publisher, Subscriber, SubscriptionMessage};
 use crate::processed_events::{Event, FullEvent, ros2};
@@ -251,39 +251,54 @@ impl AnalysisOutput for MessageLatency {
         let stats: Vec<MessageLatencyExport> = stats.into_iter().map(Into::into).collect();
         serde_json::to_writer(file, &stats)
     }
+
+    fn get_binary_output(&self) -> impl Serialize {
+        self.calculate_stats()
+            .into_iter()
+            .map(Into::<MessageLatencyExport>::into)
+            .collect::<Vec<_>>()
+    }
 }
 
-#[derive(Debug, Serialize)]
-struct MessageLatencyExport {
-    topic: String,
-    subscriber_node: String,
-    publisher_node: String,
-    latencies: Vec<i64>,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MessageLatencyExport {
+    pub topic: String,
+    pub source_node: String,
+    pub target_node: String,
+    pub latencies: Vec<i64>,
 }
 
 impl From<MessageLatencyStats> for MessageLatencyExport {
     fn from(value: MessageLatencyStats) -> Self {
-        let subscriber = value.subscriber.lock().unwrap();
-        let subscriber_node = subscriber
-            .get_node()
-            .map(|node| get_node_name_from_weak(&node.get_weak()).unwrap_or("Unknown".to_string()))
-            .unwrap_or("Unknown".to_string());
-        let publisher_node = value.publisher.as_ref().map_or_else(
-            || "Unknown".to_string(),
-            |p| {
-                let publisher = p.lock().unwrap().get_node();
-                publisher
-                    .map(|node| {
-                        get_node_name_from_weak(&node.get_weak()).unwrap_or("Unknown".to_string())
+        let target_node = value
+            .subscriber
+            .lock()
+            .map(|s| {
+                s.get_node().map(|v| {
+                    get_node_name_from_weak(&v.get_weak()).unwrap_or("Unknown".to_string())
+                })
+            })
+            .map(|v| v.to_string())
+            .unwrap_or("Unknown".into());
+
+        let source_node = value
+            .publisher
+            .map(|p| {
+                p.lock()
+                    .map(|s| {
+                        s.get_node().map(|v| {
+                            get_node_name_from_weak(&v.get_weak()).unwrap_or("Unknown".to_string())
+                        })
                     })
-                    .unwrap_or("Unknown".to_string())
-            },
-        );
+                    .map(|v| v.to_string())
+                    .unwrap_or("Unknown".into())
+            })
+            .unwrap_or("Unknown".into());
 
         Self {
             topic: value.topic,
-            subscriber_node,
-            publisher_node,
+            source_node,
+            target_node,
             latencies: value.latencies,
         }
     }

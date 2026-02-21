@@ -1,4 +1,4 @@
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::vec::Vec;
@@ -284,5 +284,44 @@ impl AnalysisOutput for CallbackDuration {
     fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
         let records = self.get_records();
         serde_json::to_writer(file, &records)
+    }
+
+    fn get_binary_output(&self) -> impl Serialize {
+        self.get_records()
+            .iter()
+            .map(|v| RecordExport::from(v))
+            .collect::<Vec<_>>()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecordExport {
+    pub node: String,
+    pub caller: String,
+
+    pub durations: Vec<i64>,
+    pub inter_arrival_times: Vec<i64>,
+}
+
+impl From<&Record> for RecordExport {
+    fn from(value: &Record) -> Self {
+        Self {
+            node: value.node.clone(),
+
+            caller: format!(
+                "Callback({}({}))",
+                match value.caller_type.as_str() {
+                    "Subscription" => "Subscriber",
+                    v => v,
+                },
+                match value.caller_type.as_str() {
+                    "Timer" => value.caller_param.to_string(),
+                    _ => format!("\"{}\"", value.caller_param.escape_default()),
+                }
+            ),
+
+            durations: value.durations.clone(),
+            inter_arrival_times: value.inter_arrival_times.clone(),
+        }
     }
 }

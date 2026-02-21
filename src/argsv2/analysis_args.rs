@@ -3,7 +3,7 @@ use std::ffi::CString;
 use std::path::{Path, PathBuf};
 
 use clap::builder::ArgPredicate;
-use clap::{Parser, ValueHint};
+use clap::{Parser, ValueEnum, ValueHint};
 
 use crate::statistics::Quantile;
 
@@ -17,6 +17,8 @@ mod filenames {
     pub const UTILIZATION: &str = "utilization.txt";
     pub const REAL_UTILIZATION: &str = "real_utilization.txt";
     pub const SPIN_DURATION: &str = "spin_duration.json";
+
+    pub const BINARY_BUNDLE: &str = "binary_bundle.sqlite";
 }
 
 #[derive(Debug, Clone, Parser)]
@@ -78,6 +80,10 @@ pub struct AnalysisArgs {
     #[arg(long, value_name = "FILENAME", default_missing_value = filenames::SPIN_DURATION, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::SPIN_DURATION))]
     spin_duration: Option<PathBuf>,
 
+    /// Filename or directory of the binary bundle output
+    #[arg(long, value_name = "FILENAME", default_value = filenames::BINARY_BUNDLE, num_args = 0..=1)]
+    binary_bundle: Option<PathBuf>,
+
     /// Directory to write output files
     ///
     /// If not provided, the current working directory is used.
@@ -85,6 +91,12 @@ pub struct AnalysisArgs {
     /// When analysis output filename is specified and it is not an absolute path, it is resolved relative to `OUT_DIR`.
     #[arg(long, short = 'o', value_hint = ValueHint::DirPath)]
     out_dir: Option<PathBuf>,
+
+    /// Output formats to save the analyses as
+    ///
+    /// Defaults to only 'bundle'
+    #[arg(long, short = 'f', value_delimiter = ',', default_values_t = vec![OutputFormat::Binary])]
+    output_format: Vec<OutputFormat>,
 
     /// Quantiles to compute for the latency and duration analysis.
     ///
@@ -250,6 +262,16 @@ impl AnalysisArgs {
             .map(|p| self.concatenate_with_out_path(p))
     }
 
+    pub fn binary_bundle_path(&self) -> Option<Cow<Path>> {
+        self.binary_bundle
+            .as_ref()
+            .map(|p| self.concatenate_with_out_path(p))
+    }
+
+    pub fn output_format(&self) -> &[OutputFormat] {
+        &self.output_format
+    }
+
     pub fn quantiles(&self) -> &[Quantile] {
         &self.quantiles
     }
@@ -269,6 +291,18 @@ impl AnalysisArgs {
     pub const fn min_multiplier(&self) -> f64 {
         self.min_multiplier
     }
+}
+
+#[derive(Clone, Debug, derive_more::Display, PartialEq, ValueEnum)]
+pub enum OutputFormat {
+    #[display("binary")]
+    Binary,
+    #[display("json")]
+    Json,
+    #[display("dot")]
+    Dot,
+    #[display("txt")]
+    Text,
 }
 
 #[cfg(test)]
