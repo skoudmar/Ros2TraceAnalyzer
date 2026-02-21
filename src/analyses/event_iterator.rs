@@ -28,13 +28,13 @@ pub(crate) struct ProcessedEventsIter<'a> {
     pub(crate) other_messages: usize,
 }
 
-pub(crate) fn convert(level: clap_verbosity_flag::Level) -> LogLevel {
+pub(crate) fn convert(level: clap_verbosity_flag::log::Level) -> LogLevel {
     match level {
-        clap_verbosity_flag::Level::Error => LogLevel::Error,
-        clap_verbosity_flag::Level::Warn => LogLevel::Warning,
-        clap_verbosity_flag::Level::Info => LogLevel::Info,
-        clap_verbosity_flag::Level::Debug => LogLevel::Debug,
-        clap_verbosity_flag::Level::Trace => LogLevel::Trace,
+        clap_verbosity_flag::log::Level::Error => LogLevel::Error,
+        clap_verbosity_flag::log::Level::Warn => LogLevel::Warning,
+        clap_verbosity_flag::log::Level::Info => LogLevel::Info,
+        clap_verbosity_flag::log::Level::Debug => LogLevel::Debug,
+        clap_verbosity_flag::log::Level::Trace => LogLevel::Trace,
     }
 }
 
@@ -46,7 +46,7 @@ impl<'a> ProcessedEventsIter<'a> {
         let log_level = convert(
             verbosity
                 .log_level()
-                .unwrap_or(clap_verbosity_flag::Level::Error),
+                .unwrap_or(clap_verbosity_flag::log::Level::Error),
         );
         Self {
             iter: MessageIterator::new(trace_paths, log_level),
