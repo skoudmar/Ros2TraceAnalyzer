@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use crate::events_common::Context;
 use crate::model::display::DisplayCallbackSummary;
 use crate::model::{Callback, CallbackInstance, PublicationMessage, Publisher};
-use crate::processed_events::{ros2, Event, FullEvent};
+use crate::processed_events::{Event, FullEvent, ros2};
 use crate::utils::DisplayDebug;
 
 use super::{ArcMutWrapper, EventAnalysis};

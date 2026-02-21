@@ -5,9 +5,9 @@ use std::vec::Vec;
 
 use crate::argsv2::Args;
 use crate::events_common::Context;
-use crate::model::display::{get_node_name_from_weak, DisplayCallbackSummary};
+use crate::model::display::{DisplayCallbackSummary, get_node_name_from_weak};
 use crate::model::{Callback, CallbackInstance, Time};
-use crate::processed_events::{ros2, Event, FullEvent};
+use crate::processed_events::{Event, FullEvent, ros2};
 use crate::statistics::{Quantile, Sorted};
 use crate::utils::{DurationDisplayImprecise, WeakKnown};
 

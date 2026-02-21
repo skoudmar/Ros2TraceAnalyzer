@@ -278,8 +278,8 @@ mod test {
 
     use clap::Parser;
 
-    use crate::argsv2::analysis_args::filenames;
     use crate::argsv2::Args;
+    use crate::argsv2::analysis_args::filenames;
 
     #[test]
     fn test_basic_args_parsing() {

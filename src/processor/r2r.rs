@@ -1,5 +1,5 @@
-use color_eyre::eyre::Context as _;
 use color_eyre::Result;
+use color_eyre::eyre::Context as _;
 
 use crate::events_common::Context;
 use crate::model::{SpinInstance, Time};

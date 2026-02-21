@@ -1003,10 +1003,11 @@ impl Callback {
     }
 
     pub fn mark_removed(&mut self) {
-        assert!(self
-            .get_caller()
-            .map_or(Some(true), CallbackCaller::is_removed)
-            .unwrap_or(true));
+        assert!(
+            self.get_caller()
+                .map_or(Some(true), CallbackCaller::is_removed)
+                .unwrap_or(true)
+        );
         self.is_removed = true;
     }
 

@@ -13,8 +13,8 @@ mod visualization;
 
 use std::ffi::CString;
 
-use argsv2::helpers::prepare_trace_paths;
 use argsv2::Args;
+use argsv2::helpers::prepare_trace_paths;
 
 use crate::argsv2::analysis_args::AnalysisArgs;
 use crate::argsv2::chart_args::ChartArgs;

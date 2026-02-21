@@ -8,11 +8,11 @@ use crate::model::{
     self, Callback, CallbackCaller, CallbackInstance, CallbackTrigger, Publisher, Service,
     Subscriber, Time, Timer,
 };
-use crate::processed_events::{r2r, ros2, Event, FullEvent};
+use crate::processed_events::{Event, FullEvent, r2r, ros2};
 use crate::statistics::Sorted;
 use crate::utils::{DisplayDuration, Known};
-use crate::visualization::graphviz_export::{self, NodeShape};
 use crate::visualization::COLOR_GRADIENT;
+use crate::visualization::graphviz_export::{self, NodeShape};
 
 use super::{ArcMutWrapper, EventAnalysis};
 

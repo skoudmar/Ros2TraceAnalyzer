@@ -10,10 +10,10 @@ use crate::model::{
 use crate::utils::Known;
 use crate::{processed_events, raw_events};
 
-use super::{error, ContextId, IntoId, MapGetAsResult, Processor};
+use super::{ContextId, IntoId, MapGetAsResult, Processor, error};
 
-use color_eyre::eyre::{eyre, Context as _};
 use color_eyre::Result;
+use color_eyre::eyre::{Context as _, eyre};
 
 // Event processing methods
 impl Processor {
@@ -661,7 +661,9 @@ impl Processor {
                 .expect("The message was just created, rclcpp_take was not called before.");
             let message_arc = Arc::new(Mutex::new(message));
 
-            log::warn!("rclcpp_take: Message was not taken before. Creating new message. [{time}] {event:?} {context:?}");
+            log::warn!(
+                "rclcpp_take: Message was not taken before. Creating new message. [{time}] {event:?} {context:?}"
+            );
 
             self.received_messages
                 .insert(event.message.into_id(context_id), message_arc.clone());
