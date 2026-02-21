@@ -45,7 +45,7 @@ jobs:
             do_build: false
 
           - label: "MSRV build+test"
-            toolchain: ${{ inputs.msrv || '1.82.0' }}
+            toolchain: ${{ inputs.msrv || '1.90' }}
             do_test: true
             do_build: true
 
