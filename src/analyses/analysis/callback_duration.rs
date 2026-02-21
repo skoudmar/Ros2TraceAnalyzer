@@ -309,7 +309,7 @@ impl From<&Record> for RecordExport {
             node: value.node.clone(),
 
             caller: format!(
-                "{}({})",
+                "Callback({}({}))",
                 match value.caller_type.as_str() {
                     "Subscription" => "Subscriber",
                     v => v,

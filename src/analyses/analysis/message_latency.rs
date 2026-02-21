@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::analyses::analysis::utils::DisplayDurationStats;
 use crate::model::display::get_node_name_from_weak;
@@ -260,35 +260,45 @@ impl AnalysisOutput for MessageLatency {
     }
 }
 
-#[derive(Debug, Serialize)]
-struct MessageLatencyExport {
-    topic: String,
-    subscriber: String,
-    publisher: String,
-    latencies: Vec<i64>,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MessageLatencyExport {
+    pub topic: String,
+    pub source_node: String,
+    pub target_node: String,
+    pub latencies: Vec<i64>,
 }
 
 impl From<MessageLatencyStats> for MessageLatencyExport {
     fn from(value: MessageLatencyStats) -> Self {
-        let subscriber = value
+        let target_node = value
             .subscriber
             .lock()
-            .map(|s| format!("Subscriber({})", s.get_topic()))
+            .map(|s| {
+                s.get_node().map(|v| {
+                    get_node_name_from_weak(&v.get_weak()).unwrap_or("Unknown".to_string())
+                })
+            })
+            .map(|v| v.to_string())
             .unwrap_or("Unknown".into());
 
-        let publisher = value
+        let source_node = value
             .publisher
             .map(|p| {
                 p.lock()
-                    .map(|s| format!("Publisher({})", s.get_topic()))
+                    .map(|s| {
+                        s.get_node().map(|v| {
+                            get_node_name_from_weak(&v.get_weak()).unwrap_or("Unknown".to_string())
+                        })
+                    })
+                    .map(|v| v.to_string())
                     .unwrap_or("Unknown".into())
             })
             .unwrap_or("Unknown".into());
 
         Self {
             topic: value.topic,
-            subscriber,
-            publisher,
+            source_node,
+            target_node,
             latencies: value.latencies,
         }
     }

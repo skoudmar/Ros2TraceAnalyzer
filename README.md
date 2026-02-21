@@ -351,6 +351,24 @@ Options:
           Print help
 ```
 
+## Extract
+This command retreives data from binary analysis output for the specified ROS interface or channel
+```
+Retreive data from SQL binary bundle for the specified node into JSON
+
+Usage: Ros2TraceAnalyzer extract [OPTIONS] <ELEMENT_ID> <PROPERTY>
+
+Arguments:
+  <ELEMENT_ID>  Identifier of the element for which to extract the data
+  <PROPERTY>    The property to extract from the node [possible values: callback-duration, activations-delay, publications-delay, messages-delay, messages-latency]
+
+Options:
+  -i, --input-path <INPUT>    The input path, either a file of the data or a folder containing the default named file with the necessary data
+  -v, --verbose...            Increase logging verbosity
+  -o, --output-path <OUTPUT>  The output path, either a folder to which the file will be generated or a file to write into
+  -q, --quiet...              Decrease logging verbosity
+  -h, --help                  Print help (see more with '--help')
+```
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/
 [xdot.py]: https://github.com/jrfonseca/xdot.py
