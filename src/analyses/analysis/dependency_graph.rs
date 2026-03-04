@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::analysis::utils::DisplayDurationStats;
 use crate::events_common::Context;
-use crate::extract::RosInterfaceCompleteName;
+use crate::extract::{RosChannelCompleteName, RosInterfaceCompleteName};
 use crate::model::display::get_node_name_from_weak;
 use crate::model::{
     self, Callback, CallbackCaller, CallbackInstance, CallbackTrigger, Publisher, Service,
@@ -12,6 +12,7 @@ use crate::model::{
 };
 use crate::processed_events::{Event, FullEvent, r2r, ros2};
 use crate::statistics::Sorted;
+use crate::utils::binary_sql_store::FromRow;
 use crate::utils::{DisplayDuration, Known, WeakKnown};
 use crate::visualization::COLOR_GRADIENT;
 use crate::visualization::graphviz_export::{self, NodeShape};
@@ -176,7 +177,7 @@ impl DependencyGraph {
         color: bool,
         thickness: bool,
         min_multiplier: f64,
-    ) -> DisplayAsDot {
+    ) -> DisplayAsDot<'_> {
         DisplayAsDot::new(self, color, thickness, min_multiplier)
     }
 }
@@ -491,11 +492,13 @@ impl DependencyGraph {
 }
 
 impl DependencyGraph {
-    pub fn activation_delays(&self) -> Vec<ActivationDelayExport> {
+    pub fn activation_delays(&self, dot_graph: &DisplayAsDot) -> Vec<ActivationDelayExport> {
         let timers = self.timer_nodes.iter().map(|(k, v)| {
+            let id = dot_graph.node_to_id[&Node::Timer(k.clone())] as i64;
             let n = k.0.lock().unwrap();
             ActivationDelayExport {
-                id: RosInterfaceCompleteName {
+                id,
+                name: RosInterfaceCompleteName {
                     interface: format!("Timer({})", n.get_period().unwrap_or(0)),
                     node: n
                         .get_node()
@@ -509,9 +512,11 @@ impl DependencyGraph {
         });
 
         let callbacks = self.callback_nodes.iter().map(|(k, v)| {
+            let id = dot_graph.node_to_id[&Node::Callback(k.clone())] as i64;
             let n = k.0.lock().unwrap();
             ActivationDelayExport {
-                id: RosInterfaceCompleteName {
+                id,
+                name: RosInterfaceCompleteName {
                     interface: format!(
                         "Callback({})",
                         match n.get_caller() {
@@ -539,14 +544,16 @@ impl DependencyGraph {
         timers.chain(callbacks).collect()
     }
 
-    pub fn publication_delays(&self) -> Vec<PublicationDelayExport> {
+    pub fn publication_delays(&self, dot_graph: &DisplayAsDot) -> Vec<PublicationDelayExport> {
         self.publisher_nodes
             .iter()
             .map(|(k, v)| {
+                let id = dot_graph.node_to_id[&Node::Publisher(k.clone())] as i64;
                 let n = k.0.lock().unwrap();
 
                 PublicationDelayExport {
-                    id: RosInterfaceCompleteName {
+                    id,
+                    name: RosInterfaceCompleteName {
                         interface: format!("Publisher({})", n.get_topic()),
                         node: n
                             .get_node()
@@ -561,14 +568,16 @@ impl DependencyGraph {
             .collect()
     }
 
-    pub fn messages_delays(&self) -> Vec<MessagesDelayExport> {
+    pub fn message_delays(&self, dot_graph: &DisplayAsDot) -> Vec<MessagesDelayExport> {
         self.subscriber_nodes
             .iter()
             .map(|(k, v)| {
+                let id = dot_graph.node_to_id[&Node::Subscriber(k.clone())] as i64;
                 let n = k.0.lock().unwrap();
 
                 MessagesDelayExport {
-                    id: RosInterfaceCompleteName {
+                    id,
+                    name: RosInterfaceCompleteName {
                         interface: format!("Subscriber({})", n.get_topic()),
                         node: n
                             .get_node()
@@ -582,53 +591,197 @@ impl DependencyGraph {
             })
             .collect()
     }
+
+    pub fn callback_durations(&self, dot_graph: &DisplayAsDot) -> Vec<CallbackDurationExport> {
+        self.callback_nodes
+            .iter()
+            .map(|(k, v)| {
+                let id = dot_graph.node_to_id[&Node::Callback(k.clone())] as i64;
+                let c = k.0.lock().unwrap();
+
+                CallbackDurationExport {
+                    id,
+                    name: RosInterfaceCompleteName {
+                        interface: format!(
+                            "Callback({})",
+                            c.get_caller().map(ToString::to_string).unwrap_or_default()
+                        ),
+                        node: c
+                            .get_node()
+                            .map_or(WeakKnown::Unknown, |node_weak| {
+                                get_node_name_from_weak(&node_weak.get_weak())
+                            })
+                            .unwrap_or(String::new()),
+                    },
+                    callback_durations: v.durations.clone(),
+                }
+            })
+            .collect()
+    }
+
+    pub fn message_latencies(&self, dot_graph: &DisplayAsDot) -> Vec<MessageLatencyExport> {
+        self.edges
+            .iter()
+            .map(|(k, v)| {
+                let source = get_node_name_from_graph_node(&k.source());
+                let dest = get_node_name_from_graph_node(&k.target());
+
+                let topic = match k.source() {
+                    Node::Publisher(arc_mut_wrapper) => {
+                        arc_mut_wrapper.0.lock().unwrap().get_topic().to_string()
+                    }
+                    Node::Subscriber(arc_mut_wrapper) => {
+                        arc_mut_wrapper.0.lock().unwrap().get_topic().to_string()
+                    }
+                    Node::Service(arc_mut_wrapper) => {
+                        arc_mut_wrapper.0.lock().unwrap().get_name().to_string()
+                    }
+                    Node::Timer(arc_mut_wrapper) => {
+                        arc_mut_wrapper.0.lock().unwrap().get_period().to_string()
+                    }
+                    _ => match k.target() {
+                        Node::Publisher(arc_mut_wrapper) => {
+                            arc_mut_wrapper.0.lock().unwrap().get_topic().to_string()
+                        }
+                        Node::Subscriber(arc_mut_wrapper) => {
+                            arc_mut_wrapper.0.lock().unwrap().get_topic().to_string()
+                        }
+                        Node::Service(arc_mut_wrapper) => {
+                            arc_mut_wrapper.0.lock().unwrap().get_name().to_string()
+                        }
+                        Node::Timer(arc_mut_wrapper) => {
+                            arc_mut_wrapper.0.lock().unwrap().get_period().to_string()
+                        }
+                        _ => String::new(),
+                    },
+                };
+
+                let from = dot_graph.node_to_id[&k.source()];
+                let to = dot_graph.node_to_id[&k.target()];
+
+                let edge_id = dot_graph
+                    .edges
+                    .iter()
+                    .enumerate()
+                    .find(|(_, e)| e.source == from && e.target == to);
+
+                MessageLatencyExport {
+                    id: edge_id.map(|i| i.0).unwrap_or(0) as i64,
+                    name: RosChannelCompleteName {
+                        source_node: source,
+                        destination_node: dest,
+                        topic,
+                    },
+                    messages_latencies: v.latencies.clone(),
+                }
+            })
+            .collect()
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct ActivationDelayExport {
-    pub id: RosInterfaceCompleteName,
+    pub id: i64,
+    pub name: RosInterfaceCompleteName,
     pub activation_delays: Vec<i64>,
 }
 
-impl crate::utils::binary_sql_store::StoreEntity for ActivationDelayExport {
-    fn id(&self) -> String {
-        self.id.to_string()
-    }
-
-    fn data(&self) -> &impl serde::Serialize {
-        &self.activation_delays
+impl FromRow for ActivationDelayExport {
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+        Ok(ActivationDelayExport {
+            id: row.get("id")?,
+            name: RosInterfaceCompleteName {
+                interface: row.get("interface")?,
+                node: row.get("node")?,
+            },
+            activation_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("data")?)
+                .expect("Data must be a serialised list of integers"),
+        })
     }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct PublicationDelayExport {
-    pub id: RosInterfaceCompleteName,
+    pub id: i64,
+    pub name: RosInterfaceCompleteName,
     pub publication_delays: Vec<i64>,
 }
 
-impl crate::utils::binary_sql_store::StoreEntity for PublicationDelayExport {
-    fn id(&self) -> String {
-        self.id.to_string()
-    }
-
-    fn data(&self) -> &impl serde::Serialize {
-        &self.publication_delays
+impl FromRow for PublicationDelayExport {
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+        Ok(PublicationDelayExport {
+            id: row.get("id")?,
+            name: RosInterfaceCompleteName {
+                interface: row.get("interface")?,
+                node: row.get("node")?,
+            },
+            publication_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("data")?)
+                .expect("Data must be a serialised list of integers"),
+        })
     }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct MessagesDelayExport {
-    pub id: RosInterfaceCompleteName,
+    pub id: i64,
+    pub name: RosInterfaceCompleteName,
     pub messages_delays: Vec<i64>,
 }
 
-impl crate::utils::binary_sql_store::StoreEntity for MessagesDelayExport {
-    fn id(&self) -> String {
-        self.id.to_string()
+impl FromRow for MessagesDelayExport {
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+        Ok(MessagesDelayExport {
+            id: row.get("id")?,
+            name: RosInterfaceCompleteName {
+                interface: row.get("interface")?,
+                node: row.get("node")?,
+            },
+            messages_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("data")?)
+                .expect("Data must be a serialised list of integers"),
+        })
     }
+}
 
-    fn data(&self) -> &impl serde::Serialize {
-        &self.messages_delays
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct CallbackDurationExport {
+    pub id: i64,
+    pub name: RosInterfaceCompleteName,
+    pub callback_durations: Vec<i64>,
+}
+
+impl FromRow for CallbackDurationExport {
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+        Ok(CallbackDurationExport {
+            id: row.get("id")?,
+            name: RosInterfaceCompleteName {
+                interface: row.get("interface")?,
+                node: row.get("node")?,
+            },
+            callback_durations: postcard::from_bytes(&row.get::<_, Vec<_>>("data")?)
+                .expect("Data must be a serialised list of integers"),
+        })
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct MessageLatencyExport {
+    pub id: i64,
+    pub name: RosChannelCompleteName,
+    pub messages_latencies: Vec<i64>,
+}
+
+impl FromRow for MessageLatencyExport {
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+        Ok(MessageLatencyExport {
+            id: row.get("id")?,
+            name: RosChannelCompleteName {
+                source_node: row.get("source_node")?,
+                destination_node: row.get("destination_node")?,
+                topic: row.get("topic")?,
+            },
+            messages_latencies: postcard::from_bytes(&row.get::<_, Vec<_>>("data")?)
+                .expect("Data must be a serialised list of integers"),
+        })
     }
 }
 
@@ -1001,6 +1154,22 @@ fn get_node_name_and_tooltip(
             (name, tooltip)
         }
     }
+}
+
+fn get_node_name_from_graph_node(node: &Node) -> String {
+    let x = match node {
+        Node::Publisher(arc_mut_wrapper) => arc_mut_wrapper.0.lock().unwrap().get_node(),
+        Node::Subscriber(arc_mut_wrapper) => arc_mut_wrapper.0.lock().unwrap().get_node(),
+        Node::Service(arc_mut_wrapper) => arc_mut_wrapper.0.lock().unwrap().get_node(),
+        Node::Timer(arc_mut_wrapper) => arc_mut_wrapper.0.lock().unwrap().get_node(),
+        Node::Callback(arc_mut_wrapper) => arc_mut_wrapper.0.lock().unwrap().get_node().into(),
+    };
+
+    match x {
+        Known::Known(c) => get_node_name_from_weak(&c.get_weak()),
+        Known::Unknown => WeakKnown::Unknown,
+    }
+    .to_string()
 }
 
 impl std::fmt::Display for DisplayAsDot<'_> {

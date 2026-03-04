@@ -13,6 +13,7 @@ mod utils;
 mod visualization;
 
 use std::ffi::CString;
+use std::io::Write;
 
 use argsv2::Args;
 use argsv2::helpers::prepare_trace_paths;
@@ -42,11 +43,11 @@ fn run_analysis<L: clap_verbosity_flag::LogLevel>(
     Ok(())
 }
 
-fn run_charting(args: &ChartArgs) -> color_eyre::eyre::Result<()> {
+fn run_charting(_args: &ChartArgs) -> color_eyre::eyre::Result<()> {
     Ok(())
 }
 
-fn run_viewer(args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
+fn run_viewer(_args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
     Ok(())
 }
 
@@ -54,10 +55,18 @@ fn run_extract(args: &ExtractArgs) -> color_eyre::eyre::Result<()> {
     let source_file = args.input_path();
     let output_file = args.output_path();
 
-    let (_extracted_property, data) =
-        extract::extract(&source_file, args.element_id(), args.property())?;
+    match args.content() {
+        argsv2::extract_args::ExtractContentArgs::Graph => {
+            let graph = extract::extract_graph(&source_file)?;
 
-    data.export(output_file)?;
+            std::fs::File::create(output_file)?.write_all(graph.as_bytes())?;
+        }
+        argsv2::extract_args::ExtractContentArgs::Property(args) => {
+            let data = extract::extract_property(&source_file, args.element_id(), args.property())?;
+
+            data.export(output_file)?;
+        }
+    }
 
     Ok(())
 }

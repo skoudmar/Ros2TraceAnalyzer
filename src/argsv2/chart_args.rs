@@ -6,21 +6,7 @@ use std::path::{Path, PathBuf};
 pub struct ChartArgs {
     /// Identifies the element in the dependency graph for
     /// which to extract the data
-    ///
-    /// - Nodes (graph nodes) are identified by the ROS node,
-    ///     type (ROS interface) and parameters (ROS topic)
-    ///
-    /// - For edges (graphviz edges) name (type + topic)
-    ///     of the source and target node should be provided
-    ///
-    /// The expected format is URL-encoded set of the required properties
-    ///
-    /// Example node id:
-    /// `interface=Callback(Subscriber(%22/clock%22)&node=/abc`
-    ///
-    /// Example edge id:
-    /// `source_node=/abc&target_node=/def&identifier=/some/topic`
-    element_id: String,
+    element_id: i64,
 
     /// The input path, either a file of the data or a folder containing the default named file with the necessary data
     #[clap(long, short = 'i', value_name = "INPUT", value_hint = ValueHint::AnyPath)]
@@ -41,8 +27,8 @@ pub struct ChartArgs {
 }
 
 impl ChartArgs {
-    pub fn element_id(&self) -> &str {
-        &self.element_id
+    pub fn element_id(&self) -> i64 {
+        self.element_id
     }
 
     pub fn input_path(&self) -> Option<&Path> {

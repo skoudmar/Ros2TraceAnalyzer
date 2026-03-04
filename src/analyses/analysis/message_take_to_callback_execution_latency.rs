@@ -95,22 +95,8 @@ struct ExportEntry {
     latencies: Vec<i64>,
 }
 
-impl crate::utils::binary_sql_store::StoreEntity for ExportEntry {
-    fn id(&self) -> String {
-        self.topic.clone()
-    }
-
-    fn data(&self) -> &impl serde::Serialize {
-        &self.latencies
-    }
-}
-
 impl AnalysisOutput for MessageTakeToCallbackLatency {
     fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
         serde_json::to_writer(file, &self.export_latencies())
-    }
-
-    fn get_store_entity_output(&self) -> Vec<impl crate::utils::binary_sql_store::StoreEntity> {
-        self.export_latencies()
     }
 }

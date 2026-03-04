@@ -1,33 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use clap::{Args, ValueEnum, ValueHint};
+use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use derive_more::Display;
 
 use crate::argsv2::analysis_args::filenames;
 
 #[derive(Debug, Clone, Args)]
 pub struct ExtractArgs {
-    /// Identifies the element in the dependency graph for
-    /// which to extract the data
-    ///
-    /// - Nodes (graph nodes) are identified by the ROS node,
-    ///   type (ROS interface) and parameters (ROS topic)
-    ///
-    /// - For edges (graphviz edges) name (type + topic)
-    ///   of the source and target node should be provided
-    ///
-    /// The expected format is URL-encoded set of the required properties
-    ///
-    /// Example node id:
-    /// `interface=Callback(Subscriber(%22/clock%22)&node=/abc`
-    ///
-    /// Example edge id:
-    /// `source_node=/abc&target_node=/def&identifier=/some/topic`
-    element_id: String,
-
-    /// The property to extract from the node.
-    property: AnalysisProperty,
-
     /// The input path, either a file of the data or a folder containing the default named file with the necessary data
     #[clap(long, short = 'i', value_name = "INPUT", value_hint = ValueHint::AnyPath)]
     input_path: Option<PathBuf>,
@@ -35,17 +14,12 @@ pub struct ExtractArgs {
     /// The output path, either a folder to which the file will be generated or a file to write into
     #[clap(long, short = 'o', value_name = "OUTPUT", value_hint = ValueHint::FilePath)]
     output_path: PathBuf,
+
+    #[clap(subcommand)]
+    extract_content: ExtractContentArgs,
 }
 
 impl ExtractArgs {
-    pub fn element_id(&self) -> &str {
-        &self.element_id
-    }
-
-    pub fn property(&self) -> &AnalysisProperty {
-        &self.property
-    }
-
     pub fn input_path(&self) -> PathBuf {
         match &self.input_path {
             Some(p) => {
@@ -63,6 +37,40 @@ impl ExtractArgs {
 
     pub fn output_path(&self) -> &Path {
         self.output_path.as_path()
+    }
+
+    pub fn content(&self) -> &ExtractContentArgs {
+        &self.extract_content
+    }
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum ExtractContentArgs {
+    /// Extract dependency graph
+    Graph,
+    /// Extract property values for a node
+    Property(ExtractPropertyArgs),
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct ExtractPropertyArgs {
+    /// Identifies the element in the dependency graph for
+    /// which to extract the data
+    #[clap(long)]
+    element_id: i64,
+
+    /// The property to extract from the node.
+    #[clap(long)]
+    property: AnalysisProperty,
+}
+
+impl ExtractPropertyArgs {
+    pub fn element_id(&self) -> i64 {
+        self.element_id
+    }
+
+    pub fn property(&self) -> &AnalysisProperty {
+        &self.property
     }
 }
 

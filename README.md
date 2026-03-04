@@ -140,7 +140,7 @@ Options:
           
           When analysis output filename is specified and it is not an absolute path, it is resolved relative to `OUT_DIR`.
 
-      --bundle-output
+      --no-bundle-output
           Flag whether to bundle all outputs into a single file or not
           
           Defaults to only `true`
@@ -296,16 +296,6 @@ Commands:
 Arguments:
   <ELEMENT_ID>
           Identifies the element in the dependency graph for which to extract the data
-          
-          - Nodes (graph nodes) are identified by the ROS node, type (ROS interface) and parameters (ROS topic)
-          
-          - For edges (graphviz edges) name (type + topic) of the source and target node should be provided
-          
-          The expected format is URL-encoded set of the required properties
-          
-          Example node id: `interface=Callback(Subscriber(%22/clock%22)&node=/abc`
-          
-          Example edge id: `source_node=/abc&target_node=/def&identifier=/some/topic`
 
 Options:
   -i, --input-path <INPUT>
@@ -388,47 +378,19 @@ This command retreives data from binary analysis output for the specified ROS in
 ```
 Retreive data from bundled analysis results file into JSON format
 
-Usage: Ros2TraceAnalyzer extract [OPTIONS] --output-path <OUTPUT> <ELEMENT_ID> <PROPERTY>
+Usage: Ros2TraceAnalyzer extract [OPTIONS] --output-path <OUTPUT> <COMMAND>
 
-Arguments:
-  <ELEMENT_ID>
-          Identifies the element in the dependency graph for which to extract the data
-          
-          - Nodes (graph nodes) are identified by the ROS node, type (ROS interface) and parameters (ROS topic)
-          
-          - For edges (graphviz edges) name (type + topic) of the source and target node should be provided
-          
-          The expected format is URL-encoded set of the required properties
-          
-          Example node id: `interface=Callback(Subscriber(%22/clock%22)&node=/abc`
-          
-          Example edge id: `source_node=/abc&target_node=/def&identifier=/some/topic`
-
-  <PROPERTY>
-          The property to extract from the node
-
-          Possible values:
-          - callback-durations: Callback execution durations
-          - activation-delays:  Delays between callback or timer activations
-          - publication-delays: Delays between publisher publications
-          - message-delays:     Delays between subscriber messages
-          - message-latencies:  Latency of a communication channel
+Commands:
+  graph     Extract dependency graph
+  property  Extract property values for a node
+  help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -i, --input-path <INPUT>
-          The input path, either a file of the data or a folder containing the default named file with the necessary data
-
-  -v, --verbose...
-          Increase logging verbosity
-
-  -o, --output-path <OUTPUT>
-          The output path, either a folder to which the file will be generated or a file to write into
-
-  -q, --quiet...
-          Decrease logging verbosity
-
-  -h, --help
-          Print help (see a summary with '-h')
+  -i, --input-path <INPUT>    The input path, either a file of the data or a folder containing the default named file with the necessary data
+  -v, --verbose...            Increase logging verbosity
+  -o, --output-path <OUTPUT>  The output path, either a folder to which the file will be generated or a file to write into
+  -q, --quiet...              Decrease logging verbosity
+  -h, --help                  Print help
 ```
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/

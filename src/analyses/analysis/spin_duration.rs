@@ -80,22 +80,8 @@ struct SpinDurationEntryExport {
     spin_duration: Vec<i64>,
 }
 
-impl crate::utils::binary_sql_store::StoreEntity for SpinDurationEntryExport {
-    fn id(&self) -> String {
-        self.node.clone()
-    }
-
-    fn data(&self) -> &impl serde::Serialize {
-        &self.spin_duration
-    }
-}
-
 impl AnalysisOutput for SpinDuration {
     fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
         serde_json::to_writer(file, &self.export())
-    }
-
-    fn get_store_entity_output(&self) -> Vec<impl crate::utils::binary_sql_store::StoreEntity> {
-        self.export()
     }
 }

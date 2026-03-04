@@ -1,11 +1,10 @@
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Serialize, Serializer};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::vec::Vec;
 
 use crate::argsv2::Args;
 use crate::events_common::Context;
-use crate::extract::RosInterfaceCompleteName;
 use crate::model::display::{DisplayCallbackSummary, get_node_name_from_weak};
 use crate::model::{Callback, CallbackInstance, Time};
 use crate::processed_events::{Event, FullEvent, ros2};
@@ -285,58 +284,5 @@ impl AnalysisOutput for CallbackDuration {
     fn write_json(&self, file: &mut std::io::BufWriter<std::fs::File>) -> serde_json::Result<()> {
         let records = self.get_records();
         serde_json::to_writer(file, &records)
-    }
-
-    fn get_store_entity_output(&self) -> Vec<impl crate::utils::binary_sql_store::StoreEntity> {
-        self.get_records()
-            .iter()
-            .map(RecordExport::from)
-            .collect::<Vec<_>>()
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RecordExport {
-    pub node: String,
-    pub caller: String,
-
-    pub durations: Vec<i64>,
-    pub inter_arrival_times: Vec<i64>,
-}
-
-impl crate::utils::binary_sql_store::StoreEntity for RecordExport {
-    fn id(&self) -> String {
-        RosInterfaceCompleteName {
-            interface: self.caller.clone(),
-            node: self.node.clone(),
-        }
-        .to_string()
-    }
-
-    fn data(&self) -> &impl Serialize {
-        &self.durations
-    }
-}
-
-impl From<&Record> for RecordExport {
-    fn from(value: &Record) -> Self {
-        Self {
-            node: value.node.clone(),
-
-            caller: format!(
-                "Callback({}({}))",
-                match value.caller_type.as_str() {
-                    "Subscription" => "Subscriber",
-                    v => v,
-                },
-                match value.caller_type.as_str() {
-                    "Timer" => value.caller_param.clone(),
-                    _ => format!("\"{}\"", value.caller_param.escape_default()),
-                }
-            ),
-
-            durations: value.durations.clone(),
-            inter_arrival_times: value.inter_arrival_times.clone(),
-        }
     }
 }

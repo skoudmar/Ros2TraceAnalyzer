@@ -6,6 +6,10 @@ use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::analyses::analysis::dependency_graph::{
+    ActivationDelayExport, CallbackDurationExport, MessageLatencyExport, MessagesDelayExport,
+    PublicationDelayExport,
+};
 use crate::argsv2::extract_args::AnalysisProperty;
 use crate::utils::binary_sql_store::{BinarySQLStore, BinarySQLStoreError};
 
@@ -17,10 +21,10 @@ pub struct RosInterfaceCompleteName {
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Display, Debug)]
-#[display("{source_node}-({topic})>{target_node}")]
+#[display("{source_node}-({topic})>{destination_node}")]
 pub struct RosChannelCompleteName {
     pub source_node: String,
-    pub target_node: String,
+    pub destination_node: String,
     pub topic: String,
 }
 
@@ -34,28 +38,78 @@ pub enum DataExtractionError {
     SourceDataParseError(BinarySQLStoreError),
 }
 
-pub fn extract(
-    input: &Path,
-    element_id: &str,
-    property: &AnalysisProperty,
-) -> color_eyre::eyre::Result<(String, ChartableData)> {
+pub fn extract_graph(input: &Path) -> color_eyre::eyre::Result<String> {
     let store = BinarySQLStore::new(input)?;
 
-    let id = match property {
-        AnalysisProperty::MessageLatencies => {
-            serde_qs::from_str::<RosChannelCompleteName>(element_id)?.to_string()
-        }
-        _ => serde_qs::from_str::<RosInterfaceCompleteName>(element_id)?.to_string(),
-    };
+    let graph = store.read("metadata", "graph", "TRUE", ())?;
 
-    Ok((
-        property.table_name().to_owned(),
-        ChartableData::I64(
+    Ok(graph)
+}
+
+pub fn extract_property(
+    input: &Path,
+    element_id: i64,
+    property: &AnalysisProperty,
+) -> color_eyre::eyre::Result<ChartableData> {
+    let store = BinarySQLStore::new(input)?;
+
+    Ok(match property {
+        AnalysisProperty::CallbackDurations => ChartableData::I64(
             store
-                .read::<Vec<i64>>(property.table_name(), &id)
-                .map_err(DataExtractionError::SourceDataParseError)?,
+                .read::<CallbackDurationExport>(
+                    property.table_name(),
+                    "id, data, interface, node",
+                    "id = ?1",
+                    (element_id,),
+                )
+                .map_err(DataExtractionError::SourceDataParseError)?
+                .callback_durations,
         ),
-    ))
+        AnalysisProperty::ActivationDelays => ChartableData::I64(
+            store
+                .read::<ActivationDelayExport>(
+                    property.table_name(),
+                    "id, data, interface, node",
+                    "id = ?1",
+                    (element_id,),
+                )
+                .map_err(DataExtractionError::SourceDataParseError)?
+                .activation_delays,
+        ),
+        AnalysisProperty::PublicationDelays => ChartableData::I64(
+            store
+                .read::<PublicationDelayExport>(
+                    property.table_name(),
+                    "id, data, interface, node",
+                    "id = ?1",
+                    (element_id,),
+                )
+                .map_err(DataExtractionError::SourceDataParseError)?
+                .publication_delays,
+        ),
+        AnalysisProperty::MessageDelays => ChartableData::I64(
+            store
+                .read::<MessagesDelayExport>(
+                    property.table_name(),
+                    "id, data, interface, node",
+                    "id = ?1",
+                    (element_id,),
+                )
+                .map_err(DataExtractionError::SourceDataParseError)?
+                .messages_delays,
+        ),
+        AnalysisProperty::MessageLatencies => ChartableData::I64(
+            store
+                .read::<MessageLatencyExport>(
+                    property.table_name(),
+                    "id, data, source_node, destination_node, topic",
+                    "id = ?1",
+                    (element_id,),
+                )
+                .map_err(DataExtractionError::SourceDataParseError)?
+                .messages_latencies,
+        ),
+    })
 }
 
 impl ChartableData {

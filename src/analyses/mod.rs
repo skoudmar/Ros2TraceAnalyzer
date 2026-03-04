@@ -96,44 +96,130 @@ impl Analyses {
     }
 
     pub fn save_output(&self, args: &AnalysisArgs) -> color_eyre::eyre::Result<()> {
-        if let Some(path) = args.dependency_graph_path() {
-            let analysis = self.dependency_graph.as_ref().unwrap();
-            let dot_output =
-                analysis.display_as_dot(args.color(), args.thickness(), args.min_multiplier());
-            let mut writer = get_buf_writer_for_path(&path)?;
-            writer
-                .write_fmt(format_args!("{dot_output}"))
-                .wrap_err("Failed to write dependency graph")?;
-        }
-
         if args.bundle_output()
             && let Some(path) = args.binary_bundle_path()
         {
             let mut store = BinarySQLStore::new(&path)?;
 
-            if let Some(a) = &self.message_latency_analysis {
-                a.write_to_binary(&mut store, AnalysisProperty::MessageLatencies.table_name())?;
-            }
-
-            if let Some(a) = &self.callback_analysis {
-                a.write_to_binary(&mut store, AnalysisProperty::CallbackDurations.table_name())?;
-            }
-
             if let Some(a) = &self.dependency_graph {
-                store.write(
+                let dot_graph = a.display_as_dot(false, false, 1.0);
+
+                store.define_table("metadata", &["version int", "graph text"])?;
+                store.write_into(
+                    "metadata",
+                    "(version, graph)",
+                    [(1, dot_graph.to_string())].into_iter(),
+                    2,
+                )?;
+
+                store.define_table(
+                    AnalysisProperty::MessageLatencies.table_name(),
+                    &[
+                        "id int",
+                        "source_node text",
+                        "destination_node text",
+                        "topic text",
+                        "data blob",
+                    ],
+                )?;
+                store.write_into(
+                    AnalysisProperty::MessageLatencies.table_name(),
+                    "(id, source_node, destination_node, topic, data)",
+                    a.message_latencies(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.source_node,
+                            &m.name.destination_node,
+                            &m.name.topic,
+                            postcard::to_allocvec(&m.messages_latencies).unwrap(),
+                        )
+                    }),
+                    5,
+                )?;
+
+                store.define_table(
                     AnalysisProperty::ActivationDelays.table_name(),
-                    a.activation_delays(),
+                    &["id int", "node text", "interface text", "data blob"],
                 )?;
-                store.write(
+                store.write_into(
+                    AnalysisProperty::ActivationDelays.table_name(),
+                    "(id, node, interface, data)",
+                    a.activation_delays(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.node,
+                            &m.name.interface,
+                            postcard::to_allocvec(&m.activation_delays).unwrap(),
+                        )
+                    }),
+                    4,
+                )?;
+
+                store.define_table(
                     AnalysisProperty::PublicationDelays.table_name(),
-                    a.publication_delays(),
+                    &["id int", "node text", "interface text", "data blob"],
                 )?;
-                store.write(
+                store.write_into(
+                    AnalysisProperty::PublicationDelays.table_name(),
+                    "(id, node, interface, data)",
+                    a.publication_delays(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.node,
+                            &m.name.interface,
+                            postcard::to_allocvec(&m.publication_delays).unwrap(),
+                        )
+                    }),
+                    4,
+                )?;
+
+                store.define_table(
                     AnalysisProperty::MessageDelays.table_name(),
-                    a.messages_delays(),
+                    &["id int", "node text", "interface text", "data blob"],
+                )?;
+                store.write_into(
+                    AnalysisProperty::MessageDelays.table_name(),
+                    "(id, node, interface, data)",
+                    a.message_delays(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.node,
+                            &m.name.interface,
+                            postcard::to_allocvec(&m.messages_delays).unwrap(),
+                        )
+                    }),
+                    4,
+                )?;
+
+                store.define_table(
+                    AnalysisProperty::CallbackDurations.table_name(),
+                    &["id int", "node text", "interface text", "data blob"],
+                )?;
+                store.write_into(
+                    AnalysisProperty::CallbackDurations.table_name(),
+                    "(id, node, interface, data)",
+                    a.callback_durations(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.node,
+                            &m.name.interface,
+                            postcard::to_allocvec(&m.callback_durations).unwrap(),
+                        )
+                    }),
+                    4,
                 )?;
             }
         } else {
+            if let Some(path) = args.dependency_graph_path() {
+                let analysis = self.dependency_graph.as_ref().unwrap();
+                let dot_output =
+                    analysis.display_as_dot(args.color(), args.thickness(), args.min_multiplier());
+                let mut writer = get_buf_writer_for_path(&path)?;
+                writer
+                    .write_fmt(format_args!("{dot_output}"))
+                    .wrap_err("Failed to write dependency graph")?;
+            }
+
             if let Some(path) = args.callback_dependency_path() {
                 let analysis = self.callback_dependency_analysis.as_ref().unwrap();
 

@@ -66,7 +66,7 @@ pub enum TracerCommand {
 
     /// Retreive data from bundled analysis results file into JSON format
     #[display("extract")]
-    Extract(extract_args::ExtractArgs),
+    Extract(#[clap(subcommand)] extract_args::ExtractArgs),
 }
 
 #[cfg(test)]
