@@ -14,6 +14,7 @@ mod visualization;
 
 use std::ffi::CString;
 use std::io::Write;
+use std::ops::{Deref, DerefMut};
 
 use argsv2::Args;
 use argsv2::helpers::prepare_trace_paths;
@@ -53,18 +54,21 @@ fn run_viewer(_args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
 
 fn run_extract(args: &ExtractArgs) -> color_eyre::eyre::Result<()> {
     let source_file = args.input_path();
-    let output_file = args.output_path();
+    let mut output: Box<dyn Write> = args
+        .output_path()
+        .map(|p| std::fs::File::create(p).map(|f| Box::new(f) as Box<dyn Write>))
+        .unwrap_or_else(|| Ok(Box::new(std::io::stdout()) as Box<dyn Write>))?;
 
     match args.content() {
         argsv2::extract_args::ExtractContentArgs::Graph => {
             let graph = extract::extract_graph(&source_file)?;
 
-            std::fs::File::create(output_file)?.write_all(graph.as_bytes())?;
+            writeln!(output, "{graph}")?;
         }
         argsv2::extract_args::ExtractContentArgs::Property(args) => {
             let data = extract::extract_property(&source_file, args.element_id(), args.property())?;
 
-            data.export(output_file)?;
+            data.export(&mut output)?;
         }
     }
 

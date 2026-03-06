@@ -54,7 +54,7 @@ Record traces of your ROS application:
 Then you can use `Ros2TraceAnalyzer` subcommands to obtain various
 information from the trace.
 
-<!-- `$ cargo run -- --help | sed 's/ \[default:/\n          \[default:/g'` -->
+<!-- `$ cargo run -- --help` -->
 ```
 Usage: Ros2TraceAnalyzer [OPTIONS] <COMMAND>
 
@@ -74,7 +74,7 @@ Options:
 ## Analyze
 This command analyzes the traces and saves relevant information for later use into JSON, TXT and DOT files. 
 
-<!-- `$ cargo run analyze --help | sed 's/ \[default:/\n          \[default:/g'` -->
+<!-- `$ cargo run analyze --help` -->
 ```
 Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
 
@@ -128,9 +128,8 @@ Options:
           Analyze the duration of executor spins
 
       --binary-bundle [<FILENAME>]
-          Filename or directory of the binary bundle output
+          File path of the binary bundle output
           
-         
           [default: r2ta_results.sqlite]
 
   -o, --out-dir <OUT_DIR>
@@ -140,10 +139,8 @@ Options:
           
           When analysis output filename is specified and it is not an absolute path, it is resolved relative to `OUT_DIR`.
 
-      --no-bundle-output
-          Flag whether to bundle all outputs into a single file or not
-          
-          Defaults to only `true`
+      --legacy-output
+          Flag whether to bundle all outputs into a single file or export each analysis as a separate file
 
       --quantiles <QUANTILES>
           Quantiles to compute for the latency and duration analysis.
@@ -152,13 +149,11 @@ Options:
           
           If not specified, the default quantiles are: 0 (minimum), 0.10, 0.5 (median), 0.90, 0.99, 1 (maximum)
           
-         
           [default: 0,0.10,0.5,0.90,0.99,1]
 
       --utilization-quantile <QUANTILE>
           Callback duration quantile to use for utilization analysis
           
-         
           [default: 0.9]
 
       --thickness
@@ -176,7 +171,6 @@ Options:
           
           The gradient range is exactly [minimum value, max(maximum value, minimum value * `MIN_MULTIPLIER`)].
           
-         
           [default: 5.0]
 
       --exact-trace-path
@@ -282,33 +276,34 @@ Thread 1737158 on steelpick has utilization  2.10334 %
 ## Chart
 This command is reserved for later use. It is intended for generating charts from analyzed traces.
 
-<!-- `$ cargo run chart --help | sed 's/ \[default:/\n          \[default:/g'` -->
+<!-- `$ cargo run chart --help` -->
 ```
 Render a chart of a specific property of a ROS 2 interface
 
-Usage: Ros2TraceAnalyzer chart [OPTIONS] --value <VALUE> <ELEMENT_ID> <COMMAND>
+Usage: Ros2TraceAnalyzer chart [OPTIONS] --element-id <ELEMENT_ID> --value <VALUE> <COMMAND>
 
 Commands:
   histogram  
   scatter    
   help       Print this message or the help of the given subcommand(s)
 
-Arguments:
-  <ELEMENT_ID>
-          Identifies the element in the dependency graph for which to extract the data
-
 Options:
-  -i, --input-path <INPUT>
-          The input path, either a file of the data or a folder containing the default named file with the necessary data
+  -e, --element-id <ELEMENT_ID>
+          Identifies the element in the dependency graph for which to generate the chart
 
   -v, --verbose...
           Increase logging verbosity
 
-  -o, --output-path <OUTPUT>
-          The output path, either a folder to which the file will be generated or a file to write into
+  -i, --input-path <FILENAME>
+          Path to the r2ta_results.sqlite file from which to retreive the data
+          
+          [default: r2ta_results.sqlite]
 
   -q, --quiet...
           Decrease logging verbosity
+
+  -o, --output-path <FILENAME>
+          
 
   -c, --clean
           Indicates whether the chart should be rendered from scratch.
@@ -330,13 +325,11 @@ Options:
           
           - For PNG this directly translates to pixels - For SVG this is the size in pixels with scale 1.0
           
-         
           [default: 800]
 
       --output-format <OUTPUT_FORMAT>
           The filetype (output format) the rendered image should be in
           
-         
           [default: svg]
           [possible values: svg, png]
 
@@ -347,7 +340,7 @@ Options:
 ## Viewer
 This command is reserved for later use. Builtin .dot graphs viewer.
 
-<!-- `$ cargo run viewer --help | sed 's/ \[default:/\n          \[default:/g'` -->
+<!-- `$ cargo run viewer --help` -->
 ```
 Start a .dot viewer capable of generating charts on demand
 
@@ -372,13 +365,13 @@ Options:
 ```
 
 ## Extract
-This command retreives data from binary analysis output for the specified ROS interface or channel
+This command retrieves various data from the "binary bundle" produced by the analysis subcommand.
 
-<!-- `$ cargo run extract --help | sed 's/ \[default:/\n          \[default:/g'` -->
+<!-- `$ cargo run extract --help` -->
 ```
 Retreive data from bundled analysis results file into JSON format
 
-Usage: Ros2TraceAnalyzer extract [OPTIONS] --output-path <OUTPUT> <COMMAND>
+Usage: Ros2TraceAnalyzer extract [OPTIONS] <COMMAND>
 
 Commands:
   graph     Extract dependency graph
@@ -386,11 +379,11 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -i, --input-path <INPUT>    The input path, either a file of the data or a folder containing the default named file with the necessary data
-  -v, --verbose...            Increase logging verbosity
-  -o, --output-path <OUTPUT>  The output path, either a folder to which the file will be generated or a file to write into
-  -q, --quiet...              Decrease logging verbosity
-  -h, --help                  Print help
+  -i, --input-path <FILENAME>   Path to the r2ta_results.sqlite file from which to retreive the data [default: r2ta_results.sqlite]
+  -v, --verbose...              Increase logging verbosity
+  -o, --output-path <FILENAME>  File to extract the data to, if not present the data is written to stdout
+  -q, --quiet...                Decrease logging verbosity
+  -h, --help                    Print help
 ```
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/

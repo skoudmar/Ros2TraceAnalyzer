@@ -80,7 +80,7 @@ pub struct AnalysisArgs {
     #[arg(long, value_name = "FILENAME", default_missing_value = filenames::SPIN_DURATION, num_args = 0..=1, require_equals = true, default_value_if("all", "true", filenames::SPIN_DURATION))]
     spin_duration: Option<PathBuf>,
 
-    /// Filename or directory of the binary bundle output
+    /// File path of the binary bundle output
     #[arg(long, value_name = "FILENAME", default_value = filenames::BINARY_BUNDLE, num_args = 0..=1)]
     binary_bundle: Option<PathBuf>,
 
@@ -92,11 +92,9 @@ pub struct AnalysisArgs {
     #[arg(long, short = 'o', value_hint = ValueHint::DirPath)]
     out_dir: Option<PathBuf>,
 
-    /// Flag whether to bundle all outputs into a single file or not
-    ///
-    /// Defaults to only `true`
+    /// Flag whether to bundle all outputs into a single file or export each analysis as a separate file
     #[arg(long)]
-    no_bundle_output: bool,
+    legacy_output: bool,
 
     /// Quantiles to compute for the latency and duration analysis.
     ///
@@ -269,7 +267,7 @@ impl AnalysisArgs {
     }
 
     pub fn bundle_output(&self) -> bool {
-        !self.no_bundle_output
+        !self.legacy_output
     }
 
     pub fn quantiles(&self) -> &[Quantile] {

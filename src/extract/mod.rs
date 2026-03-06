@@ -113,14 +113,12 @@ pub fn extract_property(
 }
 
 impl ChartableData {
-    pub fn export(&self, output: &Path) -> color_eyre::eyre::Result<()> {
-        let mut f = File::create(output)?;
-
+    pub fn export(&self, output: &mut impl Write) -> color_eyre::eyre::Result<()> {
         let data = match self {
             ChartableData::I64(items) => serde_json::to_string(&items)?,
         };
 
-        f.write_all(data.as_bytes())?;
+        writeln!(output, "{data}")?;
 
         Ok(())
     }

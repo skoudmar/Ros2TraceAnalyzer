@@ -7,13 +7,13 @@ use crate::argsv2::analysis_args::filenames;
 
 #[derive(Debug, Clone, Args)]
 pub struct ExtractArgs {
-    /// The input path, either a file of the data or a folder containing the default named file with the necessary data
-    #[clap(long, short = 'i', value_name = "INPUT", value_hint = ValueHint::AnyPath)]
-    input_path: Option<PathBuf>,
+    /// Path to the r2ta_results.sqlite file from which to retreive the data
+    #[clap(long, short = 'i', value_name = "FILENAME", value_hint = ValueHint::FilePath, default_value = super::analysis_args::filenames::BINARY_BUNDLE)]
+    input: Option<PathBuf>,
 
-    /// The output path, either a folder to which the file will be generated or a file to write into
-    #[clap(long, short = 'o', value_name = "OUTPUT", value_hint = ValueHint::FilePath)]
-    output_path: PathBuf,
+    /// File to extract the data to, if not present the data is written to stdout
+    #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::FilePath)]
+    output_path: Option<PathBuf>,
 
     #[clap(subcommand)]
     extract_content: ExtractContentArgs,
@@ -21,7 +21,7 @@ pub struct ExtractArgs {
 
 impl ExtractArgs {
     pub fn input_path(&self) -> PathBuf {
-        match &self.input_path {
+        match &self.input {
             Some(p) => {
                 if p.is_dir() {
                     p.join(filenames::BINARY_BUNDLE)
@@ -35,8 +35,8 @@ impl ExtractArgs {
         }
     }
 
-    pub fn output_path(&self) -> &Path {
-        self.output_path.as_path()
+    pub fn output_path(&self) -> Option<&Path> {
+        self.output_path.as_deref()
     }
 
     pub fn content(&self) -> &ExtractContentArgs {
