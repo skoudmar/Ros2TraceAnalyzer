@@ -5,6 +5,7 @@ use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 pub mod analysis_args;
 pub mod chart_args;
+pub mod extract_args;
 pub mod helpers;
 pub mod viewer_args;
 
@@ -38,7 +39,7 @@ impl Args {
 
     pub fn into_analysis_args(self) -> analysis_args::AnalysisArgs {
         match self.command {
-            TracerCommand::Analyze(analysis_args) => analysis_args,
+            TracerCommand::Analyze(analysis_args) => *analysis_args,
             _ => {
                 panic!(
                     "Tried to extract Analysis arguments subcommand but {} subcommand was used",
@@ -53,7 +54,7 @@ impl Args {
 pub enum TracerCommand {
     /// Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
     #[display("analyze")]
-    Analyze(analysis_args::AnalysisArgs),
+    Analyze(Box<analysis_args::AnalysisArgs>),
 
     /// Render a chart of a specific property of a ROS 2 interface
     #[display("chart")]
@@ -62,6 +63,10 @@ pub enum TracerCommand {
     /// Start a .dot viewer capable of generating charts on demand
     #[display("viewer")]
     Viewer(viewer_args::ViewerArgs),
+
+    /// Retreive data from bundled analysis results file into JSON format
+    #[display("extract")]
+    Extract(#[clap(subcommand)] extract_args::ExtractArgs),
 }
 
 #[cfg(test)]

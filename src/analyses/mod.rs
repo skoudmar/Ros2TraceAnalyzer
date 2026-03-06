@@ -6,6 +6,8 @@ use color_eyre::eyre::Context;
 use crate::analyses::analysis::AnalysisOutputExt;
 use crate::analyses::event_iterator::get_buf_writer_for_path;
 use crate::argsv2::analysis_args::AnalysisArgs;
+use crate::argsv2::extract_args::AnalysisProperty;
+use crate::utils::binary_sql_store::BinarySQLStore;
 
 pub mod analysis;
 pub mod event_iterator;
@@ -94,86 +96,201 @@ impl Analyses {
     }
 
     pub fn save_output(&self, args: &AnalysisArgs) -> color_eyre::eyre::Result<()> {
-        if let Some(path) = args.message_latency_path() {
-            let analysis = self.message_latency_analysis.as_ref().unwrap();
-            analysis.write_json_to_output_dir(&path)?;
-        }
+        if args.bundle_output()
+            && let Some(path) = args.binary_bundle_path()
+        {
+            let mut store = BinarySQLStore::new(&path)?;
 
-        if let Some(path) = args.callback_duration_path() {
-            let analysis = self.callback_analysis.as_ref().unwrap();
-            analysis.write_json_to_output_dir(&path)?;
-        }
+            if let Some(a) = &self.dependency_graph {
+                let dot_graph = a.display_as_dot(false, false, 1.0);
 
-        if let Some(path) = args.callback_publications_path() {
-            let analysis = self.callback_dependency_analysis.as_ref().unwrap();
-            let analysis = analysis.get_publication_in_callback_analysis();
-            let mut writer = get_buf_writer_for_path(&path)?;
-            analysis
-                .write_stats(&mut writer)
-                .wrap_err("Failed to write publication in callback stats")?;
+                store.define_table("metadata", &["version int", "graph text"])?;
+                store.write_into(
+                    "metadata",
+                    "(version, graph)",
+                    [(1, dot_graph.to_string())].into_iter(),
+                    2,
+                )?;
 
-            // TODO: Implement JSON output
-            // analysis.write_json_to_output_dir(&path, None)?;
-        }
+                store.define_table(
+                    AnalysisProperty::MessageLatencies.table_name(),
+                    &[
+                        "id int",
+                        "source_node text",
+                        "destination_node text",
+                        "topic text",
+                        "data blob",
+                    ],
+                )?;
+                store.write_into(
+                    AnalysisProperty::MessageLatencies.table_name(),
+                    "(id, source_node, destination_node, topic, data)",
+                    a.message_latencies(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.source_node,
+                            &m.name.destination_node,
+                            &m.name.topic,
+                            postcard::to_allocvec(&m.messages_latencies).unwrap(),
+                        )
+                    }),
+                    5,
+                )?;
 
-        if let Some(path) = args.callback_dependency_path() {
-            let analysis = self.callback_dependency_analysis.as_ref().unwrap();
+                store.define_table(
+                    AnalysisProperty::ActivationDelays.table_name(),
+                    &["id int", "node text", "interface text", "data blob"],
+                )?;
+                store.write_into(
+                    AnalysisProperty::ActivationDelays.table_name(),
+                    "(id, node, interface, data)",
+                    a.activation_delays(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.node,
+                            &m.name.interface,
+                            postcard::to_allocvec(&m.activation_delays).unwrap(),
+                        )
+                    }),
+                    4,
+                )?;
 
-            let graph = analysis.get_graph().unwrap();
-            let mut writer = get_buf_writer_for_path(&path)?;
-            writer
-                .write_fmt(format_args!("{}", graph.as_dot()))
-                .wrap_err("Failed to write dependency graph")?;
-        }
+                store.define_table(
+                    AnalysisProperty::PublicationDelays.table_name(),
+                    &["id int", "node text", "interface text", "data blob"],
+                )?;
+                store.write_into(
+                    AnalysisProperty::PublicationDelays.table_name(),
+                    "(id, node, interface, data)",
+                    a.publication_delays(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.node,
+                            &m.name.interface,
+                            postcard::to_allocvec(&m.publication_delays).unwrap(),
+                        )
+                    }),
+                    4,
+                )?;
 
-        if let Some(path) = args.message_take_to_callback_latency_path() {
-            let analysis = self.message_take_to_callback_analysis.as_ref().unwrap();
-            analysis
-                .write_json_to_output_dir(&path)
-                .wrap_err("Failed to write message take to callback latency stats")?;
-        }
+                store.define_table(
+                    AnalysisProperty::MessageDelays.table_name(),
+                    &["id int", "node text", "interface text", "data blob"],
+                )?;
+                store.write_into(
+                    AnalysisProperty::MessageDelays.table_name(),
+                    "(id, node, interface, data)",
+                    a.message_delays(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.node,
+                            &m.name.interface,
+                            postcard::to_allocvec(&m.messages_delays).unwrap(),
+                        )
+                    }),
+                    4,
+                )?;
 
-        if let Some(path) = args.utilization_path() {
-            let analysis = self.callback_analysis.as_ref().unwrap();
-            let utilization = analysis::Utilization::new(analysis);
+                store.define_table(
+                    AnalysisProperty::CallbackDurations.table_name(),
+                    &["id int", "node text", "interface text", "data blob"],
+                )?;
+                store.write_into(
+                    AnalysisProperty::CallbackDurations.table_name(),
+                    "(id, node, interface, data)",
+                    a.callback_durations(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.node,
+                            &m.name.interface,
+                            postcard::to_allocvec(&m.callback_durations).unwrap(),
+                        )
+                    }),
+                    4,
+                )?;
+            }
+        } else {
+            if let Some(path) = args.dependency_graph_path() {
+                let analysis = self.dependency_graph.as_ref().unwrap();
+                let dot_output =
+                    analysis.display_as_dot(args.color(), args.thickness(), args.min_multiplier());
+                let mut writer = get_buf_writer_for_path(&path)?;
+                writer
+                    .write_fmt(format_args!("{dot_output}"))
+                    .wrap_err("Failed to write dependency graph")?;
+            }
 
-            let mut writer = get_buf_writer_for_path(&path)?;
-            utilization
-                .write_stats(&mut writer, args.utilization_quantile())
-                .wrap_err("Failed to write utilization stats")?;
+            if let Some(path) = args.callback_dependency_path() {
+                let analysis = self.callback_dependency_analysis.as_ref().unwrap();
 
-            // TODO: Implement JSON output
-            // utilization.write_json_to_output_dir(&path, None)?;
-        }
+                let graph = analysis.get_graph().unwrap();
+                let mut writer = get_buf_writer_for_path(&path)?;
+                writer
+                    .write_fmt(format_args!("{}", graph.as_dot()))
+                    .wrap_err("Failed to write callback graph")?;
+            }
 
-        if let Some(path) = args.real_utilization_path() {
-            let analysis = self.callback_analysis.as_ref().unwrap();
-            let utilization = analysis::Utilization::new(analysis);
+            if let Some(path) = args.message_latency_path() {
+                let analysis = self.message_latency_analysis.as_ref().unwrap();
+                analysis.write_json_to_output_dir(&path)?;
+            }
 
-            let mut writer = get_buf_writer_for_path(&path)?;
-            utilization
-                .write_stats_real(&mut writer)
-                .wrap_err("Failed to write real utilization stats")?;
+            if let Some(path) = args.callback_duration_path() {
+                let analysis = self.callback_analysis.as_ref().unwrap();
+                analysis.write_json_to_output_dir(&path)?;
+            }
 
-            // TODO: Implement JSON output
-            // utilization.write_json_to_output_dir(&path)?;
-        }
+            if let Some(path) = args.message_take_to_callback_latency_path() {
+                let analysis = self.message_take_to_callback_analysis.as_ref().unwrap();
+                analysis
+                    .write_json_to_output_dir(&path)
+                    .wrap_err("Failed to write message take to callback latency stats")?;
+            }
 
-        if let Some(path) = args.spin_duration_path() {
-            let analysis = self.spin_duration_analysis.as_ref().unwrap();
-            analysis
-                .write_json_to_output_dir(&path)
-                .wrap_err("Failed to write spin duration stats")?;
-        }
+            if let Some(path) = args.spin_duration_path() {
+                let analysis = self.spin_duration_analysis.as_ref().unwrap();
+                analysis
+                    .write_json_to_output_dir(&path)
+                    .wrap_err("Failed to write spin duration stats")?;
+            }
 
-        if let Some(path) = args.dependency_graph_path() {
-            let analysis = self.dependency_graph.as_ref().unwrap();
-            let dot_output =
-                analysis.display_as_dot(args.color(), args.thickness(), args.min_multiplier());
-            let mut writer = get_buf_writer_for_path(&path)?;
-            writer
-                .write_fmt(format_args!("{dot_output}"))
-                .wrap_err("Failed to write dependency graph")?;
+            if let Some(path) = args.callback_publications_path() {
+                let analysis = self.callback_dependency_analysis.as_ref().unwrap();
+                let analysis = analysis.get_publication_in_callback_analysis();
+                let mut writer = get_buf_writer_for_path(&path)?;
+                analysis
+                    .write_stats(&mut writer)
+                    .wrap_err("Failed to write publication in callback stats")?;
+
+                // TODO: Implement JSON output
+                // analysis.write_json_to_output_dir(&path, None)?;
+            }
+
+            if let Some(path) = args.utilization_path() {
+                let analysis = self.callback_analysis.as_ref().unwrap();
+                let utilization = analysis::Utilization::new(analysis);
+
+                let mut writer = get_buf_writer_for_path(&path)?;
+                utilization
+                    .write_stats(&mut writer, args.utilization_quantile())
+                    .wrap_err("Failed to write utilization stats")?;
+
+                // TODO: Implement JSON output
+                // utilization.write_json_to_output_dir(&path, None)?;
+            }
+
+            if let Some(path) = args.real_utilization_path() {
+                let analysis = self.callback_analysis.as_ref().unwrap();
+                let utilization = analysis::Utilization::new(analysis);
+
+                let mut writer = get_buf_writer_for_path(&path)?;
+                utilization
+                    .write_stats_real(&mut writer)
+                    .wrap_err("Failed to write real utilization stats")?;
+
+                // TODO: Implement JSON output
+                // utilization.write_json_to_output_dir(&path)?;
+            }
         }
 
         Ok(())

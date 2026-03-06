@@ -2,20 +2,20 @@ use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use derive_more::Display;
 use std::path::{Path, PathBuf};
 
+use crate::argsv2::analysis_args;
+
 #[derive(Debug, Clone, Args)]
 pub struct ChartArgs {
-    /// Full name of the node to draw the chart for
-    ///
-    /// The name should include the namespace and node's name
-    #[clap(long, short = 'n')]
-    node: String,
+    /// Identifies the element in the dependency graph for
+    /// which to generate the chart
+    #[clap(long, short = 'e')]
+    element_id: i64,
 
-    /// The input path, either a file of the data or a folder containing the default named file with the necessary data
-    #[clap(long, short = 'i', value_name = "INPUT", value_hint = ValueHint::AnyPath)]
-    input_path: Option<PathBuf>,
+    /// Path to the r2ta_results.sqlite file from which to retreive the data
+    #[clap(long, short = 'i', value_name = "FILENAME", value_hint = ValueHint::FilePath, default_value = analysis_args::filenames::BINARY_BUNDLE)]
+    input: Option<PathBuf>,
 
-    /// The output path, either a folder to which the file will be generated or a file to write into
-    #[clap(long, short = 'o', value_name = "OUTPUT", value_hint = ValueHint::AnyPath)]
+    #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::AnyPath)]
     output_path: Option<PathBuf>,
 
     /// Indicates whether the chart should be rendered from scratch.
@@ -29,12 +29,12 @@ pub struct ChartArgs {
 }
 
 impl ChartArgs {
-    pub fn node(&self) -> &str {
-        &self.node
+    pub fn element_id(&self) -> i64 {
+        self.element_id
     }
 
     pub fn input_path(&self) -> Option<&Path> {
-        self.input_path.as_deref()
+        self.input.as_deref()
     }
 
     pub fn output_path(&self) -> Option<&Path> {
@@ -77,9 +77,9 @@ pub struct ChartRequest {
 pub enum ChartOutputFormat {
     #[default]
     #[display("svg")]
-    SVG,
+    Svg,
     #[display("png")]
-    PNG,
+    Png,
 }
 
 #[derive(Debug, Display, ValueEnum, Clone, Copy)]

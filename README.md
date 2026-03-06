@@ -54,8 +54,7 @@ Record traces of your ROS application:
 Then you can use `Ros2TraceAnalyzer` subcommands to obtain various
 information from the trace.
 
-<!-- `$ cargo run -- -h | sed 's/ \[default:/\n          \[default:/g'` -->
-
+<!-- `$ cargo run -- --help` -->
 ```
 Usage: Ros2TraceAnalyzer [OPTIONS] <COMMAND>
 
@@ -63,6 +62,7 @@ Commands:
   analyze  Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
   chart    Render a chart of a specific property of a ROS 2 interface
   viewer   Start a .dot viewer capable of generating charts on demand
+  extract  Retreive data from bundled analysis results file into JSON format
   help     Print this message or the help of the given subcommand(s)
 
 Options:
@@ -74,6 +74,7 @@ Options:
 ## Analyze
 This command analyzes the traces and saves relevant information for later use into JSON, TXT and DOT files. 
 
+<!-- `$ cargo run analyze --help` -->
 ```
 Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
 
@@ -126,12 +127,20 @@ Options:
       --spin-duration[=<FILENAME>]
           Analyze the duration of executor spins
 
+      --binary-bundle [<FILENAME>]
+          File path of the binary bundle output
+          
+          [default: r2ta_results.sqlite]
+
   -o, --out-dir <OUT_DIR>
           Directory to write output files
           
           If not provided, the current working directory is used.
           
           When analysis output filename is specified and it is not an absolute path, it is resolved relative to `OUT_DIR`.
+
+      --legacy-output
+          Flag whether to bundle all outputs into a single file or export each analysis as a separate file
 
       --quantiles <QUANTILES>
           Quantiles to compute for the latency and duration analysis.
@@ -169,7 +178,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
 ```
 
 To gain **overview of timing in your application**, generate a
@@ -268,10 +276,11 @@ Thread 1737158 on steelpick has utilization  2.10334 %
 ## Chart
 This command is reserved for later use. It is intended for generating charts from analyzed traces.
 
+<!-- `$ cargo run chart --help` -->
 ```
 Render a chart of a specific property of a ROS 2 interface
 
-Usage: Ros2TraceAnalyzer chart [OPTIONS] --node <NODE> --value <VALUE> <COMMAND>
+Usage: Ros2TraceAnalyzer chart [OPTIONS] --element-id <ELEMENT_ID> --value <VALUE> <COMMAND>
 
 Commands:
   histogram  
@@ -279,22 +288,22 @@ Commands:
   help       Print this message or the help of the given subcommand(s)
 
 Options:
-  -n, --node <NODE>
-          Full name of the node to draw the chart for
-          
-          The name should include the namespace and node's name
+  -e, --element-id <ELEMENT_ID>
+          Identifies the element in the dependency graph for which to generate the chart
 
   -v, --verbose...
           Increase logging verbosity
 
-  -i, --input-path <INPUT>
-          The input path, either a file of the data or a folder containing the default named file with the necessary data
+  -i, --input-path <FILENAME>
+          Path to the r2ta_results.sqlite file from which to retreive the data
+          
+          [default: r2ta_results.sqlite]
 
   -q, --quiet...
           Decrease logging verbosity
 
-  -o, --output-path <OUTPUT>
-          The output path, either a folder to which the file will be generated or a file to write into
+  -o, --output-path <FILENAME>
+          
 
   -c, --clean
           Indicates whether the chart should be rendered from scratch.
@@ -312,7 +321,9 @@ Options:
           - messages-latency:   Latency of a communication channel
 
       --size <SIZE>
-          The size of the rendered image in pixels
+          The rectangular size of the rendered image in pixels
+          
+          - For PNG this directly translates to pixels - For SVG this is the size in pixels with scale 1.0
           
           [default: 800]
 
@@ -328,6 +339,8 @@ Options:
 
 ## Viewer
 This command is reserved for later use. Builtin .dot graphs viewer.
+
+<!-- `$ cargo run viewer --help` -->
 ```
 Start a .dot viewer capable of generating charts on demand
 
@@ -351,6 +364,27 @@ Options:
           Print help
 ```
 
+## Extract
+This command retrieves various data from the "binary bundle" produced by the analysis subcommand.
+
+<!-- `$ cargo run extract --help` -->
+```
+Retreive data from bundled analysis results file into JSON format
+
+Usage: Ros2TraceAnalyzer extract [OPTIONS] <COMMAND>
+
+Commands:
+  graph     Extract dependency graph
+  property  Extract property values for a node
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -i, --input-path <FILENAME>   Path to the r2ta_results.sqlite file from which to retreive the data [default: r2ta_results.sqlite]
+  -v, --verbose...              Increase logging verbosity
+  -o, --output-path <FILENAME>  File to extract the data to, if not present the data is written to stdout
+  -q, --quiet...                Decrease logging verbosity
+  -h, --help                    Print help
+```
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/
 [xdot.py]: https://github.com/jrfonseca/xdot.py
