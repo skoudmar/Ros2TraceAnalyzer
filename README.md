@@ -59,10 +59,10 @@ information from the trace.
 Usage: Ros2TraceAnalyzer [OPTIONS] <COMMAND>
 
 Commands:
-  analyze  Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
+  analyze  Analyze a ROS 2 trace and store the result either as a binary bundle or separate files. See the extract subcommand for how to work with the binary bundle
   chart    Render a chart of a specific property of a ROS 2 interface
   viewer   Start a .dot viewer capable of generating charts on demand
-  extract  Retreive data from bundled analysis results file into JSON format
+  extract  Retrieve data from binary bundle produced by the analysis
   help     Print this message or the help of the given subcommand(s)
 
 Options:
@@ -76,7 +76,7 @@ This command analyzes the traces and saves relevant information for later use in
 
 <!-- `$ cargo run analyze --help` -->
 ```
-Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
+Analyze a ROS 2 trace and store the result either as a binary bundle or separate files. See the extract subcommand for how to work with the binary bundle
 
 Usage: Ros2TraceAnalyzer analyze [OPTIONS] <TRACE_PATHS>...
 
@@ -140,7 +140,7 @@ Options:
           When analysis output filename is specified and it is not an absolute path, it is resolved relative to `OUT_DIR`.
 
       --legacy-output
-          Flag whether to bundle all outputs into a single file or export each analysis as a separate file
+          Store the results into multiple files rather than to the binary bundle
 
       --quantiles <QUANTILES>
           Quantiles to compute for the latency and duration analysis.
@@ -294,7 +294,7 @@ Options:
   -v, --verbose...
           Increase logging verbosity
 
-  -i, --input-path <FILENAME>
+  -i, --input <FILENAME>
           Path to the r2ta_results.sqlite file from which to retreive the data
           
           [default: r2ta_results.sqlite]
@@ -302,8 +302,8 @@ Options:
   -q, --quiet...
           Decrease logging verbosity
 
-  -o, --output-path <FILENAME>
-          
+  -o, --output <FILENAME>
+          Store the chart data to the given file
 
   -c, --clean
           Indicates whether the chart should be rendered from scratch.
@@ -369,7 +369,7 @@ This command retrieves various data from the "binary bundle" produced by the ana
 
 <!-- `$ cargo run extract --help` -->
 ```
-Retreive data from bundled analysis results file into JSON format
+Retrieve data from binary bundle produced by the analysis
 
 Usage: Ros2TraceAnalyzer extract [OPTIONS] <COMMAND>
 
@@ -379,11 +379,11 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -i, --input-path <FILENAME>   Path to the r2ta_results.sqlite file from which to retreive the data [default: r2ta_results.sqlite]
-  -v, --verbose...              Increase logging verbosity
-  -o, --output-path <FILENAME>  File to extract the data to, if not present the data is written to stdout
-  -q, --quiet...                Decrease logging verbosity
-  -h, --help                    Print help
+  -i, --input <FILENAME>   Path to the r2ta_results.sqlite file from which to retreive the data [default: r2ta_results.sqlite]
+  -v, --verbose...         Increase logging verbosity
+  -o, --output <FILENAME>  File to extract the data to, if not present the data is written to stdout
+  -q, --quiet...           Decrease logging verbosity
+  -h, --help               Print help
 ```
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/

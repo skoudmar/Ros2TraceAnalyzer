@@ -92,7 +92,7 @@ pub struct AnalysisArgs {
     #[arg(long, short = 'o', value_hint = ValueHint::DirPath)]
     out_dir: Option<PathBuf>,
 
-    /// Flag whether to bundle all outputs into a single file or export each analysis as a separate file
+    /// Store the results into multiple files rather than to the binary bundle
     #[arg(long)]
     legacy_output: bool,
 

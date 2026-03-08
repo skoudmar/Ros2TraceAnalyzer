@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
@@ -11,7 +10,8 @@ use crate::analyses::analysis::dependency_graph::{
     PublicationDelayExport,
 };
 use crate::argsv2::extract_args::AnalysisProperty;
-use crate::utils::binary_sql_store::{BinarySQLStore, BinarySQLStoreError};
+use crate::utils::binary_sql_store::v1::{BinarySqlStoreV1, BinarySqlStoreV1Table, GraphEntry};
+use crate::utils::binary_sql_store::{BinarySQLStoreError, BinarySqlStore};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Display, Debug)]
 #[display("{node}::{interface}")]
@@ -39,11 +39,12 @@ pub enum DataExtractionError {
 }
 
 pub fn extract_graph(input: &Path) -> color_eyre::eyre::Result<String> {
-    let store = BinarySQLStore::new(input)?;
+    let store = BinarySqlStoreV1::from_file(input, false)?;
 
-    let graph = store.read("metadata", "graph", "TRUE", ())?;
+    let dependency_graph: GraphEntry =
+        store.get(BinarySqlStoreV1Table::Graphs, ("dependency_graph",))?;
 
-    Ok(graph)
+    Ok(dependency_graph.graph)
 }
 
 pub fn extract_property(
@@ -51,15 +52,13 @@ pub fn extract_property(
     element_id: i64,
     property: &AnalysisProperty,
 ) -> color_eyre::eyre::Result<ChartableData> {
-    let store = BinarySQLStore::new(input)?;
+    let store = BinarySqlStoreV1::from_file(input, false)?;
 
     Ok(match property {
         AnalysisProperty::CallbackDurations => ChartableData::I64(
             store
-                .read::<CallbackDurationExport>(
-                    property.table_name(),
-                    "id, data, interface, node",
-                    "id = ?1",
+                .get::<CallbackDurationExport>(
+                    BinarySqlStoreV1Table::Property(property.clone()),
                     (element_id,),
                 )
                 .map_err(DataExtractionError::SourceDataParseError)?
@@ -67,10 +66,8 @@ pub fn extract_property(
         ),
         AnalysisProperty::ActivationDelays => ChartableData::I64(
             store
-                .read::<ActivationDelayExport>(
-                    property.table_name(),
-                    "id, data, interface, node",
-                    "id = ?1",
+                .get::<ActivationDelayExport>(
+                    BinarySqlStoreV1Table::Property(property.clone()),
                     (element_id,),
                 )
                 .map_err(DataExtractionError::SourceDataParseError)?
@@ -78,10 +75,8 @@ pub fn extract_property(
         ),
         AnalysisProperty::PublicationDelays => ChartableData::I64(
             store
-                .read::<PublicationDelayExport>(
-                    property.table_name(),
-                    "id, data, interface, node",
-                    "id = ?1",
+                .get::<PublicationDelayExport>(
+                    BinarySqlStoreV1Table::Property(property.clone()),
                     (element_id,),
                 )
                 .map_err(DataExtractionError::SourceDataParseError)?
@@ -89,10 +84,8 @@ pub fn extract_property(
         ),
         AnalysisProperty::MessageDelays => ChartableData::I64(
             store
-                .read::<MessagesDelayExport>(
-                    property.table_name(),
-                    "id, data, interface, node",
-                    "id = ?1",
+                .get::<MessagesDelayExport>(
+                    BinarySqlStoreV1Table::Property(property.clone()),
                     (element_id,),
                 )
                 .map_err(DataExtractionError::SourceDataParseError)?
@@ -100,10 +93,8 @@ pub fn extract_property(
         ),
         AnalysisProperty::MessageLatencies => ChartableData::I64(
             store
-                .read::<MessageLatencyExport>(
-                    property.table_name(),
-                    "id, data, source_node, destination_node, topic",
-                    "id = ?1",
+                .get::<MessageLatencyExport>(
+                    BinarySqlStoreV1Table::Property(property.clone()),
                     (element_id,),
                 )
                 .map_err(DataExtractionError::SourceDataParseError)?

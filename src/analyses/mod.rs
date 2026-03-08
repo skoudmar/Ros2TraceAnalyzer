@@ -7,7 +7,8 @@ use crate::analyses::analysis::AnalysisOutputExt;
 use crate::analyses::event_iterator::get_buf_writer_for_path;
 use crate::argsv2::analysis_args::AnalysisArgs;
 use crate::argsv2::extract_args::AnalysisProperty;
-use crate::utils::binary_sql_store::BinarySQLStore;
+use crate::utils::binary_sql_store::BinarySqlStore;
+use crate::utils::binary_sql_store::v1::{BinarySqlStoreV1, BinarySqlStoreV1Table};
 
 pub mod analysis;
 pub mod event_iterator;
@@ -99,32 +100,18 @@ impl Analyses {
         if args.bundle_output()
             && let Some(path) = args.binary_bundle_path()
         {
-            let mut store = BinarySQLStore::new(&path)?;
+            let mut store = BinarySqlStoreV1::from_file(&path, true)?;
 
             if let Some(a) = &self.dependency_graph {
                 let dot_graph = a.display_as_dot(false, false, 1.0);
 
-                store.define_table("metadata", &["version int", "graph text"])?;
-                store.write_into(
-                    "metadata",
-                    "(version, graph)",
-                    [(1, dot_graph.to_string())].into_iter(),
-                    2,
+                store.insert(
+                    BinarySqlStoreV1Table::Graphs,
+                    [("dependency_graph", dot_graph.to_string())].into_iter(),
                 )?;
 
-                store.define_table(
-                    AnalysisProperty::MessageLatencies.table_name(),
-                    &[
-                        "id int",
-                        "source_node text",
-                        "destination_node text",
-                        "topic text",
-                        "data blob",
-                    ],
-                )?;
-                store.write_into(
-                    AnalysisProperty::MessageLatencies.table_name(),
-                    "(id, source_node, destination_node, topic, data)",
+                store.insert(
+                    BinarySqlStoreV1Table::Property(AnalysisProperty::MessageLatencies),
                     a.message_latencies(&dot_graph).iter().map(|m| {
                         (
                             m.id,
@@ -134,16 +121,10 @@ impl Analyses {
                             postcard::to_allocvec(&m.messages_latencies).unwrap(),
                         )
                     }),
-                    5,
                 )?;
 
-                store.define_table(
-                    AnalysisProperty::ActivationDelays.table_name(),
-                    &["id int", "node text", "interface text", "data blob"],
-                )?;
-                store.write_into(
-                    AnalysisProperty::ActivationDelays.table_name(),
-                    "(id, node, interface, data)",
+                store.insert(
+                    BinarySqlStoreV1Table::Property(AnalysisProperty::ActivationDelays),
                     a.activation_delays(&dot_graph).iter().map(|m| {
                         (
                             m.id,
@@ -152,16 +133,10 @@ impl Analyses {
                             postcard::to_allocvec(&m.activation_delays).unwrap(),
                         )
                     }),
-                    4,
                 )?;
 
-                store.define_table(
-                    AnalysisProperty::PublicationDelays.table_name(),
-                    &["id int", "node text", "interface text", "data blob"],
-                )?;
-                store.write_into(
-                    AnalysisProperty::PublicationDelays.table_name(),
-                    "(id, node, interface, data)",
+                store.insert(
+                    BinarySqlStoreV1Table::Property(AnalysisProperty::PublicationDelays),
                     a.publication_delays(&dot_graph).iter().map(|m| {
                         (
                             m.id,
@@ -170,34 +145,10 @@ impl Analyses {
                             postcard::to_allocvec(&m.publication_delays).unwrap(),
                         )
                     }),
-                    4,
                 )?;
 
-                store.define_table(
-                    AnalysisProperty::MessageDelays.table_name(),
-                    &["id int", "node text", "interface text", "data blob"],
-                )?;
-                store.write_into(
-                    AnalysisProperty::MessageDelays.table_name(),
-                    "(id, node, interface, data)",
-                    a.message_delays(&dot_graph).iter().map(|m| {
-                        (
-                            m.id,
-                            &m.name.node,
-                            &m.name.interface,
-                            postcard::to_allocvec(&m.messages_delays).unwrap(),
-                        )
-                    }),
-                    4,
-                )?;
-
-                store.define_table(
-                    AnalysisProperty::CallbackDurations.table_name(),
-                    &["id int", "node text", "interface text", "data blob"],
-                )?;
-                store.write_into(
-                    AnalysisProperty::CallbackDurations.table_name(),
-                    "(id, node, interface, data)",
+                store.insert(
+                    BinarySqlStoreV1Table::Property(AnalysisProperty::CallbackDurations),
                     a.callback_durations(&dot_graph).iter().map(|m| {
                         (
                             m.id,
@@ -206,7 +157,18 @@ impl Analyses {
                             postcard::to_allocvec(&m.callback_durations).unwrap(),
                         )
                     }),
-                    4,
+                )?;
+
+                store.insert(
+                    BinarySqlStoreV1Table::Property(AnalysisProperty::MessageDelays),
+                    a.message_delays(&dot_graph).iter().map(|m| {
+                        (
+                            m.id,
+                            &m.name.node,
+                            &m.name.interface,
+                            postcard::to_allocvec(&m.messages_delays).unwrap(),
+                        )
+                    }),
                 )?;
             }
         } else {

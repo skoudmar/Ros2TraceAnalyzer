@@ -15,8 +15,9 @@ pub struct ChartArgs {
     #[clap(long, short = 'i', value_name = "FILENAME", value_hint = ValueHint::FilePath, default_value = analysis_args::filenames::BINARY_BUNDLE)]
     input: Option<PathBuf>,
 
+    /// Store the chart data to the given file
     #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::AnyPath)]
-    output_path: Option<PathBuf>,
+    output: Option<PathBuf>,
 
     /// Indicates whether the chart should be rendered from scratch.
     ///
@@ -38,7 +39,7 @@ impl ChartArgs {
     }
 
     pub fn output_path(&self) -> Option<&Path> {
-        self.output_path.as_deref()
+        self.output.as_deref()
     }
 
     pub fn clean(&self) -> bool {

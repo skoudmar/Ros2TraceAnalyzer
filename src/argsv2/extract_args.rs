@@ -13,7 +13,7 @@ pub struct ExtractArgs {
 
     /// File to extract the data to, if not present the data is written to stdout
     #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::FilePath)]
-    output_path: Option<PathBuf>,
+    output: Option<PathBuf>,
 
     #[clap(subcommand)]
     extract_content: ExtractContentArgs,
@@ -36,7 +36,7 @@ impl ExtractArgs {
     }
 
     pub fn output_path(&self) -> Option<&Path> {
-        self.output_path.as_deref()
+        self.output.as_deref()
     }
 
     pub fn content(&self) -> &ExtractContentArgs {
@@ -74,7 +74,7 @@ impl ExtractPropertyArgs {
     }
 }
 
-#[derive(Debug, Display, ValueEnum, Clone)]
+#[derive(Debug, Display, ValueEnum, Clone, PartialEq, Eq, Hash)]
 pub enum AnalysisProperty {
     /// Callback execution durations
     #[display("Callback execution time")]
@@ -99,7 +99,7 @@ pub enum AnalysisProperty {
 
 impl AnalysisProperty {
     /// Table name in the binary data blob for this property
-    pub fn table_name(&self) -> &'static str {
+    pub const fn table_name(&self) -> &'static str {
         match self {
             AnalysisProperty::CallbackDurations => "callback_duration",
             AnalysisProperty::ActivationDelays => "activations_delay",

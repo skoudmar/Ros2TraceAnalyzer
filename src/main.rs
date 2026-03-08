@@ -14,7 +14,6 @@ mod visualization;
 
 use std::ffi::CString;
 use std::io::Write;
-use std::ops::{Deref, DerefMut};
 
 use argsv2::Args;
 use argsv2::helpers::prepare_trace_paths;
