@@ -54,9 +54,8 @@ Record traces of your ROS application:
 Then you can use `Ros2TraceAnalyzer` subcommands to obtain various
 information from the trace.
 
-<!-- `$ cargo run -- -h | sed 's/ \[default:/\n          \[default:/g'` -->
-
-```
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- --help` as text -->
+```text
 Usage: Ros2TraceAnalyzer [OPTIONS] <COMMAND>
 
 Commands:
@@ -74,7 +73,8 @@ Options:
 ## Analyze
 This command analyzes the traces and saves relevant information for later use into JSON, TXT and DOT files. 
 
-```
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- analyze --help` as text -->
+```text
 Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
 
 Usage: Ros2TraceAnalyzer analyze [OPTIONS] <TRACE_PATHS>...
@@ -169,7 +169,6 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
-
 ```
 
 To gain **overview of timing in your application**, generate a
@@ -268,7 +267,8 @@ Thread 1737158 on steelpick has utilization  2.10334 %
 ## Chart
 This command is reserved for later use. It is intended for generating charts from analyzed traces.
 
-```
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- chart --help` as text -->
+```text
 Render a chart of a specific property of a ROS 2 interface
 
 Usage: Ros2TraceAnalyzer chart [OPTIONS] --node <NODE> --value <VALUE> <COMMAND>
@@ -312,7 +312,11 @@ Options:
           - messages-latency:   Latency of a communication channel
 
       --size <SIZE>
-          The size of the rendered image in pixels
+          The rectangular size of the rendered image in pixels
+          
+          - For PNG this directly translates to pixels
+          
+          - For SVG this is the size in pixels with scale 1.0
           
           [default: 800]
 
@@ -328,7 +332,8 @@ Options:
 
 ## Viewer
 This command is reserved for later use. Builtin .dot graphs viewer.
-```
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- viewer --help` as text -->
+```text
 Start a .dot viewer capable of generating charts on demand
 
 Usage: Ros2TraceAnalyzer viewer [OPTIONS] <DOTFILE>
