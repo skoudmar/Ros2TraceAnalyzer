@@ -9,6 +9,8 @@ pub mod v1;
 pub enum BinarySQLStoreError {
     #[error("An error occured in rusqlite {0}")]
     SQLiteError(rusqlite::Error),
+    #[error("The provided file path does not point to an existing file {0}")]
+    NoStore(std::path::PathBuf),
 }
 
 pub trait FromRow: Sized {
@@ -36,26 +38,29 @@ pub struct SqlTable {
 }
 
 pub trait BinarySqlStore<Table: Hash + Eq>: BinarySqlStoreBase<Table = Table> {
-    fn from_file(sqlite_path: &Path, clear: bool) -> Result<Self, BinarySQLStoreError> {
-        let reusing_file = sqlite_path.exists();
+    fn from_file(sqlite_path: &Path, use_existing: bool) -> Result<Self, BinarySQLStoreError> {
+        let exists = sqlite_path.exists();
+
+        if use_existing && !exists {
+            return Err(BinarySQLStoreError::NoStore(sqlite_path.to_path_buf()));
+        } else if !use_existing && exists {
+            std::fs::remove_file(sqlite_path).unwrap();
+        }
+
         let sqlite_connection =
             rusqlite::Connection::open(sqlite_path).map_err(BinarySQLStoreError::SQLiteError)?;
 
         let mut store: Self = Self::from_connection(sqlite_connection);
 
-        if reusing_file {
-            if clear {
-                store.clear()?;
-            } else {
-                let version = store.get::<i64>(store.metadata_table(), ())?;
+        if use_existing {
+            let version = store.get::<i64>(store.metadata_table(), ())?;
 
-                if version != Self::VERSION {
-                    log::warn!(
-                        "Mismatched file version, expected: {}, got: {}",
-                        Self::VERSION,
-                        version
-                    );
-                }
+            if version != Self::VERSION {
+                log::warn!(
+                    "Mismatched file version, expected: {}, got: {}",
+                    Self::VERSION,
+                    version
+                );
             }
         } else {
             store.insert(store.metadata_table(), [(1,)].into_iter())?;
@@ -130,18 +135,6 @@ pub trait BinarySqlStore<Table: Hash + Eq>: BinarySqlStoreBase<Table = Table> {
                 |row| T::from_row(row),
             )
             .map_err(BinarySQLStoreError::SQLiteError)
-    }
-
-    fn clear(&self) -> Result<(), BinarySQLStoreError> {
-        let tables = self.tables();
-
-        for v in tables.values() {
-            self.connection()
-                .execute(&format!("DROP TABLE IF EXISTS {}", v.name), ())
-                .map_err(BinarySQLStoreError::SQLiteError)?;
-        }
-
-        Ok(())
     }
 }
 

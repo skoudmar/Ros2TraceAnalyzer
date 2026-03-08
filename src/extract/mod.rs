@@ -39,7 +39,7 @@ pub enum DataExtractionError {
 }
 
 pub fn extract_graph(input: &Path) -> color_eyre::eyre::Result<String> {
-    let store = BinarySqlStoreV1::from_file(input, false)?;
+    let store = BinarySqlStoreV1::from_file(input, true)?;
 
     let dependency_graph: GraphEntry =
         store.get(BinarySqlStoreV1Table::Graphs, ("dependency_graph",))?;
@@ -52,7 +52,7 @@ pub fn extract_property(
     element_id: i64,
     property: &AnalysisProperty,
 ) -> color_eyre::eyre::Result<ChartableData> {
-    let store = BinarySqlStoreV1::from_file(input, false)?;
+    let store = BinarySqlStoreV1::from_file(input, true)?;
 
     Ok(match property {
         AnalysisProperty::CallbackDurations => ChartableData::I64(

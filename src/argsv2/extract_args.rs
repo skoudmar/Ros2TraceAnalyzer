@@ -7,7 +7,7 @@ use crate::argsv2::analysis_args::filenames;
 
 #[derive(Debug, Clone, Args)]
 pub struct ExtractArgs {
-    /// Path to the r2ta_results.sqlite file from which to retreive the data
+    /// Path to the results file or directory containing r2ta_results.sqlite
     #[clap(long, short = 'i', value_name = "FILENAME", value_hint = ValueHint::FilePath, default_value = super::analysis_args::filenames::BINARY_BUNDLE)]
     input: Option<PathBuf>,
 

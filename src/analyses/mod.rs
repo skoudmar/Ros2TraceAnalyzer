@@ -100,9 +100,9 @@ impl Analyses {
         if args.bundle_output()
             && let Some(path) = args.binary_bundle_path()
         {
-            let mut store = BinarySqlStoreV1::from_file(&path, true)?;
-
             if let Some(a) = &self.dependency_graph {
+                let mut store = BinarySqlStoreV1::from_file(&path, false)?;
+
                 let dot_graph = a.display_as_dot(false, false, 1.0);
 
                 store.insert(
