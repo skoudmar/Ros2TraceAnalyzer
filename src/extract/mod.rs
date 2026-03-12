@@ -10,7 +10,6 @@ use crate::analyses::analysis::dependency_graph::{
     PublicationDelayExport,
 };
 use crate::argsv2::extract_args::AnalysisProperty;
-use crate::utils::binary_sql_store::v1::{BinarySqlStoreV1, BinarySqlStoreV1Table, GraphEntry};
 use crate::utils::binary_sql_store::{BinarySQLStoreError, BinarySqlStore};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Display, Debug)]
@@ -39,12 +38,9 @@ pub enum DataExtractionError {
 }
 
 pub fn extract_graph(input: &Path) -> color_eyre::eyre::Result<String> {
-    let store = BinarySqlStoreV1::from_file(input, true)?;
+    let store = BinarySqlStore::open(input)?;
 
-    let dependency_graph: GraphEntry =
-        store.get(BinarySqlStoreV1Table::Graphs, ("dependency_graph",))?;
-
-    Ok(dependency_graph.graph)
+    Ok(store.get_dependency_graph()?.graph)
 }
 
 pub fn extract_property(
@@ -52,51 +48,38 @@ pub fn extract_property(
     element_id: i64,
     property: &AnalysisProperty,
 ) -> color_eyre::eyre::Result<ChartableData> {
-    let store = BinarySqlStoreV1::from_file(input, true)?;
+    let store = BinarySqlStore::open(input)?;
+
+    let element_id = element_id as usize;
 
     Ok(match property {
         AnalysisProperty::CallbackDurations => ChartableData::I64(
             store
-                .get::<CallbackDurationExport>(
-                    BinarySqlStoreV1Table::Property(property.clone()),
-                    (element_id,),
-                )
+                .get_by_id::<CallbackDurationExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .callback_durations,
         ),
         AnalysisProperty::ActivationDelays => ChartableData::I64(
             store
-                .get::<ActivationDelayExport>(
-                    BinarySqlStoreV1Table::Property(property.clone()),
-                    (element_id,),
-                )
+                .get_by_id::<ActivationDelayExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .activation_delays,
         ),
         AnalysisProperty::PublicationDelays => ChartableData::I64(
             store
-                .get::<PublicationDelayExport>(
-                    BinarySqlStoreV1Table::Property(property.clone()),
-                    (element_id,),
-                )
+                .get_by_id::<PublicationDelayExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .publication_delays,
         ),
         AnalysisProperty::MessageDelays => ChartableData::I64(
             store
-                .get::<MessagesDelayExport>(
-                    BinarySqlStoreV1Table::Property(property.clone()),
-                    (element_id,),
-                )
+                .get_by_id::<MessagesDelayExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .messages_delays,
         ),
         AnalysisProperty::MessageLatencies => ChartableData::I64(
             store
-                .get::<MessageLatencyExport>(
-                    BinarySqlStoreV1Table::Property(property.clone()),
-                    (element_id,),
-                )
+                .get_by_id::<MessageLatencyExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .messages_latencies,
         ),

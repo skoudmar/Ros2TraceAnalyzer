@@ -2,9 +2,9 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use crate::analyses::analysis::utils::DisplayDurationStats;
+use crate::analysis::utils::DisplayDurationStats;
 use crate::model::display::get_node_name_from_weak;
 use crate::model::{Publisher, Subscriber, SubscriptionMessage};
 use crate::processed_events::{Event, FullEvent, ros2};
@@ -253,43 +253,37 @@ impl AnalysisOutput for MessageLatency {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct MessageLatencyExport {
-    pub topic: String,
-    pub source_node: String,
-    pub destination_node: String,
-    pub latencies: Vec<i64>,
+#[derive(Debug, Serialize)]
+struct MessageLatencyExport {
+    topic: String,
+    subscriber_node: String,
+    publisher_node: String,
+    latencies: Vec<i64>,
 }
 
 impl From<MessageLatencyStats> for MessageLatencyExport {
     fn from(value: MessageLatencyStats) -> Self {
-        let destination_node = value
-            .subscriber
-            .lock()
-            .map(|s| {
-                s.get_node().map(|v| {
-                    get_node_name_from_weak(&v.get_weak()).unwrap_or("Unknown".to_string())
-                })
-            })
-            .map_or_else(|_| "Unknown".into(), |v| v.to_string());
-
-        let source_node = value
-            .publisher
-            .map(|p| {
-                p.lock()
-                    .map(|s| {
-                        s.get_node().map(|v| {
-                            get_node_name_from_weak(&v.get_weak()).unwrap_or("Unknown".to_string())
-                        })
+        let subscriber = value.subscriber.lock().unwrap();
+        let subscriber_node = subscriber
+            .get_node()
+            .map(|node| get_node_name_from_weak(&node.get_weak()).unwrap_or("Unknown".to_string()))
+            .unwrap_or("Unknown".to_string());
+        let publisher_node = value.publisher.as_ref().map_or_else(
+            || "Unknown".to_string(),
+            |p| {
+                let publisher = p.lock().unwrap().get_node();
+                publisher
+                    .map(|node| {
+                        get_node_name_from_weak(&node.get_weak()).unwrap_or("Unknown".to_string())
                     })
-                    .map_or_else(|_| "Unknown".into(), |v| v.to_string())
-            })
-            .unwrap_or_else(|| "Unknown".into());
+                    .unwrap_or("Unknown".to_string())
+            },
+        );
 
         Self {
             topic: value.topic,
-            source_node,
-            destination_node,
+            subscriber_node,
+            publisher_node,
             latencies: value.latencies,
         }
     }

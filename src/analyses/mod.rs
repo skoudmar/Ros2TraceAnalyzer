@@ -6,9 +6,7 @@ use color_eyre::eyre::Context;
 use crate::analyses::analysis::AnalysisOutputExt;
 use crate::analyses::event_iterator::get_buf_writer_for_path;
 use crate::argsv2::analysis_args::AnalysisArgs;
-use crate::argsv2::extract_args::AnalysisProperty;
 use crate::utils::binary_sql_store::BinarySqlStore;
-use crate::utils::binary_sql_store::v1::{BinarySqlStoreV1, BinarySqlStoreV1Table};
 
 pub mod analysis;
 pub mod event_iterator;
@@ -100,82 +98,28 @@ impl Analyses {
         if args.bundle_output()
             && let Some(path) = args.binary_bundle_path()
         {
-            if let Some(a) = &self.dependency_graph {
-                let mut store = BinarySqlStoreV1::from_file(&path, false)?;
+            if let Some(graph_analysis) = &self.dependency_graph {
+                let mut store = BinarySqlStore::new(&path)?;
 
-                let dot_graph = a.display_as_dot(false, false, 1.0);
+                let dot_graph = graph_analysis.to_dot_graph(false, false, 1.0);
 
-                store.insert(
-                    BinarySqlStoreV1Table::Graphs,
-                    [("dependency_graph", dot_graph.to_string())].into_iter(),
-                )?;
-
-                store.insert(
-                    BinarySqlStoreV1Table::Property(AnalysisProperty::MessageLatencies),
-                    a.message_latencies(&dot_graph).iter().map(|m| {
-                        (
-                            m.id,
-                            &m.name.source_node,
-                            &m.name.destination_node,
-                            &m.name.topic,
-                            postcard::to_allocvec(&m.messages_latencies).unwrap(),
-                        )
-                    }),
-                )?;
+                store.insert(&[crate::utils::binary_sql_store::DependencyGraph {
+                    graph: dot_graph.to_string(),
+                }])?;
 
                 store.insert(
-                    BinarySqlStoreV1Table::Property(AnalysisProperty::ActivationDelays),
-                    a.activation_delays(&dot_graph).iter().map(|m| {
-                        (
-                            m.id,
-                            &m.name.node,
-                            &m.name.interface,
-                            postcard::to_allocvec(&m.activation_delays).unwrap(),
-                        )
-                    }),
+                    &graph_analysis.message_latencies(dot_graph.node_ids(), dot_graph.edge_ids()),
                 )?;
-
-                store.insert(
-                    BinarySqlStoreV1Table::Property(AnalysisProperty::PublicationDelays),
-                    a.publication_delays(&dot_graph).iter().map(|m| {
-                        (
-                            m.id,
-                            &m.name.node,
-                            &m.name.interface,
-                            postcard::to_allocvec(&m.publication_delays).unwrap(),
-                        )
-                    }),
-                )?;
-
-                store.insert(
-                    BinarySqlStoreV1Table::Property(AnalysisProperty::CallbackDurations),
-                    a.callback_durations(&dot_graph).iter().map(|m| {
-                        (
-                            m.id,
-                            &m.name.node,
-                            &m.name.interface,
-                            postcard::to_allocvec(&m.callback_durations).unwrap(),
-                        )
-                    }),
-                )?;
-
-                store.insert(
-                    BinarySqlStoreV1Table::Property(AnalysisProperty::MessageDelays),
-                    a.message_delays(&dot_graph).iter().map(|m| {
-                        (
-                            m.id,
-                            &m.name.node,
-                            &m.name.interface,
-                            postcard::to_allocvec(&m.messages_delays).unwrap(),
-                        )
-                    }),
-                )?;
+                store.insert(&graph_analysis.activation_delays(dot_graph.node_ids()))?;
+                store.insert(&graph_analysis.publication_delays(dot_graph.node_ids()))?;
+                store.insert(&graph_analysis.callback_durations(dot_graph.node_ids()))?;
+                store.insert(&graph_analysis.message_delays(dot_graph.node_ids()))?;
             }
         } else {
             if let Some(path) = args.dependency_graph_path() {
                 let analysis = self.dependency_graph.as_ref().unwrap();
                 let dot_output =
-                    analysis.display_as_dot(args.color(), args.thickness(), args.min_multiplier());
+                    analysis.to_dot_graph(args.color(), args.thickness(), args.min_multiplier());
                 let mut writer = get_buf_writer_for_path(&path)?;
                 writer
                     .write_fmt(format_args!("{dot_output}"))
