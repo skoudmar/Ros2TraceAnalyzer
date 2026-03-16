@@ -379,7 +379,7 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -i, --input <FILENAME>   Path to the results file or directory containing r2ta_results.sqlite [default: r2ta_results.sqlite]
+  -i, --input <FILENAME>   Binary bundle file name or a directory containing r2ta_results.sqlite file [default: r2ta_results.sqlite]
   -v, --verbose...         Increase logging verbosity
   -o, --output <FILENAME>  File to extract the data to, if not present the data is written to stdout
   -q, --quiet...           Decrease logging verbosity
