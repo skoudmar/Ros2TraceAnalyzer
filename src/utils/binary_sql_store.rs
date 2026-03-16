@@ -156,6 +156,13 @@ pub trait Entity: Sized {
 }
 
 impl Entity for MessageLatencyExport {
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("source_node", "TEXT"),
+        TableColumn::new("destination_node", "TEXT"),
+        TableColumn::new("topic", "TEXT"),
+        TableColumn::new("latencies", "BLOB"),
+    ];
     const TABLE: &'static str = "message_latencies";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
@@ -170,14 +177,6 @@ impl Entity for MessageLatencyExport {
         })
     }
 
-    const PARAMS: &'static [TableColumn] = &[
-        TableColumn::new("id", "INT PRIMARY KEY"),
-        TableColumn::new("source_node", "TEXT"),
-        TableColumn::new("destination_node", "TEXT"),
-        TableColumn::new("topic", "TEXT"),
-        TableColumn::new("latencies", "BLOB"),
-    ];
-
     fn to_params(&self) -> impl rusqlite::Params {
         (
             self.id as i64,
@@ -190,7 +189,14 @@ impl Entity for MessageLatencyExport {
 }
 
 impl Entity for MessagesDelayExport {
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("node", "TEXT"),
+        TableColumn::new("interface", "TEXT"),
+        TableColumn::new("delays", "BLOB"),
+    ];
     const TABLE: &'static str = "message_delays";
+
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(MessagesDelayExport {
             id: row.get::<_, i64>("id")? as usize,
@@ -201,13 +207,6 @@ impl Entity for MessagesDelayExport {
             messages_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("latencies")?).unwrap(),
         })
     }
-
-    const PARAMS: &'static [TableColumn] = &[
-        TableColumn::new("id", "INT PRIMARY KEY"),
-        TableColumn::new("node", "TEXT"),
-        TableColumn::new("interface", "TEXT"),
-        TableColumn::new("delays", "BLOB"),
-    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (
@@ -220,6 +219,12 @@ impl Entity for MessagesDelayExport {
 }
 
 impl Entity for CallbackDurationExport {
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("node", "TEXT"),
+        TableColumn::new("interface", "TEXT"),
+        TableColumn::new("durations", "BLOB"),
+    ];
     const TABLE: &'static str = "callback_durations";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
@@ -233,13 +238,6 @@ impl Entity for CallbackDurationExport {
         })
     }
 
-    const PARAMS: &'static [TableColumn] = &[
-        TableColumn::new("id", "INT PRIMARY KEY"),
-        TableColumn::new("node", "TEXT"),
-        TableColumn::new("interface", "TEXT"),
-        TableColumn::new("durations", "BLOB"),
-    ];
-
     fn to_params(&self) -> impl rusqlite::Params {
         (
             self.id as i64,
@@ -251,7 +249,14 @@ impl Entity for CallbackDurationExport {
 }
 
 impl Entity for PublicationDelayExport {
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("node", "TEXT"),
+        TableColumn::new("interface", "TEXT"),
+        TableColumn::new("delays", "BLOB"),
+    ];
     const TABLE: &'static str = "publication_delays";
+
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(PublicationDelayExport {
             id: row.get::<_, i64>("id")? as usize,
@@ -262,13 +267,6 @@ impl Entity for PublicationDelayExport {
             publication_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("delays")?).unwrap(),
         })
     }
-
-    const PARAMS: &'static [TableColumn] = &[
-        TableColumn::new("id", "INT PRIMARY KEY"),
-        TableColumn::new("node", "TEXT"),
-        TableColumn::new("interface", "TEXT"),
-        TableColumn::new("delays", "BLOB"),
-    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (
@@ -281,7 +279,14 @@ impl Entity for PublicationDelayExport {
 }
 
 impl Entity for ActivationDelayExport {
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("node", "TEXT"),
+        TableColumn::new("interface", "TEXT"),
+        TableColumn::new("delays", "BLOB"),
+    ];
     const TABLE: &'static str = "activation_delays";
+
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(ActivationDelayExport {
             id: row.get::<_, i64>("id")? as usize,
@@ -292,13 +297,6 @@ impl Entity for ActivationDelayExport {
             activation_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("delays")?).unwrap(),
         })
     }
-
-    const PARAMS: &'static [TableColumn] = &[
-        TableColumn::new("id", "INT PRIMARY KEY"),
-        TableColumn::new("node", "TEXT"),
-        TableColumn::new("interface", "TEXT"),
-        TableColumn::new("delays", "BLOB"),
-    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (
@@ -315,17 +313,17 @@ struct Metadata {
 }
 
 impl Entity for Metadata {
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("version", "INT"),
+    ];
     const TABLE: &'static str = "metadata";
+
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(Metadata {
             version: row.get::<_, i64>("version")? as usize,
         })
     }
-
-    const PARAMS: &'static [TableColumn] = &[
-        TableColumn::new("id", "INT PRIMARY KEY"),
-        TableColumn::new("version", "INT"),
-    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (0, self.version as i64)
@@ -337,18 +335,18 @@ pub struct DependencyGraph {
 }
 
 impl Entity for DependencyGraph {
-    const TABLE: &'static str = "graphs";
-    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        Ok(Self {
-            graph: row.get("graph")?,
-        })
-    }
-
     const PARAMS: &'static [TableColumn] = &[
         TableColumn::new("id", "INT PRIMARY KEY"),
         TableColumn::new("name", "TEXT"),
         TableColumn::new("graph", "TEXT"),
     ];
+    const TABLE: &'static str = "graphs";
+
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+        Ok(Self {
+            graph: row.get("graph")?,
+        })
+    }
 
     fn to_params(&self) -> impl rusqlite::Params {
         (0, "dependency_graph", &self.graph)
