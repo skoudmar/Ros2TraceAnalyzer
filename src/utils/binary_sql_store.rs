@@ -63,7 +63,7 @@ impl BinarySqlStore {
         self.connection.execute(
             &format!(
                 "CREATE TABLE IF NOT EXISTS {} ({})",
-                T::table(),
+                T::TABLE,
                 T::params()
                     .iter()
                     .map(|p| format!("{} {}", p.0, p.1))
@@ -78,7 +78,7 @@ impl BinarySqlStore {
         {
             let mut query = tx.prepare_cached(&format!(
                 "INSERT INTO {} ({}) VALUES ({})",
-                T::table(),
+                T::TABLE,
                 T::params()
                     .iter()
                     .map(|p| p.0)
@@ -110,7 +110,7 @@ impl BinarySqlStore {
                     .map(|p| p.0)
                     .collect::<Vec<_>>()
                     .join(", "),
-                T::table()
+                T::TABLE
             ),
             (id as i64,),
             |r| T::from_row(r),
@@ -129,7 +129,7 @@ impl BinarySqlStore {
 
 pub trait Entity: Sized {
     /// Name of the table for this entity
-    fn table<'a>() -> &'a str;
+    const TABLE: &'static str;
 
     /// Parse this entity from named row
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error>;
@@ -147,9 +147,7 @@ pub trait Entity: Sized {
 }
 
 impl Entity for MessageLatencyExport {
-    fn table<'a>() -> &'a str {
-        "message_latencies"
-    }
+    const TABLE: &'static str = "message_latencies";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(MessageLatencyExport {
@@ -185,10 +183,7 @@ impl Entity for MessageLatencyExport {
 }
 
 impl Entity for MessagesDelayExport {
-    fn table<'a>() -> &'a str {
-        "message_delays"
-    }
-
+    const TABLE: &'static str = "message_delays";
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(MessagesDelayExport {
             id: row.get::<_, i64>("id")? as usize,
@@ -220,9 +215,7 @@ impl Entity for MessagesDelayExport {
 }
 
 impl Entity for CallbackDurationExport {
-    fn table<'a>() -> &'a str {
-        "callback_durations"
-    }
+    const TABLE: &'static str = "callback_durations";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(CallbackDurationExport {
@@ -255,10 +248,7 @@ impl Entity for CallbackDurationExport {
 }
 
 impl Entity for PublicationDelayExport {
-    fn table<'a>() -> &'a str {
-        "publication_delays"
-    }
-
+    const TABLE: &'static str = "publication_delays";
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(PublicationDelayExport {
             id: row.get::<_, i64>("id")? as usize,
@@ -290,10 +280,7 @@ impl Entity for PublicationDelayExport {
 }
 
 impl Entity for ActivationDelayExport {
-    fn table<'a>() -> &'a str {
-        "activation_delays"
-    }
-
+    const TABLE: &'static str = "activation_delays";
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(ActivationDelayExport {
             id: row.get::<_, i64>("id")? as usize,
@@ -329,10 +316,7 @@ struct Metadata {
 }
 
 impl Entity for Metadata {
-    fn table<'a>() -> &'a str {
-        "metadata"
-    }
-
+    const TABLE: &'static str = "metadata";
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(Metadata {
             version: row.get::<_, i64>("version")? as usize,
@@ -353,10 +337,7 @@ pub struct DependencyGraph {
 }
 
 impl Entity for DependencyGraph {
-    fn table<'a>() -> &'a str {
-        "graphs"
-    }
-
+    const TABLE: &'static str = "graphs";
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(Self {
             graph: row.get("graph")?,
