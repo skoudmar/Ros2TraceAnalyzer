@@ -64,9 +64,9 @@ impl BinarySqlStore {
             &format!(
                 "CREATE TABLE IF NOT EXISTS {} ({})",
                 T::TABLE,
-                T::params()
+                T::PARAMS
                     .iter()
-                    .map(|p| format!("{} {}", p.0, p.1))
+                    .map(|p| format!("{} {}", p.name, p.constraints))
                     .collect::<Vec<_>>()
                     .join(", "),
             ),
@@ -79,13 +79,13 @@ impl BinarySqlStore {
             let mut query = tx.prepare_cached(&format!(
                 "INSERT INTO {} ({}) VALUES ({})",
                 T::TABLE,
-                T::params()
+                T::PARAMS
                     .iter()
-                    .map(|p| p.0)
+                    .map(|p| p.name)
                     .collect::<Vec<_>>()
                     .join(", "),
                 (1..)
-                    .take(T::params().len())
+                    .take(T::PARAMS.len())
                     .map(|v| format!("?{v}"))
                     .collect::<Vec<_>>()
                     .join(", ")
@@ -105,9 +105,9 @@ impl BinarySqlStore {
         Ok(self.connection.query_row(
             &format!(
                 "SELECT {} FROM {} WHERE id = ?1",
-                T::params()
+                T::PARAMS
                     .iter()
-                    .map(|p| p.0)
+                    .map(|p| p.name)
                     .collect::<Vec<_>>()
                     .join(", "),
                 T::TABLE
@@ -127,6 +127,18 @@ impl BinarySqlStore {
     }
 }
 
+/// Definition of a table column for an `Entity`.
+pub struct TableColumn {
+    name: &'static str,
+    constraints: &'static str, // example: INT PRIMARY KEY
+}
+
+impl TableColumn {
+    const fn new(name: &'static str, constraints: &'static str) -> Self {
+        Self { name, constraints }
+    }
+}
+
 pub trait Entity: Sized {
     /// Name of the table for this entity
     const TABLE: &'static str;
@@ -135,10 +147,7 @@ pub trait Entity: Sized {
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error>;
 
     /// List of parameters this entity has with their type and constraints
-    ///
-    /// The format is this: [("<name>", "<type constraints>")]. An example would be
-    /// [("id", "INT PRIMARY KEY")]
-    fn params<'a>() -> &'a [(&'a str, &'a str)];
+    const PARAMS: &'static [TableColumn];
 
     /// Convert the entity to parameters for insertion
     ///
@@ -161,15 +170,13 @@ impl Entity for MessageLatencyExport {
         })
     }
 
-    fn params<'a>() -> &'a [(&'a str, &'a str)] {
-        &[
-            ("id", "INT PRIMARY KEY"),
-            ("source_node", "TEXT"),
-            ("destination_node", "TEXT"),
-            ("topic", "TEXT"),
-            ("latencies", "BLOB"),
-        ]
-    }
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("source_node", "TEXT"),
+        TableColumn::new("destination_node", "TEXT"),
+        TableColumn::new("topic", "TEXT"),
+        TableColumn::new("latencies", "BLOB"),
+    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (
@@ -195,14 +202,12 @@ impl Entity for MessagesDelayExport {
         })
     }
 
-    fn params<'a>() -> &'a [(&'a str, &'a str)] {
-        &[
-            ("id", "INT PRIMARY KEY"),
-            ("node", "TEXT"),
-            ("interface", "TEXT"),
-            ("delays", "BLOB"),
-        ]
-    }
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("node", "TEXT"),
+        TableColumn::new("interface", "TEXT"),
+        TableColumn::new("delays", "BLOB"),
+    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (
@@ -228,14 +233,12 @@ impl Entity for CallbackDurationExport {
         })
     }
 
-    fn params<'a>() -> &'a [(&'a str, &'a str)] {
-        &[
-            ("id", "INT PRIMARY KEY"),
-            ("node", "TEXT"),
-            ("interface", "TEXT"),
-            ("durations", "BLOB"),
-        ]
-    }
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("node", "TEXT"),
+        TableColumn::new("interface", "TEXT"),
+        TableColumn::new("durations", "BLOB"),
+    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (
@@ -260,14 +263,12 @@ impl Entity for PublicationDelayExport {
         })
     }
 
-    fn params<'a>() -> &'a [(&'a str, &'a str)] {
-        &[
-            ("id", "INT PRIMARY KEY"),
-            ("node", "TEXT"),
-            ("interface", "TEXT"),
-            ("delays", "BLOB"),
-        ]
-    }
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("node", "TEXT"),
+        TableColumn::new("interface", "TEXT"),
+        TableColumn::new("delays", "BLOB"),
+    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (
@@ -292,14 +293,12 @@ impl Entity for ActivationDelayExport {
         })
     }
 
-    fn params<'a>() -> &'a [(&'a str, &'a str)] {
-        &[
-            ("id", "INT PRIMARY KEY"),
-            ("node", "TEXT"),
-            ("interface", "TEXT"),
-            ("delays", "BLOB"),
-        ]
-    }
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("node", "TEXT"),
+        TableColumn::new("interface", "TEXT"),
+        TableColumn::new("delays", "BLOB"),
+    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (
@@ -323,9 +322,10 @@ impl Entity for Metadata {
         })
     }
 
-    fn params<'a>() -> &'a [(&'a str, &'a str)] {
-        &[("id", "INT PRIMARY KEY"), ("version", "INT")]
-    }
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("version", "INT"),
+    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (0, self.version as i64)
@@ -344,13 +344,11 @@ impl Entity for DependencyGraph {
         })
     }
 
-    fn params<'a>() -> &'a [(&'a str, &'a str)] {
-        &[
-            ("id", "INT PRIMARY KEY"),
-            ("name", "TEXT"),
-            ("graph", "TEXT"),
-        ]
-    }
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("name", "TEXT"),
+        TableColumn::new("graph", "TEXT"),
+    ];
 
     fn to_params(&self) -> impl rusqlite::Params {
         (0, "dependency_graph", &self.graph)
