@@ -48,11 +48,9 @@ impl BinarySqlStore {
             std::fs::remove_file(sqlite_path)?;
         }
 
-        let sqlite_connection = rusqlite::Connection::open(sqlite_path)?;
+        let connection = rusqlite::Connection::open(sqlite_path)?;
 
-        let mut store = BinarySqlStore {
-            connection: sqlite_connection,
-        };
+        let mut store = BinarySqlStore { connection };
 
         store.insert(&[Metadata {
             version: Self::VERSION,
