@@ -6,10 +6,12 @@ use crate::extract::{RosChannelCompleteName, RosInterfaceCompleteName};
 
 #[derive(thiserror::Error, std::fmt::Debug)]
 pub enum BinarySQLStoreError {
-    #[error("An error occured in rusqlite {0}")]
-    SQLiteError(rusqlite::Error),
-    #[error("The provided file path does not point to an existing file {0}")]
+    #[error("rusqlite error: {0}")]
+    SQLiteError(#[from] rusqlite::Error),
+    #[error("Binary bundle {0:?} does not exist")]
     NoStore(std::path::PathBuf),
+    #[error("IO error: {0}")]
+    IOError(#[from] std::io::Error),
 }
 
 pub struct BinarySqlStore {
@@ -22,8 +24,7 @@ impl BinarySqlStore {
             return Err(BinarySQLStoreError::NoStore(sqlite_path.to_path_buf()));
         }
 
-        let sqlite_connection =
-            rusqlite::Connection::open(sqlite_path).map_err(BinarySQLStoreError::SQLiteError)?;
+        let sqlite_connection = rusqlite::Connection::open(sqlite_path)?;
 
         let store: Self = Self {
             connection: sqlite_connection,
@@ -44,11 +45,10 @@ impl BinarySqlStore {
 
     pub fn new(sqlite_path: &std::path::Path) -> Result<Self, BinarySQLStoreError> {
         if sqlite_path.exists() {
-            std::fs::remove_file(sqlite_path);
+            std::fs::remove_file(sqlite_path)?;
         }
 
-        let sqlite_connection =
-            rusqlite::Connection::open(sqlite_path).map_err(BinarySQLStoreError::SQLiteError)?;
+        let sqlite_connection = rusqlite::Connection::open(sqlite_path)?;
 
         let mut store = BinarySqlStore {
             connection: sqlite_connection,
@@ -62,72 +62,61 @@ impl BinarySqlStore {
     }
 
     pub fn insert<T: Entity>(&mut self, values: &[T]) -> Result<(), BinarySQLStoreError> {
-        self.connection
-            .execute(
-                &format!(
-                    "CREATE TABLE IF NOT EXISTS {} ({})",
-                    T::table(),
-                    T::params()
-                        .iter()
-                        .map(|p| format!("{} {}", p.0, p.1))
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                ),
-                (),
-            )
-            .map_err(BinarySQLStoreError::SQLiteError)?;
+        self.connection.execute(
+            &format!(
+                "CREATE TABLE IF NOT EXISTS {} ({})",
+                T::table(),
+                T::params()
+                    .iter()
+                    .map(|p| format!("{} {}", p.0, p.1))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ),
+            (),
+        )?;
 
-        let tx = self
-            .connection
-            .transaction()
-            .map_err(BinarySQLStoreError::SQLiteError)?;
+        let tx = self.connection.transaction()?;
 
         {
-            let mut query = tx
-                .prepare_cached(&format!(
-                    "INSERT INTO {} ({}) VALUES ({})",
-                    T::table(),
-                    T::params()
-                        .iter()
-                        .map(|p| p.0)
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    (1..)
-                        .take(T::params().len())
-                        .map(|v| format!("?{v}"))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ))
-                .map_err(BinarySQLStoreError::SQLiteError)?;
+            let mut query = tx.prepare_cached(&format!(
+                "INSERT INTO {} ({}) VALUES ({})",
+                T::table(),
+                T::params()
+                    .iter()
+                    .map(|p| p.0)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                (1..)
+                    .take(T::params().len())
+                    .map(|v| format!("?{v}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))?;
 
             for entry in values {
-                query
-                    .execute(entry.to_params())
-                    .map_err(BinarySQLStoreError::SQLiteError)?;
+                query.execute(entry.to_params())?;
             }
         }
 
-        tx.commit().map_err(BinarySQLStoreError::SQLiteError)?;
+        tx.commit()?;
 
         Ok(())
     }
 
     pub fn get_by_id<T: Entity>(&self, id: usize) -> Result<T, BinarySQLStoreError> {
-        self.connection
-            .query_row(
-                &format!(
-                    "SELECT {} FROM {} WHERE id = ?1",
-                    T::params()
-                        .iter()
-                        .map(|p| p.0)
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    T::table()
-                ),
-                (id as i64,),
-                |r| T::from_row(r),
-            )
-            .map_err(BinarySQLStoreError::SQLiteError)
+        Ok(self.connection.query_row(
+            &format!(
+                "SELECT {} FROM {} WHERE id = ?1",
+                T::params()
+                    .iter()
+                    .map(|p| p.0)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                T::table()
+            ),
+            (id as i64,),
+            |r| T::from_row(r),
+        )?)
     }
 }
 
