@@ -34,7 +34,7 @@ impl BinarySqlStore {
 
         if meta.version != Self::VERSION {
             log::warn!(
-                "Mismatched file version, expected: {}, got: {}",
+                "Mismatched file version in {sqlite_path:?}, expected: {}, got: {}",
                 Self::VERSION,
                 meta.version
             );
