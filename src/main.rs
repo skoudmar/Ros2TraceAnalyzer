@@ -53,16 +53,16 @@ fn run_charting(args: &ChartArgs) -> color_eyre::eyre::Result<()> {
         ChartOutputFormat::default()
     );
 
-    let mut out_format = Some(ChartOutputFormat::default());
+    let mut output_format = ChartOutputFormat::default();
 
-    let outpuf_file = match &args.output {
+    let output_file = match &args.output {
         Some(o) => {
             if o.is_dir() {
                 o.join(&default_file_name)
             } else {
                 match o.extension() {
                     Some(ext) => {
-                        out_format = Some(ChartOutputFormat::try_from(ext.to_str().unwrap())?);
+                        output_format = ChartOutputFormat::try_from(ext.to_str().unwrap())?;
                     }
                     _ => {
                         panic!("The selected file must have an extension")
@@ -74,19 +74,14 @@ fn run_charting(args: &ChartArgs) -> color_eyre::eyre::Result<()> {
         None => std::env::current_dir().unwrap().join(&default_file_name),
     };
 
-    if args.overwrite || !outpuf_file.exists() {
+    if args.overwrite || !output_file.exists() {
         let chart_data =
             extract::extract_property(&args.input, args.element_id, &args.chart.quantity.into())?;
 
-        charting::render_chart(
-            &outpuf_file,
-            &chart_data,
-            &args.chart,
-            out_format.expect(""),
-        )?;
+        charting::render_chart(&output_file, chart_data, &args.chart, output_format)?;
     }
 
-    println!("{}", outpuf_file.to_string_lossy());
+    println!("{}", output_file.to_string_lossy());
 
     Ok(())
 }

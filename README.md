@@ -304,14 +304,16 @@ Options:
           Decrease logging verbosity
 
   -o, --output <FILENAME>
-          Directory of filename where to store the chart
+          Directory or filename where to store the chart
           
-          If it's a directory, default file name <ID>_<QUANTITY>.<EXT> is appended.
+          If it's a directory, default file name <ID>_<QUANTITY>.svg is appended.
+          
+          Default file type if none is provided is SVG
           
           If not given, the current directory is used.
 
-  -c, --overwrite
-          Indicates whether the output file is overwriten if present
+      --overwrite
+          Indicates whether the output file is overwritten if present
 
       --quantity <QUANTITY>
           The value to plot into the chart

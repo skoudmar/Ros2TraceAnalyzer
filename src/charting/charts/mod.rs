@@ -2,14 +2,14 @@ use plotters::chart::{ChartBuilder, ChartContext};
 use plotters::coord::CoordTranslate;
 use plotters::prelude::DrawingBackend;
 
-use crate::charting::axis_descriptor::AxisBestFit;
+use crate::charting::axis_descriptor::ScaledAxisDescriptor;
 use crate::charting::error::ChartConstructionError;
 
 pub mod histogram;
 pub mod scatter;
 
 pub trait ChartData<C: CoordTranslate> {
-    fn axis_fits(&self) -> &[AxisBestFit; 2];
+    fn axis_fits(&self) -> &[ScaledAxisDescriptor; 2];
     fn draw_into<'a, B: DrawingBackend>(
         &self,
         canvas: &mut ChartBuilder<B>,
