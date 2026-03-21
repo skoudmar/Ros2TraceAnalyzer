@@ -6,7 +6,9 @@ use plotters::prelude::{BitMapBackend, Cartesian2d, DrawingBackend, IntoDrawingA
 use plotters_svg::SVGBackend;
 
 use crate::argsv2::chart_args::{ChartOutputFormat, ChartRequest, ChartVariants};
-use crate::charting::axis_descriptor::{AxisBestFit, AxisDescriptors, resolve_axis_descriptors};
+use crate::charting::axis_descriptor::{
+    AxisDescriptors, ScaledAxisDescriptor, resolve_axis_descriptors,
+};
 use crate::charting::charts::ChartData;
 use crate::charting::charts::histogram::HistogramChart;
 use crate::charting::charts::scatter::ScatterChart;
@@ -19,7 +21,7 @@ mod error;
 
 pub fn render_chart(
     file_name: &PathBuf,
-    charting_data: &ChartableData,
+    charting_data: ChartableData,
     chart_request: &ChartRequest,
     output_format: ChartOutputFormat,
 ) -> Result<(), ChartConstructionCommonError> {
@@ -76,7 +78,6 @@ impl TryFrom<(u32, u32)> for ChartSpacing {
             return Err(ChartConstructionCommonError::ChartSizeRatio(aspect_ratio));
         }
 
-        let value = (value.0 as i32, value.1 as i32);
         Ok(match value {
             (400..800, 400..800) => ChartSpacing {
                 margin: [16; 4],
@@ -108,15 +109,15 @@ fn label_axis<B: DrawingBackend>(
             impl Ranged<ValueType = i64> + ValueFormatter<i64>,
         >,
     >,
-    axis_best_fits: &[AxisBestFit; 2],
+    axis_best_fits: &[ScaledAxisDescriptor; 2],
     axis_description: &AxisDescriptors,
     sizes: &ChartSpacing,
 ) -> Result<(), ChartConstructionError<B::ErrorType>> {
     chart
         .configure_mesh()
         .max_light_lines(1)
-        .x_desc(axis_best_fits[0].name(&axis_description.x))
-        .y_desc(axis_best_fits[1].name(&axis_description.y))
+        .x_desc(axis_best_fits[0].name())
+        .y_desc(axis_best_fits[1].name())
         .x_label_formatter(&|v| {
             format!("{:.2}", axis_best_fits[0].convert(*v))
                 .trim_end_matches('0')
@@ -138,7 +139,7 @@ fn label_axis<B: DrawingBackend>(
 
 fn draw_into_canvas<B: DrawingBackend>(
     canvas: B,
-    data: &ChartableData,
+    data: ChartableData,
     variant: &ChartVariants,
     spacing: &ChartSpacing,
     axis_description: &AxisDescriptors,

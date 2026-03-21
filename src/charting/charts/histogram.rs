@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use itertools::Itertools;
 use plotters::chart::{ChartBuilder, ChartContext};
 use plotters::coord::types::RangedCoordi64;
@@ -7,7 +5,7 @@ use plotters::prelude::{Cartesian2d, DrawingBackend, IntoLogRange, LogCoord, Rec
 use plotters::style::Color;
 
 use crate::argsv2::chart_args::HistogramData;
-use crate::charting::axis_descriptor::{self, AxisBestFit, AxisDescriptors};
+use crate::charting::axis_descriptor::{AxisDescriptors, ScaledAxisDescriptor};
 use crate::charting::charts::{ChartData, resolve_axis_range};
 use crate::charting::error::ChartConstructionError;
 use crate::extract::ChartableData;
@@ -17,19 +15,17 @@ pub struct HistogramChart {
     bin_width: u64,
     x_range: (i64, i64),
     y_range: (i64, i64),
-    data: HashMap<u64, i64>,
-    axis_fits: [AxisBestFit; 2],
+    data: Vec<i64>,
+    axis_fits: [ScaledAxisDescriptor; 2],
 }
 
 impl HistogramChart {
     pub fn new(
         histogram_data: &HistogramData,
-        data: &ChartableData,
+        data: ChartableData,
         axis_descriptor: &AxisDescriptors,
     ) -> Self {
-        let data = match data {
-            ChartableData::I64(items) => items.clone(),
-        };
+        let ChartableData::I64(data) = data;
 
         // How many bins the data should be split into (this is how many bins will actuall render)
         let data_bins = if let Some(bins) = histogram_data.bins
@@ -49,18 +45,23 @@ impl HistogramChart {
 
         let (bin_width, x_range) = histogram_x_axis_alignment(min, max, data_bins);
 
-        let data: std::collections::HashMap<u64, i64> = data
-            .iter()
-            .into_group_map_by(|&v| ((v - min) / bin_width).min(data_bins as i64 - 1))
-            .iter()
-            .map(|(&k, v)| (k as u64, v.len() as i64))
-            .collect();
+        let mut binned_data = vec![0; data_bins as usize];
+        for d in data {
+            let bin = ((d - min) / bin_width).min(data_bins as i64 - 1);
 
-        let y_range = resolve_axis_range(&data.iter().map(|v| *v.1).collect_vec());
+            binned_data[bin as usize] += 1;
+        }
+
+        let y_range = resolve_axis_range(&binned_data);
 
         let axis_fits = [
-            axis_descriptor.x.best_fit(x_range.1 / 2),
-            axis_descriptor.y.quantity.to_best_fit(),
+            axis_descriptor
+                .x
+                .scaled_axis_unit((x_range.1 - x_range.0) / 2),
+            // This has logarithmic scale so there is no reasonable unit to cover
+            // the entire range. If this becomes a problem we can allow for formatting
+            // individual ticks and display just the exponents
+            axis_descriptor.y.scaled_axis_unit(1),
         ];
 
         HistogramChart {
@@ -68,7 +69,7 @@ impl HistogramChart {
             bin_width: bin_width as u64,
             x_range,
             y_range: (0, y_range.1),
-            data,
+            data: binned_data,
             axis_fits,
         }
     }
@@ -88,8 +89,8 @@ impl ChartData<Coords> for HistogramChart {
             .map_err(ChartConstructionError::InvalidCoordinateSystem)?;
 
         context
-            .draw_series(self.data.iter().map(|(b, size)| {
-                let x0 = self.x_range.0 + (b * self.bin_width) as i64;
+            .draw_series(self.data.iter().enumerate().map(|(b, size)| {
+                let x0 = self.x_range.0 + (b as u64 * self.bin_width) as i64;
                 let x1 = x0 + self.bin_width as i64;
 
                 Rectangle::new([(x0, *size), (x1, 0)], plotters::style::BLUE.filled())
@@ -99,7 +100,7 @@ impl ChartData<Coords> for HistogramChart {
         Ok(context)
     }
 
-    fn axis_fits(&self) -> &[axis_descriptor::AxisBestFit; 2] {
+    fn axis_fits(&self) -> &[ScaledAxisDescriptor; 2] {
         &self.axis_fits
     }
 }

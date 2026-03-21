@@ -17,16 +17,18 @@ pub struct ChartArgs {
     #[clap(long, short = 'i', value_name = "FILENAME", value_hint = ValueHint::FilePath, default_value = analysis_args::filenames::BINARY_BUNDLE)]
     pub input: PathBuf,
 
-    /// Directory of filename where to store the chart
+    /// Directory or filename where to store the chart
     ///
-    /// If it's a directory, default file name <ID>_<QUANTITY>.<EXT> is appended.
+    /// If it's a directory, default file name <ID>_<QUANTITY>.svg is appended.
+    ///
+    /// Default file type if none is provided is SVG
     ///
     /// If not given, the current directory is used.
     #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::AnyPath)]
     pub output: Option<PathBuf>,
 
-    /// Indicates whether the output file is overwriten if present
-    #[clap(long, short = 'c', default_value = "false")]
+    /// Indicates whether the output file is overwritten if present
+    #[clap(long, default_value = "false")]
     pub overwrite: bool,
 
     #[clap(flatten)]
