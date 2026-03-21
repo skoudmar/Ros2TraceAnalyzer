@@ -54,8 +54,8 @@ Record traces of your ROS application:
 Then you can use `Ros2TraceAnalyzer` subcommands to obtain various
 information from the trace.
 
-<!-- `$ cargo run -- --help` -->
-```
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- --help` as text -->
+```text
 Usage: Ros2TraceAnalyzer [OPTIONS] <COMMAND>
 
 Commands:
@@ -74,8 +74,8 @@ Options:
 ## Analyze
 This command analyzes the traces and saves relevant information for later use into JSON, TXT and DOT files. 
 
-<!-- `$ cargo run analyze --help` -->
-```
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- analyze --help` as text -->
+```text
 Analyze a ROS 2 trace and store the result either as a binary bundle or separate files. See the extract subcommand for how to work with the binary bundle
 
 Usage: Ros2TraceAnalyzer analyze [OPTIONS] <TRACE_PATHS>...
@@ -276,8 +276,8 @@ Thread 1737158 on steelpick has utilization  2.10334 %
 ## Chart
 This command is reserved for later use. It is intended for generating charts from analyzed traces.
 
-<!-- `$ cargo run chart --help` -->
-```
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- chart --help` as text -->
+```text
 Render a chart of a specific property of a ROS 2 interface
 
 Usage: Ros2TraceAnalyzer chart [OPTIONS] --element-id <ELEMENT_ID> --value <VALUE> <COMMAND>
@@ -323,7 +323,9 @@ Options:
       --size <SIZE>
           The rectangular size of the rendered image in pixels
           
-          - For PNG this directly translates to pixels - For SVG this is the size in pixels with scale 1.0
+          - For PNG this directly translates to pixels
+          
+          - For SVG this is the size in pixels with scale 1.0
           
           [default: 800]
 
@@ -339,9 +341,8 @@ Options:
 
 ## Viewer
 This command is reserved for later use. Builtin .dot graphs viewer.
-
-<!-- `$ cargo run viewer --help` -->
-```
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- viewer --help` as text -->
+```text
 Start a .dot viewer capable of generating charts on demand
 
 Usage: Ros2TraceAnalyzer viewer [OPTIONS] <DOTFILE>
@@ -367,8 +368,8 @@ Options:
 ## Extract
 This command retrieves various data from the "binary bundle" produced by the analysis subcommand.
 
-<!-- `$ cargo run extract --help` -->
-```
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- extract --help` as text -->
+```text
 Retrieve data from binary bundle produced by the analysis
 
 Usage: Ros2TraceAnalyzer extract [OPTIONS] <COMMAND>

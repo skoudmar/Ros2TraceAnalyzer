@@ -65,6 +65,7 @@ pub struct ChartRequest {
     /// The rectangular size of the rendered image in pixels
     ///
     /// - For PNG this directly translates to pixels
+    ///
     /// - For SVG this is the size in pixels with scale 1.0
     #[clap(long, default_value = "800")]
     pub size: u32,
