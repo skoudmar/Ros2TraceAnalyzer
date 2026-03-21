@@ -3,6 +3,7 @@ use derive_more::Display;
 use std::path::{Path, PathBuf};
 
 use crate::argsv2::analysis_args;
+use crate::argsv2::extract_args::AnalysisProperty;
 
 #[derive(Debug, Clone, Args)]
 pub struct ChartArgs {
@@ -13,7 +14,7 @@ pub struct ChartArgs {
 
     /// Path to the r2ta_results.sqlite file from which to retreive the data
     #[clap(long, short = 'i', value_name = "FILENAME", value_hint = ValueHint::FilePath, default_value = analysis_args::filenames::BINARY_BUNDLE)]
-    input: Option<PathBuf>,
+    input: PathBuf,
 
     /// Store the chart data to the given file
     #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::AnyPath)]
@@ -34,8 +35,8 @@ impl ChartArgs {
         self.element_id
     }
 
-    pub fn input_path(&self) -> Option<&Path> {
-        self.input.as_deref()
+    pub fn input_path(&self) -> &Path {
+        &self.input
     }
 
     pub fn output_path(&self) -> Option<&Path> {
@@ -58,10 +59,6 @@ pub struct ChartRequest {
     #[clap(long)]
     pub value: ChartedValue,
 
-    /// The type of chart to render the data as
-    #[command(subcommand)]
-    pub plot: ChartVariants,
-
     /// The rectangular size of the rendered image in pixels
     ///
     /// - For PNG this directly translates to pixels
@@ -73,6 +70,31 @@ pub struct ChartRequest {
     /// The filetype (output format) the rendered image should be in
     #[clap(long, default_value_t = ChartOutputFormat::default())]
     pub output_format: ChartOutputFormat,
+
+    /// The type of chart to render the data as
+    #[command(subcommand)]
+    pub plot: ChartVariants,
+}
+
+impl ChartRequest {
+    pub(crate) fn name_descriptor(&self) -> String {
+        let value = match self.value {
+            ChartedValue::CallbackDuration => "execution_timing",
+            ChartedValue::ActivationsDelay => "activations_delay",
+            ChartedValue::PublicationsDelay => "publication_delay",
+            ChartedValue::MessagesDelay => "message_delay",
+            ChartedValue::MessagesLatency => "latency",
+        };
+
+        let plot = match &self.plot {
+            ChartVariants::Histogram(hist_data) => {
+                format!("histogram_{}", hist_data.bins.unwrap_or(0))
+            }
+            ChartVariants::Scatter => "scatter".to_owned(),
+        };
+
+        format!("{}_{}_{}", value, plot, self.size)
+    }
 }
 
 #[derive(Debug, Display, ValueEnum, Clone, Copy, Default)]
@@ -104,6 +126,18 @@ pub enum ChartedValue {
     /// Latency of a communication channel
     #[display("Latency")]
     MessagesLatency,
+}
+
+impl From<AnalysisProperty> for ChartedValue {
+    fn from(value: AnalysisProperty) -> Self {
+        match value {
+            AnalysisProperty::CallbackDurations => ChartedValue::CallbackDuration,
+            AnalysisProperty::ActivationDelays => ChartedValue::ActivationsDelay,
+            AnalysisProperty::PublicationDelays => ChartedValue::PublicationsDelay,
+            AnalysisProperty::MessageDelays => ChartedValue::MessagesDelay,
+            AnalysisProperty::MessageLatencies => ChartedValue::MessagesLatency,
+        }
+    }
 }
 
 #[derive(Debug, Display, Subcommand, Clone, Copy)]
