@@ -8,11 +8,12 @@ Ros2TraceAnalyzer is a fast command-line tool to extract useful data from LTTng 
 
 ## Installation
 
-First make sure you have development version of Babeltrace 2 library
-and clang development files. On Ubuntu, it can be installed  using:
+First make sure you have development files for `Babeltrace 2` and Clang,
+and chart rendering dependencies (`freetype` and `fontconfig`). On Ubuntu,
+install them using:
 
 ```sh
-apt install libbabeltrace2-dev libclang-dev
+apt install libbabeltrace2-dev libclang-dev libfreetype6-dev libfontconfig1-dev
 ```
 
 The Ros2TraceAnalyzer can then be compiled and installed using `cargo` by running:
