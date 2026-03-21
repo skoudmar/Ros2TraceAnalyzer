@@ -4,6 +4,7 @@ use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use derive_more::Display;
 
 use crate::argsv2::analysis_args::filenames;
+use crate::argsv2::chart_args::ChartedValue;
 
 #[derive(Debug, Clone, Args)]
 pub struct ExtractArgs {
@@ -97,15 +98,14 @@ pub enum AnalysisProperty {
     MessageLatencies,
 }
 
-impl AnalysisProperty {
-    /// Table name in the binary data blob for this property
-    pub const fn table_name(&self) -> &'static str {
-        match self {
-            AnalysisProperty::CallbackDurations => "callback_duration",
-            AnalysisProperty::ActivationDelays => "activations_delay",
-            AnalysisProperty::PublicationDelays => "publications_delay",
-            AnalysisProperty::MessageDelays => "messages_delay",
-            AnalysisProperty::MessageLatencies => "messages_latency",
+impl From<ChartedValue> for AnalysisProperty {
+    fn from(value: ChartedValue) -> Self {
+        match value {
+            ChartedValue::CallbackDuration => AnalysisProperty::CallbackDurations,
+            ChartedValue::ActivationsDelay => AnalysisProperty::ActivationDelays,
+            ChartedValue::PublicationsDelay => AnalysisProperty::PublicationDelays,
+            ChartedValue::MessagesDelay => AnalysisProperty::MessageDelays,
+            ChartedValue::MessagesLatency => AnalysisProperty::MessageLatencies,
         }
     }
 }

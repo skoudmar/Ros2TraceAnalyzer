@@ -2,6 +2,7 @@
 
 mod analyses;
 mod argsv2;
+mod charting;
 mod events_common;
 mod extract;
 mod model;
@@ -43,7 +44,37 @@ fn run_analysis<L: clap_verbosity_flag::LogLevel>(
     Ok(())
 }
 
-fn run_charting(_args: &ChartArgs) -> color_eyre::eyre::Result<()> {
+fn run_charting(args: &ChartArgs) -> color_eyre::eyre::Result<()> {
+    let explicit_name = format!(
+        "{}_{}.{}",
+        args.element_id(),
+        args.chart().name_descriptor(),
+        args.chart().output_format
+    );
+
+    let outpuf_file = match args.output_path() {
+        Some(o) => {
+            if o.is_dir() {
+                o.join(&explicit_name)
+            } else {
+                o.to_path_buf()
+            }
+        }
+        None => std::env::current_dir().unwrap().join(&explicit_name),
+    };
+
+    if args.clean() || !outpuf_file.exists() {
+        let chart_data = extract::extract_property(
+            args.input_path(),
+            args.element_id(),
+            &args.chart().value.into(),
+        )?;
+
+        charting::render_chart(&outpuf_file, &chart_data, args.chart())?;
+    }
+
+    println!("{}", outpuf_file.to_string_lossy());
+
     Ok(())
 }
 
