@@ -13,6 +13,7 @@ mod statistics;
 mod utils;
 mod visualization;
 
+use core::panic;
 use std::ffi::CString;
 use std::io::Write;
 
@@ -20,7 +21,7 @@ use argsv2::Args;
 use argsv2::helpers::prepare_trace_paths;
 
 use crate::argsv2::analysis_args::AnalysisArgs;
-use crate::argsv2::chart_args::ChartArgs;
+use crate::argsv2::chart_args::{ChartArgs, ChartOutputFormat};
 use crate::argsv2::extract_args::ExtractArgs;
 use crate::argsv2::viewer_args::ViewerArgs;
 
@@ -45,32 +46,44 @@ fn run_analysis<L: clap_verbosity_flag::LogLevel>(
 }
 
 fn run_charting(args: &ChartArgs) -> color_eyre::eyre::Result<()> {
-    let explicit_name = format!(
+    let default_file_name = format!(
         "{}_{}.{}",
-        args.element_id(),
-        args.chart().name_descriptor(),
-        args.chart().output_format
+        args.element_id,
+        args.chart.name_descriptor(),
+        ChartOutputFormat::default()
     );
 
-    let outpuf_file = match args.output_path() {
+    let mut out_format = Some(ChartOutputFormat::default());
+
+    let outpuf_file = match &args.output {
         Some(o) => {
             if o.is_dir() {
-                o.join(&explicit_name)
+                o.join(&default_file_name)
             } else {
+                match o.extension() {
+                    Some(ext) => {
+                        out_format = Some(ChartOutputFormat::try_from(ext.to_str().unwrap())?);
+                    }
+                    _ => {
+                        panic!("The selected file must have an extension")
+                    }
+                }
                 o.to_path_buf()
             }
         }
-        None => std::env::current_dir().unwrap().join(&explicit_name),
+        None => std::env::current_dir().unwrap().join(&default_file_name),
     };
 
-    if args.clean() || !outpuf_file.exists() {
-        let chart_data = extract::extract_property(
-            args.input_path(),
-            args.element_id(),
-            &args.chart().value.into(),
-        )?;
+    if args.overwrite || !outpuf_file.exists() {
+        let chart_data =
+            extract::extract_property(&args.input, args.element_id, &args.chart.quantity.into())?;
 
-        charting::render_chart(&outpuf_file, &chart_data, args.chart())?;
+        charting::render_chart(
+            &outpuf_file,
+            &chart_data,
+            &args.chart,
+            out_format.expect(""),
+        )?;
     }
 
     println!("{}", outpuf_file.to_string_lossy());

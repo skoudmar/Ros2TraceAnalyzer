@@ -26,6 +26,12 @@ pub enum ChartConstructionError {
     /// # Chart size too small error
     ///
     /// The requested chart size is too small
-    #[error("The requested chart size {0} is too small")]
-    ChartSizeTooSmall(u32),
+    #[error("The requested chart size '{0}x{1}' is too small")]
+    ChartSizeTooSmall(i32, i32),
+
+    /// # Chart size aspect ratio error
+    ///
+    /// The requested chart size ratio is too small or too large
+    #[error("The requested chart size ratio '{0}' is too small or too large")]
+    ChartSizeRatio(f32),
 }

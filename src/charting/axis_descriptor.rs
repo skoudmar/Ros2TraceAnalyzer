@@ -32,8 +32,9 @@ impl AxisDescriptor {
                 base: *base,
                 target: *DurationUnit::all()
                     .iter()
+                    .rev()
                     .map(|d| (d, d.express_value(value, *base)))
-                    .find_or_last(|&(_, d)| d > 0.1 && d <= 10.)
+                    .find_or_last(|&(_, d)| d > 0.0 && d <= 1000.0)
                     .unwrap()
                     .0,
             },
@@ -41,9 +42,10 @@ impl AxisDescriptor {
                 base: *base,
                 target: *SiPrefix::all()
                     .iter()
+                    .rev()
                     .map(|d| (d, d.express_value(value, *base)))
                     .inspect(|v| println!("{}: {}", v.0, v.1))
-                    .find_or_last(|&(_, d)| (0.1..10.).contains(&d))
+                    .find_or_last(|&(_, d)| d > 0.0 && d <= 1000.0)
                     .unwrap()
                     .0,
             },
@@ -68,7 +70,7 @@ pub enum SiPrefix {
 }
 
 impl SiPrefix {
-    const fn ratio(&self) -> f64 {
+    const fn ratio(self) -> f64 {
         match self {
             SiPrefix::Mega => 1e-6,
             SiPrefix::Kilo => 1e-3,
@@ -251,7 +253,20 @@ pub const fn resolve_axis_descriptors(
                     },
                 },
             },
-            ChartedValue::MessagesLatency => todo!(),
+            ChartedValue::MessagesLatency => AxisDescriptors {
+                x: AxisDescriptor {
+                    label: "Latency",
+                    quantity: AxisQuantity::Duration {
+                        base: DurationUnit::Nanosecond,
+                    },
+                },
+                y: AxisDescriptor {
+                    label: "Samples",
+                    quantity: AxisQuantity::SimpleSi {
+                        base: SiPrefix::Base,
+                    },
+                },
+            },
         },
         ChartVariants::Scatter => match charted_value {
             ChartedValue::CallbackDuration => AxisDescriptors {
@@ -310,7 +325,20 @@ pub const fn resolve_axis_descriptors(
                     },
                 },
             },
-            ChartedValue::MessagesLatency => todo!(),
+            ChartedValue::MessagesLatency => AxisDescriptors {
+                x: AxisDescriptor {
+                    label: "Nth samepl",
+                    quantity: AxisQuantity::SimpleSi {
+                        base: SiPrefix::Base,
+                    },
+                },
+                y: AxisDescriptor {
+                    label: "Latency",
+                    quantity: AxisQuantity::Duration {
+                        base: DurationUnit::Nanosecond,
+                    },
+                },
+            },
         },
     }
 }

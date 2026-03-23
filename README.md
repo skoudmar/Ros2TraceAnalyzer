@@ -281,7 +281,7 @@ This command is reserved for later use. It is intended for generating charts fro
 ```text
 Render a chart of a specific property of a ROS 2 interface
 
-Usage: Ros2TraceAnalyzer chart [OPTIONS] --element-id <ELEMENT_ID> --value <VALUE> <COMMAND>
+Usage: Ros2TraceAnalyzer chart [OPTIONS] --element-id <ELEMENT_ID> --quantity <QUANTITY> <COMMAND>
 
 Commands:
   histogram  
@@ -296,7 +296,7 @@ Options:
           Increase logging verbosity
 
   -i, --input <FILENAME>
-          Path to the r2ta_results.sqlite file from which to retreive the data
+          Binary bundle file name or a directory containing r2ta_results.sqlite file
           
           [default: r2ta_results.sqlite]
 
@@ -304,14 +304,16 @@ Options:
           Decrease logging verbosity
 
   -o, --output <FILENAME>
-          Store the chart data to the given file
-
-  -c, --clean
-          Indicates whether the chart should be rendered from scratch.
+          Directory of filename where to store the chart
           
-          If not set, an existing chart will be reused only if it matches all specified parameters.
+          If it's a directory, default file name <ID>_<QUANTITY>.<EXT> is appended.
+          
+          If not given, the current directory is used.
 
-      --value <VALUE>
+  -c, --overwrite
+          Indicates whether the output file is overwriten if present
+
+      --quantity <QUANTITY>
           The value to plot into the chart
 
           Possible values:
@@ -321,8 +323,8 @@ Options:
           - messages-delay:     Delays between subscriber messages
           - messages-latency:   Latency of a communication channel
 
-      --size <SIZE>
-          The rectangular size of the rendered image in pixels
+      --width <WIDTH>
+          The width of the image in pixels
           
           - For PNG this directly translates to pixels
           
@@ -330,11 +332,14 @@ Options:
           
           [default: 800]
 
-      --output-format <OUTPUT_FORMAT>
-          The filetype (output format) the rendered image should be in
+      --height <HEIGHT>
+          The width of the image in pixels
           
-          [default: svg]
-          [possible values: svg, png]
+          - For PNG this directly translates to pixels
+          
+          - For SVG this is the size in pixels with scale 1.0
+          
+          [default: 600]
 
   -h, --help
           Print help (see a summary with '-h')
