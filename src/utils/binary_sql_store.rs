@@ -204,7 +204,7 @@ impl Entity for MessagesDelayExport {
                 interface: row.get("interface")?,
                 node: row.get("node")?,
             },
-            messages_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("latencies")?).unwrap(),
+            messages_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("delays")?).unwrap(),
         })
     }
 

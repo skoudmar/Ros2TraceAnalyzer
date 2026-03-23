@@ -51,7 +51,7 @@ impl ChartData<Coords> for ScatterChart {
         let mut context = canvas
             .build_cartesian_2d(
                 self.x_range.0..self.x_range.1,
-                (self.y_range.0..self.y_range.1),
+                self.y_range.0..self.y_range.1,
             )
             .map_err(|e| ChartConstructionError::InvalidCoordinateSystem(e.to_string()))?;
 

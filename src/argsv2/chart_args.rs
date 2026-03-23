@@ -1,6 +1,7 @@
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use derive_more::Display;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use thiserror::Error;
 
 use crate::argsv2::analysis_args;
 use crate::argsv2::extract_args::AnalysisProperty;
@@ -10,66 +11,50 @@ pub struct ChartArgs {
     /// Identifies the element in the dependency graph for
     /// which to generate the chart
     #[clap(long, short = 'e')]
-    element_id: i64,
+    pub element_id: i64,
 
-    /// Path to the r2ta_results.sqlite file from which to retreive the data
+    /// Binary bundle file name or a directory containing r2ta_results.sqlite file
     #[clap(long, short = 'i', value_name = "FILENAME", value_hint = ValueHint::FilePath, default_value = analysis_args::filenames::BINARY_BUNDLE)]
-    input: PathBuf,
+    pub input: PathBuf,
 
-    /// Store the chart data to the given file
-    #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::AnyPath)]
-    output: Option<PathBuf>,
-
-    /// Indicates whether the chart should be rendered from scratch.
+    /// Directory of filename where to store the chart
     ///
-    /// If not set, an existing chart will be reused only if it matches all specified parameters.
+    /// If it's a directory, default file name <ID>_<QUANTITY>.<EXT> is appended.
+    ///
+    /// If not given, the current directory is used.
+    #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::AnyPath)]
+    pub output: Option<PathBuf>,
+
+    /// Indicates whether the output file is overwriten if present
     #[clap(long, short = 'c', default_value = "false")]
-    clean: bool,
+    pub overwrite: bool,
 
     #[clap(flatten)]
-    chart: ChartRequest,
-}
-
-impl ChartArgs {
-    pub fn element_id(&self) -> i64 {
-        self.element_id
-    }
-
-    pub fn input_path(&self) -> &Path {
-        &self.input
-    }
-
-    pub fn output_path(&self) -> Option<&Path> {
-        self.output.as_deref()
-    }
-
-    pub fn clean(&self) -> bool {
-        self.clean
-    }
-
-    pub fn chart(&self) -> &ChartRequest {
-        &self.chart
-    }
+    pub chart: ChartRequest,
 }
 
 #[derive(Debug, Display, Args, Clone)]
-#[display("ChartOf {{ value: {value}, {plot} }}")]
+#[display("{plot} of {quantity}")]
 pub struct ChartRequest {
     /// The value to plot into the chart
     #[clap(long)]
-    pub value: ChartedValue,
+    pub quantity: ChartedValue,
 
-    /// The rectangular size of the rendered image in pixels
+    /// The width of the image in pixels
     ///
     /// - For PNG this directly translates to pixels
     ///
     /// - For SVG this is the size in pixels with scale 1.0
     #[clap(long, default_value = "800")]
-    pub size: u32,
+    pub width: u32,
 
-    /// The filetype (output format) the rendered image should be in
-    #[clap(long, default_value_t = ChartOutputFormat::default())]
-    pub output_format: ChartOutputFormat,
+    /// The width of the image in pixels
+    ///
+    /// - For PNG this directly translates to pixels
+    ///
+    /// - For SVG this is the size in pixels with scale 1.0
+    #[clap(long, default_value = "600")]
+    pub height: u32,
 
     /// The type of chart to render the data as
     #[command(subcommand)]
@@ -78,7 +63,7 @@ pub struct ChartRequest {
 
 impl ChartRequest {
     pub(crate) fn name_descriptor(&self) -> String {
-        let value = match self.value {
+        let value = match self.quantity {
             ChartedValue::CallbackDuration => "execution_timing",
             ChartedValue::ActivationsDelay => "activations_delay",
             ChartedValue::PublicationsDelay => "publication_delay",
@@ -93,7 +78,7 @@ impl ChartRequest {
             ChartVariants::Scatter => "scatter".to_owned(),
         };
 
-        format!("{}_{}_{}", value, plot, self.size)
+        format!("{}_{}_{}x{}", value, plot, self.width, self.height)
     }
 }
 
@@ -104,6 +89,24 @@ pub enum ChartOutputFormat {
     Svg,
     #[display("png")]
     Png,
+}
+
+#[derive(Debug, Error)]
+pub enum OutputFormatError {
+    #[error("The provided file format '{0}' is not supported")]
+    UnsupportedFormat(String),
+}
+
+impl TryFrom<&str> for ChartOutputFormat {
+    type Error = OutputFormatError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "svg" => Ok(Self::Svg),
+            "png" => Ok(Self::Png),
+            _ => Err(OutputFormatError::UnsupportedFormat(value.to_owned())),
+        }
+    }
 }
 
 #[derive(Debug, Display, ValueEnum, Clone, Copy)]

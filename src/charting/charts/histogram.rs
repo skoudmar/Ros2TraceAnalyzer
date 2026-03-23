@@ -32,11 +32,13 @@ impl HistogramChart {
         };
 
         // How many bins the data should be split into (this is how many bins will actuall render)
-        let data_bins = if let Some(bins) = histogram_data.bins {
+        let data_bins = if let Some(bins) = histogram_data.bins
+            && bins != 0
+        {
             bins as u64
         } else {
-            50
-            // TODO
+            // Sturges's formula
+            (data.len() as f64).log2().ceil() as u64 + 1
         };
 
         let (min, max) = match data.iter().minmax() {
