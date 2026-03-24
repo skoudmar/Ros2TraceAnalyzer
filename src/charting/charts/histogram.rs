@@ -79,13 +79,13 @@ impl ChartData<Coords> for HistogramChart {
     fn draw_into<'a, B: DrawingBackend>(
         &self,
         canvas: &mut ChartBuilder<B>,
-    ) -> Result<ChartContext<'a, B, Coords>, ChartConstructionError> {
+    ) -> Result<ChartContext<'a, B, Coords>, ChartConstructionError<B::ErrorType>> {
         let mut context = canvas
             .build_cartesian_2d(
                 self.x_range.0..self.x_range.1,
                 (self.y_range.0..self.y_range.1).log_scale(),
             )
-            .map_err(|e| ChartConstructionError::InvalidCoordinateSystem(e.to_string()))?;
+            .map_err(ChartConstructionError::InvalidCoordinateSystem)?;
 
         context
             .draw_series(self.data.iter().map(|(b, size)| {
@@ -94,7 +94,7 @@ impl ChartData<Coords> for HistogramChart {
 
                 Rectangle::new([(x0, *size), (x1, 0)], plotters::style::BLUE.filled())
             }))
-            .map_err(|e| ChartConstructionError::ChartSeriesError(e.to_string()))?;
+            .map_err(ChartConstructionError::ChartSeriesError)?;
 
         Ok(context)
     }

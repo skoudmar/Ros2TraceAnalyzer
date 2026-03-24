@@ -10,7 +10,7 @@ use crate::charting::axis_descriptor::{AxisBestFit, AxisDescriptors, resolve_axi
 use crate::charting::charts::ChartData;
 use crate::charting::charts::histogram::HistogramChart;
 use crate::charting::charts::scatter::ScatterChart;
-use crate::charting::error::ChartConstructionError;
+use crate::charting::error::{ChartConstructionCommonError, ChartConstructionError};
 use crate::extract::ChartableData;
 
 mod axis_descriptor;
@@ -22,7 +22,7 @@ pub fn render_chart(
     charting_data: &ChartableData,
     chart_request: &ChartRequest,
     output_format: ChartOutputFormat,
-) -> Result<(), ChartConstructionError> {
+) -> Result<(), ChartConstructionCommonError> {
     let spacing = ChartSpacing::try_from((chart_request.width, chart_request.height))?;
 
     let axis_description = resolve_axis_descriptors(&chart_request.quantity, &chart_request.plot);
@@ -34,15 +34,15 @@ pub fn render_chart(
             &chart_request.plot,
             &spacing,
             &axis_description,
-        ),
+        )?,
         crate::argsv2::chart_args::ChartOutputFormat::Png => draw_into_canvas(
             BitMapBackend::new(&file_name, (chart_request.width, chart_request.height)),
             charting_data,
             &chart_request.plot,
             &spacing,
             &axis_description,
-        ),
-    }?;
+        )?,
+    };
 
     Ok(())
 }
@@ -68,12 +68,12 @@ struct ChartSpacing {
 }
 
 impl TryFrom<(u32, u32)> for ChartSpacing {
-    type Error = ChartConstructionError;
+    type Error = ChartConstructionCommonError;
 
     fn try_from(value: (u32, u32)) -> Result<Self, Self::Error> {
         let aspect_ratio = value.0 as f32 / value.1 as f32;
         if !(0.5..2.0).contains(&aspect_ratio) {
-            return Err(ChartConstructionError::ChartSizeRatio(aspect_ratio));
+            return Err(ChartConstructionCommonError::ChartSizeRatio(aspect_ratio));
         }
 
         let value = (value.0 as i32, value.1 as i32);
@@ -90,15 +90,19 @@ impl TryFrom<(u32, u32)> for ChartSpacing {
                 label_size: [20; 2],
                 desc_size: 32,
             },
-            _ => return Err(ChartConstructionError::ChartSizeTooSmall(value.0, value.1)),
+            _ => {
+                return Err(ChartConstructionCommonError::ChartSizeTooSmall(
+                    value.0, value.1,
+                ));
+            }
         })
     }
 }
 
-fn label_axis<'a>(
+fn label_axis<B: DrawingBackend>(
     mut chart: ChartContext<
-        'a,
-        impl DrawingBackend,
+        '_,
+        B,
         Cartesian2d<
             impl Ranged<ValueType = i64> + ValueFormatter<i64>,
             impl Ranged<ValueType = i64> + ValueFormatter<i64>,
@@ -107,7 +111,7 @@ fn label_axis<'a>(
     axis_best_fits: &[AxisBestFit; 2],
     axis_description: &AxisDescriptors,
     sizes: &ChartSpacing,
-) -> Result<(), ChartConstructionError> {
+) -> Result<(), ChartConstructionError<B::ErrorType>> {
     chart
         .configure_mesh()
         .max_light_lines(1)
@@ -129,18 +133,16 @@ fn label_axis<'a>(
         .y_label_style(("sans-serif", sizes.label_size[0]))
         .x_label_style(("sans-serif", sizes.label_size[1]))
         .draw()
-        .map_err(|e| ChartConstructionError::InvalidCoordinateSystem(e.to_string()))?;
-
-    Ok(())
+        .map_err(ChartConstructionError::InvalidCoordinateSystem)
 }
 
-fn draw_into_canvas(
-    canvas: impl DrawingBackend,
+fn draw_into_canvas<B: DrawingBackend>(
+    canvas: B,
     data: &ChartableData,
     variant: &ChartVariants,
     spacing: &ChartSpacing,
     axis_description: &AxisDescriptors,
-) -> Result<(), ChartConstructionError> {
+) -> Result<(), ChartConstructionError<B::ErrorType>> {
     let area = canvas.into_drawing_area();
     area.fill(&plotters::style::WHITE).unwrap();
 
@@ -177,8 +179,5 @@ fn draw_into_canvas(
         }
     }
 
-    area.present()
-        .map_err(|e| ChartConstructionError::DrawingError(e.to_string()))?;
-
-    Ok(())
+    area.present().map_err(ChartConstructionError::DrawingError)
 }

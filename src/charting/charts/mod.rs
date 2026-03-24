@@ -13,7 +13,7 @@ pub trait ChartData<C: CoordTranslate> {
     fn draw_into<'a, B: DrawingBackend>(
         &self,
         canvas: &mut ChartBuilder<B>,
-    ) -> Result<ChartContext<'a, B, C>, ChartConstructionError>;
+    ) -> Result<ChartContext<'a, B, C>, ChartConstructionError<B::ErrorType>>;
 }
 
 pub fn resolve_axis_range(data: &[i64]) -> (i64, i64) {
