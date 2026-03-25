@@ -11,7 +11,7 @@ use crate::charting::error::ChartConstructionError;
 use crate::extract::ChartableData;
 
 pub struct HistogramChart {
-    _bins: u64,
+    _bin_count: usize,
     bin_width: u64,
     x_range: (i64, i64),
     y_range: (i64, i64),
@@ -27,14 +27,18 @@ impl HistogramChart {
     ) -> Self {
         let ChartableData::I64(data) = data;
 
-        // How many bins the data should be split into (this is how many bins will actuall render)
-        let data_bins = if let Some(bins) = histogram_data.bins
+        // How many bins the data should be split into (this is how many bins will actually render)
+        let bin_count = if let Some(bins) = histogram_data.bins
             && bins != 0
         {
-            bins as u64
+            bins
         } else {
             // Sturges's formula
-            (data.len() as f64).log2().ceil() as u64 + 1
+            1 + data
+                .len()
+                .checked_next_power_of_two() // ceil function for ilog2
+                .expect("Data size should be smaller than usize::MAX / 2 + 1")
+                .ilog2() as usize
         };
 
         let (min, max) = match data.iter().minmax() {
@@ -43,13 +47,19 @@ impl HistogramChart {
             itertools::MinMaxResult::MinMax(l, h) => (*l, *h),
         };
 
-        let (bin_width, x_range) = histogram_x_axis_alignment(min, max, data_bins);
+        let (bin_width, x_range) = histogram_x_axis_alignment(min, max, bin_count);
 
-        let mut binned_data = vec![0; data_bins as usize];
+        let mut binned_data = vec![0; bin_count];
+        let last_idx = bin_count
+            .checked_sub(1)
+            .expect("bin_count must be at least 1");
+
         for d in data {
-            let bin = ((d - min) / bin_width).min(data_bins as i64 - 1);
+            let bin = usize::try_from((d - min) / bin_width)
+                .unwrap()
+                .min(last_idx);
 
-            binned_data[bin as usize] += 1;
+            binned_data[bin] += 1;
         }
 
         let y_range = resolve_axis_range(&binned_data);
@@ -65,7 +75,7 @@ impl HistogramChart {
         ];
 
         HistogramChart {
-            _bins: data_bins,
+            _bin_count: bin_count,
             bin_width: bin_width as u64,
             x_range,
             y_range: (0, y_range.1),
@@ -107,7 +117,7 @@ impl ChartData<Coords> for HistogramChart {
 
 // This method selects a x axis range so that all ticks are placed
 // on "nice" round numbers
-fn histogram_x_axis_alignment(min: i64, max: i64, data_bins: u64) -> (i64, (i64, i64)) {
+fn histogram_x_axis_alignment(min: i64, max: i64, data_bins: usize) -> (i64, (i64, i64)) {
     fn round_bin_width(value: f64) -> i64 {
         let exponent = value.log10().floor();
         let magnitude = 10f64.powf(exponent);
