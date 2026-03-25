@@ -7,6 +7,7 @@ use crate::argsv2::chart_args::{ChartVariants, ChartedValue};
 /// # Axis Descriptors
 ///
 /// Structure describing `x` and `y` axis formatting for a chart
+#[derive(Debug)]
 pub struct AxisDescriptors {
     /// The formatting for the `x` axis
     pub x: AxisDescriptor,
@@ -17,7 +18,7 @@ pub struct AxisDescriptors {
 /// # Axis Descriptor
 ///
 /// The formatting to use when displaying axis label and ticks
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct AxisDescriptor {
     /// The main name of the axis
     pub label: &'static str,
@@ -54,6 +55,7 @@ impl AxisDescriptor {
     }
 }
 
+#[derive(Debug)]
 pub struct ScaledAxisDescriptor {
     pub default_axis: AxisDescriptor,
     pub target: AxisQuantity,
@@ -86,7 +88,7 @@ impl ScaledAxisDescriptor {
     }
 }
 
-#[derive(Debug, Copy, Display, Clone, PartialEq, PartialOrd, EnumIter)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
 pub enum SiPrefix {
     #[display("M")]
     Mega,
@@ -119,7 +121,7 @@ impl SiPrefix {
     }
 }
 
-#[derive(Debug, Copy, Display, Clone, PartialEq, PartialOrd, EnumIter)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
 pub enum DurationUnit {
     #[display("h")]
     Hour,
@@ -152,7 +154,7 @@ impl DurationUnit {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum AxisQuantity {
     Duration { base: DurationUnit },
     SimpleSi { base: SiPrefix },
