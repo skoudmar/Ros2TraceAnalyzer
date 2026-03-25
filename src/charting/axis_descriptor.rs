@@ -116,7 +116,7 @@ impl SiPrefix {
         }
     }
 
-    fn express_value(&self, value: i64, base: SiPrefix) -> f64 {
+    fn express_value(self, value: i64, base: SiPrefix) -> f64 {
         value as f64 * (self.ratio() / base.ratio())
     }
 }
@@ -138,7 +138,7 @@ pub enum DurationUnit {
 }
 
 impl DurationUnit {
-    const fn ratio(&self) -> f64 {
+    const fn ratio(self) -> f64 {
         match self {
             Self::Hour => 1. / 3600.,
             Self::Minute => 1. / 60.,
@@ -149,7 +149,7 @@ impl DurationUnit {
         }
     }
 
-    fn express_value(&self, value: i64, base: DurationUnit) -> f64 {
+    fn express_value(self, value: i64, base: DurationUnit) -> f64 {
         value as f64 * (self.ratio() / base.ratio())
     }
 }
@@ -171,7 +171,7 @@ impl AxisQuantity {
 }
 
 pub const fn resolve_axis_descriptors(
-    charted_value: &ChartedValue,
+    charted_value: ChartedValue,
     chart_variant: &ChartVariants,
 ) -> AxisDescriptors {
     match chart_variant {
