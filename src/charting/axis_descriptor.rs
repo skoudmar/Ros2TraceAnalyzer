@@ -31,21 +31,21 @@ impl AxisDescriptor {
     // Returns the original axis descriptor (self) together with a reasonable scaling factor
     pub fn scaled_axis_unit(&self, fit_to_value: i64) -> ScaledAxisDescriptor {
         ScaledAxisDescriptor {
-            default_axis: self.clone(),
+            default_axis: *self,
             target: match self.quantity {
                 AxisQuantity::Duration { base } => AxisQuantity::new_duration(
                     DurationUnit::iter()
                         .rev()
-                        .map(|d| (d, d.express_value(fit_to_value, base)))
-                        .find_or_last(|&(_, d)| (0.0..1000.0).contains(&d))
+                        .map(|unit| (unit, unit.express_value(fit_to_value, base)))
+                        .find_or_last(|&(_, value)| (0.0..1000.0).contains(&value))
                         .unwrap()
                         .0,
                 ),
                 AxisQuantity::SimpleSi { base } => AxisQuantity::new_si(
                     SiPrefix::iter()
                         .rev()
-                        .map(|d| (d, d.express_value(fit_to_value, base)))
-                        .find_or_last(|&(_, d)| (0.0..1000.0).contains(&d))
+                        .map(|unit| (unit, unit.express_value(fit_to_value, base)))
+                        .find_or_last(|&(_, value)| (0.0..1000.0).contains(&value))
                         .unwrap()
                         .0,
                 ),
