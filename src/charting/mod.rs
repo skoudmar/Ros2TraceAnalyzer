@@ -27,7 +27,7 @@ pub fn render_chart(
 ) -> Result<(), ChartConstructionCommonError> {
     let spacing = ChartSpacing::try_from((chart_request.width, chart_request.height))?;
 
-    let axis_description = resolve_axis_descriptors(&chart_request.quantity, &chart_request.plot);
+    let axis_description = resolve_axis_descriptors(chart_request.quantity, &chart_request.plot);
 
     match output_format {
         crate::argsv2::chart_args::ChartOutputFormat::Svg => draw_into_canvas(
