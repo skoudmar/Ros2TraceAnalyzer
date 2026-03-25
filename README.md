@@ -306,9 +306,9 @@ Options:
   -o, --output <FILENAME>
           Directory or filename where to store the chart
           
-          If it's a directory, default file name <ID>_<QUANTITY>.svg is appended.
+          If it's a directory, the chart file name will be <ID>_<QUANTITY>.svg.
           
-          Default file type if none is provided is SVG
+          If it's a filename, the output type is determined by its extension. Supported extensions are: SVG [default] and PNG.
           
           If not given, the current directory is used.
 

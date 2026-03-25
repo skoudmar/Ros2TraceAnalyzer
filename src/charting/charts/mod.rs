@@ -9,7 +9,7 @@ pub mod histogram;
 pub mod scatter;
 
 pub trait ChartData<C: CoordTranslate> {
-    fn axis_fits(&self) -> &[ScaledAxisDescriptor; 2];
+    fn scale_axis(&self) -> &[ScaledAxisDescriptor; 2];
     fn draw_into<'a, B: DrawingBackend>(
         &self,
         canvas: &mut ChartBuilder<B>,

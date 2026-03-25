@@ -12,7 +12,7 @@ pub struct ScatterChart {
     x_range: (i64, i64),
     y_range: (i64, i64),
     data: Vec<(i64, i64)>,
-    axis_fits: [ScaledAxisDescriptor; 2],
+    scaled_axis: [ScaledAxisDescriptor; 2],
 }
 
 impl ScatterChart {
@@ -22,7 +22,7 @@ impl ScatterChart {
         let x_range = (0, data.len() as i64);
         let y_range = resolve_axis_range(&data);
 
-        let axis_fits = [
+        let scaled_axis = [
             axis_descriptors.x.scaled_axis_unit(x_range.1),
             axis_descriptors.y.scaled_axis_unit(y_range.1),
         ];
@@ -35,7 +35,7 @@ impl ScatterChart {
                 .enumerate()
                 .map(|(i, e)| (i as i64, *e))
                 .collect(),
-            axis_fits,
+            scaled_axis,
         }
     }
 }
@@ -64,7 +64,7 @@ impl ChartData<Coords> for ScatterChart {
         Ok(context)
     }
 
-    fn axis_fits(&self) -> &[ScaledAxisDescriptor; 2] {
-        &self.axis_fits
+    fn scale_axis(&self) -> &[ScaledAxisDescriptor; 2] {
+        &self.scaled_axis
     }
 }
