@@ -16,7 +16,7 @@ pub struct HistogramChart {
     x_range: (i64, i64),
     y_range: (i64, i64),
     data: Vec<i64>,
-    axis_fits: [ScaledAxisDescriptor; 2],
+    scaled_axis: [ScaledAxisDescriptor; 2],
 }
 
 impl HistogramChart {
@@ -64,7 +64,7 @@ impl HistogramChart {
 
         let y_range = resolve_axis_range(&binned_data);
 
-        let axis_fits = [
+        let scaled_axis = [
             axis_descriptor
                 .x
                 .scaled_axis_unit((x_range.1 - x_range.0) / 2),
@@ -80,7 +80,7 @@ impl HistogramChart {
             x_range,
             y_range: (0, y_range.1),
             data: binned_data,
-            axis_fits,
+            scaled_axis,
         }
     }
 }
@@ -110,8 +110,8 @@ impl ChartData<Coords> for HistogramChart {
         Ok(context)
     }
 
-    fn axis_fits(&self) -> &[ScaledAxisDescriptor; 2] {
-        &self.axis_fits
+    fn scale_axis(&self) -> &[ScaledAxisDescriptor; 2] {
+        &self.scaled_axis
     }
 }
 

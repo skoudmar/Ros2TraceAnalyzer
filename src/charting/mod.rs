@@ -109,23 +109,22 @@ fn label_axis<B: DrawingBackend>(
             impl Ranged<ValueType = i64> + ValueFormatter<i64>,
         >,
     >,
-    axis_best_fits: &[ScaledAxisDescriptor; 2],
-    axis_description: &AxisDescriptors,
+    scaled_axis_descriptor: &[ScaledAxisDescriptor; 2],
     sizes: &ChartSpacing,
 ) -> Result<(), ChartConstructionError<B::ErrorType>> {
     chart
         .configure_mesh()
         .max_light_lines(1)
-        .x_desc(axis_best_fits[0].name())
-        .y_desc(axis_best_fits[1].name())
+        .x_desc(scaled_axis_descriptor[0].name())
+        .y_desc(scaled_axis_descriptor[1].name())
         .x_label_formatter(&|v| {
-            format!("{:.2}", axis_best_fits[0].convert(*v))
+            format!("{:.2}", scaled_axis_descriptor[0].convert(*v))
                 .trim_end_matches('0')
                 .trim_end_matches('.')
                 .to_string()
         })
         .y_label_formatter(&|v| {
-            format!("{:.2}", axis_best_fits[1].convert(*v))
+            format!("{:.2}", scaled_axis_descriptor[1].convert(*v))
                 .trim_end_matches('0')
                 .trim_end_matches('.')
                 .to_string()
@@ -161,20 +160,18 @@ fn draw_into_canvas<B: DrawingBackend>(
 
     match &variant {
         ChartVariants::Histogram(histogram_data) => {
-            let d = HistogramChart::new(histogram_data, data, axis_description);
+            let histogram = HistogramChart::new(histogram_data, data, axis_description);
             label_axis(
-                d.draw_into(&mut chart)?,
-                d.axis_fits(),
-                axis_description,
+                histogram.draw_into(&mut chart)?,
+                histogram.scale_axis(),
                 spacing,
             )?;
         }
         ChartVariants::Scatter => {
-            let d = ScatterChart::new(data, axis_description);
+            let scatter = ScatterChart::new(data, axis_description);
             label_axis(
-                d.draw_into(&mut chart)?,
-                d.axis_fits(),
-                axis_description,
+                scatter.draw_into(&mut chart)?,
+                scatter.scale_axis(),
                 spacing,
             )?;
         }
