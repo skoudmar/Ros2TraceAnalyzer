@@ -107,12 +107,12 @@ pub enum SiPrefix {
 impl SiPrefix {
     const fn ratio(self) -> f64 {
         match self {
-            SiPrefix::Mega => 1e-6,
-            SiPrefix::Kilo => 1e-3,
-            SiPrefix::Base => 1e-0,
-            SiPrefix::Milli => 1e+3,
-            SiPrefix::Micro => 1e6,
-            SiPrefix::Nano => 1e+9,
+            Self::Mega => 1e-6,
+            Self::Kilo => 1e-3,
+            Self::Base => 1e-0,
+            Self::Milli => 1e+3,
+            Self::Micro => 1e6,
+            Self::Nano => 1e+9,
         }
     }
 
@@ -140,12 +140,12 @@ pub enum DurationUnit {
 impl DurationUnit {
     const fn ratio(&self) -> f64 {
         match self {
-            DurationUnit::Hour => 1. / 3600.,
-            DurationUnit::Minute => 1. / 60.,
-            DurationUnit::Second => 1e-0,
-            DurationUnit::Millisecond => 1e+3,
-            DurationUnit::Microsecond => 1e6,
-            DurationUnit::Nanosecond => 1e+9,
+            Self::Hour => 1. / 3600.,
+            Self::Minute => 1. / 60.,
+            Self::Second => 1e-0,
+            Self::Millisecond => 1e+3,
+            Self::Microsecond => 1e6,
+            Self::Nanosecond => 1e+9,
         }
     }
 
@@ -162,11 +162,11 @@ pub enum AxisQuantity {
 
 impl AxisQuantity {
     pub const fn new_duration(unit: DurationUnit) -> Self {
-        AxisQuantity::Duration { base: unit }
+        Self::Duration { base: unit }
     }
 
     pub const fn new_si(unit: SiPrefix) -> Self {
-        AxisQuantity::SimpleSi { base: unit }
+        Self::SimpleSi { base: unit }
     }
 }
 
