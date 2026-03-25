@@ -27,7 +27,7 @@ pub struct ChartArgs {
     #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::AnyPath)]
     pub output: Option<PathBuf>,
 
-    /// Indicates whether the output file is overwritten if present
+    /// Overwrite the output file if present
     #[clap(long, default_value = "false")]
     pub overwrite: bool,
 

@@ -313,7 +313,7 @@ Options:
           If not given, the current directory is used.
 
       --overwrite
-          Indicates whether the output file is overwritten if present
+          Overwrite the output file if present
 
       --quantity <QUANTITY>
           The value to plot into the chart
