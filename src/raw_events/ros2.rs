@@ -1,12 +1,14 @@
 use bt2_derive::TryFromBtFieldConst;
 use bt2_sys::event::BtEventConst;
+use bt2_sys::field::ConversionError;
 use derive_more::derive::{Debug, From};
 
 use crate::utils::DebugOptionHex;
 
 use super::FromBtEvent;
 
-pub const GID_SIZE: usize = 24;
+pub const GID_SIZE_JAZZY: usize = 24;
+pub const GID_SIZE_KILTED: usize = 16;
 
 #[derive(Debug, TryFromBtFieldConst, Clone)]
 pub struct RclInit {
@@ -29,7 +31,13 @@ pub struct RclNodeInit {
 pub struct RmwPublisherInit {
     #[debug("{rmw_publisher_handle:#x}")]
     pub rmw_publisher_handle: u64,
-    pub gid: [u8; GID_SIZE],
+    pub gid: Gid,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Gid {
+    Jazzy([u8; GID_SIZE_JAZZY]),
+    Kilted([u8; GID_SIZE_KILTED]),
 }
 
 #[derive(Debug, TryFromBtFieldConst, Clone)]
@@ -79,7 +87,7 @@ pub struct RmwPublish {
 pub struct RmwSubscriptionInit {
     #[debug("{rmw_subscription_handle:#x}")]
     pub rmw_subscription_handle: u64,
-    pub gid: [u8; GID_SIZE],
+    pub gid: Gid,
 }
 
 #[derive(Debug, TryFromBtFieldConst, Clone)]
@@ -346,6 +354,26 @@ impl FromBtEvent for RmwPublish {
             message,
             timestamp,
         })
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+#[error(
+    "GID conversion error: expected array of length {GID_SIZE_KILTED} or {GID_SIZE_JAZZY}, got {0}"
+)]
+struct GidConversionError(usize);
+
+impl TryFrom<bt2_sys::field::BtFieldConst> for Gid {
+    type Error = ConversionError;
+
+    fn try_from(value: bt2_sys::field::BtFieldConst) -> Result<Self, Self::Error> {
+        let array = value.try_into_array()?;
+        let len = array.get_length() as usize;
+        match len {
+            GID_SIZE_JAZZY => Ok(Gid::Jazzy(array.try_into()?)),
+            GID_SIZE_KILTED => Ok(Gid::Kilted(array.try_into()?)),
+            _ => Err(ConversionError::User(GidConversionError(len).into())),
+        }
     }
 }
 

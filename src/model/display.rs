@@ -7,8 +7,8 @@ use crate::utils::{
 };
 
 use super::{
-    Callback, CallbackCaller, CallbackInstance, CallbackType, Client, DdsGid, Gid, Name, Node,
-    PartiallyKnown, PublicationMessage, Publisher, RmwGid, Service, SpinInstance, Subscriber,
+    Callback, CallbackCaller, CallbackInstance, CallbackType, Client, Gid, Name, Node,
+    PartiallyKnown, PublicationMessage, Publisher, Service, SpinInstance, Subscriber,
     SubscriptionMessage, Time, Timer,
 };
 
@@ -415,7 +415,7 @@ impl std::fmt::Display for CallbackType {
     }
 }
 
-impl std::fmt::Display for DdsGid {
+impl std::fmt::Display for Gid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for byte in self.gid.iter().take(12) {
             write!(f, "{byte:02x}")?;
@@ -425,51 +425,22 @@ impl std::fmt::Display for DdsGid {
             write!(f, "{byte:02x}")?;
         }
 
-        Ok(())
-    }
-}
-
-impl std::fmt::Debug for DdsGid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple(stringify!(DdsGid))
-            .field(&self.to_string())
-            .finish()
-    }
-}
-
-impl std::fmt::Display for RmwGid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}-", self.gid)?;
-        for byte in &self.gid_suffix {
-            write!(f, "{byte:02x}")?;
+        if let Some(suffix) = &self.suffix {
+            write!(f, "-")?;
+            for byte in suffix {
+                write!(f, "{byte:02x}")?;
+            }
         }
+
         Ok(())
-    }
-}
-
-impl std::fmt::Debug for RmwGid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple(stringify!(RmwGid))
-            .field(&self.to_string())
-            .finish()
-    }
-}
-
-impl std::fmt::Display for Gid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::DdsGid(gid) => write!(f, "{gid}"),
-            Self::RmwGid(gid) => write!(f, "{gid}"),
-        }
     }
 }
 
 impl std::fmt::Debug for Gid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::DdsGid(gid) => std::fmt::Debug::fmt(gid, f),
-            Self::RmwGid(gid) => std::fmt::Debug::fmt(gid, f),
-        }
+        f.debug_tuple(stringify!(Gid))
+            .field(&self.to_string())
+            .finish()
     }
 }
 

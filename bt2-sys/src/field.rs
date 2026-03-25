@@ -1165,6 +1165,10 @@ pub enum ConversionError {
 
     #[error(transparent)]
     ArrayConversionError(#[from] ArrayConversionError),
+
+    /// A user-defined error that can be used to wrap any error that implements [`std::error::Error`].
+    #[error("Library user error: {0}")]
+    User(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl From<Infallible> for ConversionError {
