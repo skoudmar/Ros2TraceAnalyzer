@@ -6,7 +6,7 @@ use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, Ident};
 
-#[proc_macro_derive(TryFromBtFieldConst, attributes(bt2))]
+#[proc_macro_derive(TryFromBtFieldConst, attributes(bt2, allow_padding))]
 pub fn derive_try_from_bt_field_const(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
@@ -223,6 +223,19 @@ fn default_field_conversion(field: &Field) -> proc_macro2::TokenStream {
             .to_compile_error();
     };
     let field_span = field.span();
+
+    let allow_padding = field
+        .attrs
+        .iter()
+        .any(|a| a.path().is_ident("allow_padding"));
+
+    if allow_padding {
+        return quote_spanned! {field_span=>
+            bt2_sys::field::BtFieldArrayConstPaddable(
+                bt_field.try_into_array().map_err(|e| bt2_sys::field::StructConversionError::field_conversion_error(stringify!(#field_name), e))?
+            ).try_into().map_err(|e| bt2_sys::field::StructConversionError::field_conversion_error(stringify!(#field_name), e))?
+        };
+    }
 
     quote_spanned! {field_span=>
         bt_field.try_into().map_err(|e| bt2_sys::field::StructConversionError::field_conversion_error(stringify!(#field_name), e))?

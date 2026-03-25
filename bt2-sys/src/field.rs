@@ -47,6 +47,10 @@ pub struct BtFieldArrayConst(BtFieldConst);
 
 #[repr(transparent)]
 #[derive(Deref)]
+pub struct BtFieldArrayConstPaddable(pub BtFieldArrayConst);
+
+#[repr(transparent)]
+#[derive(Deref)]
 pub struct BtFieldStructureConst(BtFieldConst);
 
 /// Casted [`BtFieldConst`] to more specific field types.
@@ -819,6 +823,62 @@ where
     }
 }
 
+impl<const N: usize, T> TryFrom<BtFieldArrayConstPaddable> for [T; N]
+where
+    T: TryFrom<BtFieldConst> + Copy + std::fmt::Debug,
+    <T as TryFrom<BtFieldConst>>::Error: Into<ConversionError>,
+{
+    type Error = ArrayConversionError;
+
+    fn try_from(bt_array: BtFieldArrayConstPaddable) -> Result<Self, Self::Error> {
+        let len = bt_array.get_length();
+        if len > N as u64 {
+            return Err(ArrayConversionError::CannotPadArray {
+                max: N as u64,
+                actual: len,
+            });
+        }
+
+        let mut array = [const { MaybeUninit::uninit() }; N];
+        let mut i = 0;
+
+        let (init, err) = loop {
+            if i >= len {
+                break (len, None);
+            }
+
+            let elem = bt_array.get_value(i).try_into().map_err(
+                |e: <T as TryFrom<BtFieldConst>>::Error| {
+                    ArrayConversionError::element_conversion_error(e, i)
+                },
+            );
+
+            match elem {
+                Ok(elem) => array[i as usize] = MaybeUninit::new(elem),
+                Err(e) => break (i, Some(e)),
+            }
+
+            i += 1;
+        };
+
+        if let Some(err) = err {
+            for elem in array.iter_mut().take(init as usize) {
+                unsafe {
+                    elem.assume_init_drop();
+                }
+            }
+
+            return Err(err);
+        }
+
+        for i in (len as usize)..N {
+            array[i] = array[(len - 1) as usize];
+        }
+
+        Ok(array.map(|elem| unsafe { elem.assume_init() }))
+    }
+}
+
 impl<T> TryFrom<BtFieldArrayConst> for Vec<T>
 where
     T: TryFrom<BtFieldConst>,
@@ -1230,6 +1290,9 @@ pub enum ArrayConversionError {
 
     #[error("Array length could not fit in usize: {0}")]
     LengthTooLarge(u64),
+
+    #[error("Array must be shorter to allow padding: expected <= {max}, got: {actual}")]
+    CannotPadArray { max: u64, actual: u64 },
 }
 
 impl ArrayConversionError {
