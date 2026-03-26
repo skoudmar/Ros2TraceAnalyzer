@@ -1,0 +1,14 @@
+{
+    "nix-ros-overlay": {
+        "branch": "develop",
+        "description": "ROS overlay for the Nix package manager",
+        "homepage": null,
+        "owner": "lopsided98",
+        "repo": "nix-ros-overlay",
+        "rev": "c0659dc45d4c1736d71d5578b17f12e3b1afe190",
+        "sha256": "1branyrz5g8f5sgq09l89nif1q9xb0jrlk2bd9jnd6w0d5ygrm2h",
+        "type": "tarball",
+        "url": "https://github.com/lopsided98/nix-ros-overlay/archive/c0659dc45d4c1736d71d5578b17f12e3b1afe190.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    }
+}

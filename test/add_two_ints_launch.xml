@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="demo_nodes_cpp" exec="add_two_ints_server" output="screen">
+    <param name="one_shot" value="true" />
+  </node>
+  <node pkg="demo_nodes_cpp" exec="add_two_ints_client" output="screen" />
+</launch>
