@@ -1,0 +1,69 @@
+name: ROS Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libbabeltrace2-dev
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: cargo build
+        run: cargo build --locked
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: Ros2TraceAnalyzer
+          path: target/debug/Ros2TraceAnalyzer
+  ros-tests:
+    needs: build
+    strategy:
+      matrix:
+        ros_distro: [jazzy, kilted, rolling]
+      fail-fast: false
+    runs-on: ubuntu-latest
+    defaults: {run: {working-directory: ./test}}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download binary
+        uses: actions/download-artifact@v8
+        with:
+          name: Ros2TraceAnalyzer
+          path: target/debug
+      - run: chmod +x ../target/debug/Ros2TraceAnalyzer
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libbabeltrace2-0
+      - uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - name: "Configure Nix binary cache"
+        run: |
+          mkdir -p ~/.config/nix
+          cat >> ~/.config/nix/nix.conf <<EOF
+          extra-substituters = https://attic.iid.ciirc.cvut.cz/ros?priority=42
+          extra-trusted-public-keys = ros:JR95vUYsShSqfA1VTYoFt1Nz6uXasm5QrcOsGry9f6Q=
+          EOF
+      - name: Update to latest nix-ros-overlay
+        run: nix-shell -p niv --command 'niv update'
+      - name: Install ROS via Nix
+        run: nix-shell --argstr distro ${{ matrix.ros_distro }} --run true
+      - name: Run test suite
+        env: {TERM: xterm-256color}
+        run: nix-shell --argstr distro ${{ matrix.ros_distro }} --run "./test.bats -F pretty"
