@@ -17,7 +17,7 @@ EOF
 To play with the tests interactively, run:
 
     nix-shell
-    ./tests.bats
+    ./test.bats
 
 To run the tests for a given ROS distro, run:
 
