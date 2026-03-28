@@ -3,8 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use graph::Graph;
 
-use crate::model::{Callback, CallbackType};
+use crate::model::{Callback, CallbackCaller, CallbackType};
 use crate::processed_events::{Event, FullEvent, ros2};
+use crate::utils::Known;
 
 use super::{ArcMutWrapper, EventAnalysis, PublicationInCallback};
 
@@ -110,6 +111,7 @@ pub mod graph {
 pub struct CallbackDependency {
     timer_driven_callbacks: Vec<ArcMutWrapper<Callback>>,
     message_driven_callbacks: Vec<ArcMutWrapper<Callback>>,
+    service_driven_callbacks: Vec<ArcMutWrapper<Callback>>,
     publication_in_callback: PublicationInCallback,
     graph: Option<Box<Graph>>,
 }
@@ -131,8 +133,7 @@ impl CallbackDependency {
                 self.message_driven_callbacks.push(callback_arc.into());
             }
             CallbackType::Service => {
-                // Ignore service callbacks for now
-                // TODO: Handle service callbacks
+                self.service_driven_callbacks.push(callback_arc.into());
             }
         }
     }
@@ -142,11 +143,20 @@ impl CallbackDependency {
         let mut edges = Vec::new();
 
         let mut callback_to_node = HashMap::new();
-        let mut topic_to_nodes = HashMap::<_, Vec<_>>::new();
+        let mut topic_to_nodes = HashMap::<Known<String>, Vec<_>>::new();
 
         let mut sources = Vec::new();
 
         for callback in &self.timer_driven_callbacks {
+            let node = graph::Node::new(callback.0.clone());
+
+            let id = nodes.len();
+            nodes.push(node);
+            sources.push(id);
+            callback_to_node.insert(callback.clone(), id);
+        }
+
+        for callback in &self.service_driven_callbacks {
             let node = graph::Node::new(callback.0.clone());
 
             let id = nodes.len();
@@ -163,22 +173,32 @@ impl CallbackDependency {
             callback_to_node.insert(callback.clone(), id);
 
             let callback = callback.0.lock().unwrap();
-            let subscriber = callback.get_caller().unwrap().unwrap_subscription_ref();
-
-            let subscriber = subscriber.get_arc().expect("Subscriber should be alive");
-            let subscriber = subscriber.lock().unwrap();
-            let topic = subscriber.get_topic().unwrap().to_owned();
+            let topic = callback
+                .get_caller()
+                .and_then(|caller| match caller {
+                    CallbackCaller::Subscription(subscriber) => subscriber.get_arc(),
+                    _ => None,
+                })
+                .map_or(Known::Unknown, |subscriber| {
+                    subscriber.lock().unwrap().get_topic().map(str::to_owned)
+                });
 
             topic_to_nodes.entry(topic).or_default().push(id);
         }
 
         for (publisher, callback) in self.publication_in_callback.get_dependency() {
+            let source_node = *callback_to_node.entry(callback.clone()).or_insert_with(|| {
+                let id = nodes.len();
+                let node = graph::Node::new(callback.0.clone());
+                nodes.push(node);
+                id
+            });
             let publisher = publisher.0.lock().unwrap();
-            let topic = publisher.get_topic().unwrap().to_owned();
+            let topic = publisher.get_topic().map(str::to_owned);
 
             if let Some(nodes) = topic_to_nodes.get(&topic) {
                 for &node in nodes {
-                    edges.push((callback_to_node[callback], node));
+                    edges.push((source_node, node));
                 }
             }
         }
