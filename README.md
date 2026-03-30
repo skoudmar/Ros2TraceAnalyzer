@@ -60,9 +60,9 @@ information from the trace.
 Usage: Ros2TraceAnalyzer [OPTIONS] <COMMAND>
 
 Commands:
-  analyze  Analyze a ROS 2 trace and store the result either as a binary bundle or separate files. See the extract subcommand for how to work with the binary bundle
-  chart    Render a chart of a specific property of a ROS 2 interface
-  viewer   Start a .dot viewer capable of generating charts on demand
+  analyze  Analyze a ROS 2 trace and store the result either as a binary bundle or separate files
+  chart    Render a chart of a selected analysis result
+  viewer   Start an interactive results graph viewer with chart previews
   extract  Retrieve data from binary bundle produced by the analysis
   help     Print this message or the help of the given subcommand(s)
 
@@ -77,7 +77,9 @@ This command analyzes the traces and saves relevant information for later use in
 
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- analyze --help` as text -->
 ```text
-Analyze a ROS 2 trace and store the result either as a binary bundle or separate files. See the extract subcommand for how to work with the binary bundle
+Analyze a ROS 2 trace and store the result either as a binary bundle or separate files.
+
+See the extract subcommand for how to work with the binary bundle.
 
 Usage: Ros2TraceAnalyzer analyze [OPTIONS] <TRACE_PATHS>...
 
@@ -279,7 +281,7 @@ This command is reserved for later use. It is intended for generating charts fro
 
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- chart --help` as text -->
 ```text
-Render a chart of a specific property of a ROS 2 interface
+Render a chart of a selected analysis result
 
 Usage: Ros2TraceAnalyzer chart [OPTIONS] --element-id <ELEMENT_ID> --quantity <QUANTITY> <COMMAND>
 
@@ -306,9 +308,9 @@ Options:
   -o, --output <FILENAME>
           Directory or filename where to store the chart
           
-          If it's a directory, the chart file name will be <ID>_<QUANTITY>.svg.
+          For directories, the chart file name will be <ID>_<QUANTITY>.svg.
           
-          If it's a filename, the output type is determined by its extension. Supported extensions are: SVG [default] and PNG.
+          For filenames, the output type is determined by its extension. Supported extensions are: SVG [default] and PNG.
           
           If not given, the current directory is used.
 
@@ -351,7 +353,7 @@ Options:
 This command is reserved for later use. Builtin .dot graphs viewer.
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- viewer --help` as text -->
 ```text
-Start a .dot viewer capable of generating charts on demand
+Start an interactive results graph viewer with chart previews
 
 Usage: Ros2TraceAnalyzer viewer [OPTIONS] <DOTFILE>
 

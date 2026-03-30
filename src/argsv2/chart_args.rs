@@ -19,9 +19,9 @@ pub struct ChartArgs {
 
     /// Directory or filename where to store the chart
     ///
-    /// If it's a directory, the chart file name will be <ID>_<QUANTITY>.svg.
+    /// For directories, the chart file name will be <ID>_<QUANTITY>.svg.
     ///
-    /// If it's a filename, the output type is determined by its extension.
+    /// For filenames, the output type is determined by its extension.
     /// Supported extensions are: SVG [default] and PNG.
     ///
     /// If not given, the current directory is used.

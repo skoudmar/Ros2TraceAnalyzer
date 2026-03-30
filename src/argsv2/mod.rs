@@ -53,16 +53,18 @@ impl Args {
 #[derive(Debug, Subcommand, Clone, derive_more::Display)]
 pub enum TracerCommand {
     /// Analyze a ROS 2 trace and store the result either as a binary bundle
-    /// or separate files. See the extract subcommand for how to work with the
-    /// binary bundle.
+    /// or separate files.
+    ///
+    /// See the extract subcommand for how to work with the binary
+    /// bundle.
     #[display("analyze")]
     Analyze(Box<analysis_args::AnalysisArgs>),
 
-    /// Render a chart of a specific property of a ROS 2 interface
+    /// Render a chart of a selected analysis result
     #[display("chart")]
     Chart(chart_args::ChartArgs),
 
-    /// Start a .dot viewer capable of generating charts on demand
+    /// Start an interactive results graph viewer with chart previews
     #[display("viewer")]
     Viewer(viewer_args::ViewerArgs),
 
