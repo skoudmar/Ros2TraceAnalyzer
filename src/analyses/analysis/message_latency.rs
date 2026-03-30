@@ -12,6 +12,8 @@ use crate::utils::Known;
 use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};
 
 type SubPubKey = (ArcMutWrapper<Subscriber>, Option<ArcMutWrapper<Publisher>>);
+
+#[derive(Debug, Default)]
 pub struct MessageLatency {
     messages: HashSet<ArcMutWrapper<SubscriptionMessage>>,
     latencies: HashMap<SubPubKey, Vec<i64>>,
@@ -80,10 +82,7 @@ impl PartialOrd for MessageLatencyStats {
 
 impl MessageLatency {
     pub fn new() -> Self {
-        Self {
-            messages: HashSet::new(),
-            latencies: HashMap::new(),
-        }
+        Self::default()
     }
 
     fn add_message(&mut self, message: Arc<Mutex<SubscriptionMessage>>) {
