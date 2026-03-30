@@ -995,10 +995,15 @@ impl std::fmt::Display for DisplayAsDot<'_> {
                 if self.thickness {
                     const MIN_PENWIDTH: f64 = 0.2;
                     const MAX_PENWIDTH: f64 = 3.0;
+                    const DEFAULT_RATIO: f64 = 0.5;
 
-                    let thickness =
-                        (weight - min_latency) as f64 / (max_latency - min_latency) as f64;
-                    let thickness = MIN_PENWIDTH + thickness * (MAX_PENWIDTH - MIN_PENWIDTH);
+                    let thickness_ratio = if max_latency > min_latency {
+                        ((weight - min_latency) as f64 / (max_latency - min_latency) as f64)
+                            .clamp(0.0, 1.0)
+                    } else {
+                        DEFAULT_RATIO
+                    };
+                    let thickness = MIN_PENWIDTH + thickness_ratio * (MAX_PENWIDTH - MIN_PENWIDTH);
                     graph_edge.set_attribute("penwidth", &format!("{thickness}"));
                 }
             }

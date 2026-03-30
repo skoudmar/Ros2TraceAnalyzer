@@ -28,8 +28,18 @@ impl ColorGradient {
 
     /// Returns a color for the given value in the range `[min, max]`.
     pub fn color_for_range(&self, value: i64, min: i64, max: i64) -> Color {
-        let value = (value - min) as f32 / (max - min) as f32;
+        let value = Self::normalize_for_range(value, min, max);
         self.color(value)
+    }
+
+    fn normalize_for_range(value: i64, min: i64, max: i64) -> f32 {
+        const DEFAULT_RATIO: f32 = 0.5;
+
+        if max > min {
+            ((value - min) as f32 / (max - min) as f32).clamp(0.0, 1.0)
+        } else {
+            DEFAULT_RATIO
+        }
     }
 }
 
@@ -42,5 +52,27 @@ impl Display for Color {
             "#{:02X}{:02X}{:02X}{:02X}",
             self.0[0], self.0[1], self.0[2], self.0[3]
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_for_range_handles_zero_width_range() {
+        let normalized = ColorGradient::normalize_for_range(42, 10, 10);
+        assert_eq!(normalized, 0.5);
+    }
+
+    #[test]
+    fn normalize_for_range_clamps_out_of_bounds_values() {
+        assert_eq!(ColorGradient::normalize_for_range(0, 10, 20), 0.0);
+        assert_eq!(ColorGradient::normalize_for_range(30, 10, 20), 1.0);
+    }
+
+    #[test]
+    fn normalize_for_range_maps_middle_value() {
+        assert_eq!(ColorGradient::normalize_for_range(15, 10, 20), 0.5);
     }
 }
