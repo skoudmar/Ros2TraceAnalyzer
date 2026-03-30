@@ -4,7 +4,6 @@ use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use derive_more::Display;
 
 use crate::argsv2::analysis_args::filenames;
-use crate::argsv2::chart_args::ChartedValue;
 
 #[derive(Debug, Clone, Args)]
 pub struct ExtractArgs {
@@ -75,7 +74,7 @@ impl ExtractPropertyArgs {
     }
 }
 
-#[derive(Debug, Display, ValueEnum, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Display, ValueEnum, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AnalysisProperty {
     /// Callback execution durations
     #[display("Callback execution time")]
@@ -96,16 +95,4 @@ pub enum AnalysisProperty {
     /// Latency of a communication channel
     #[display("Message latency")]
     MessageLatencies,
-}
-
-impl From<ChartedValue> for AnalysisProperty {
-    fn from(value: ChartedValue) -> Self {
-        match value {
-            ChartedValue::CallbackDuration => AnalysisProperty::CallbackDurations,
-            ChartedValue::ActivationsDelay => AnalysisProperty::ActivationDelays,
-            ChartedValue::PublicationsDelay => AnalysisProperty::PublicationDelays,
-            ChartedValue::MessagesDelay => AnalysisProperty::MessageDelays,
-            ChartedValue::MessagesLatency => AnalysisProperty::MessageLatencies,
-        }
-    }
 }

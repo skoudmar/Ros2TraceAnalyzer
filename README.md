@@ -319,11 +319,11 @@ Options:
           The value to plot into the chart
 
           Possible values:
-          - callback-duration:  Callback execution durations
-          - activations-delay:  Delays between callback or timer activations
-          - publications-delay: Delays between publisher publications
-          - messages-delay:     Delays between subscriber messages
-          - messages-latency:   Latency of a communication channel
+          - callback-durations: Callback execution durations
+          - activation-delays:  Delays between callback or timer activations
+          - publication-delays: Delays between publisher publications
+          - message-delays:     Delays between subscriber messages
+          - message-latencies:  Latency of a communication channel
 
       --width <WIDTH>
           The width of the image in pixels
@@ -353,31 +353,22 @@ This command is reserved for later use. Builtin .dot graphs viewer.
 ```text
 Start a .dot viewer capable of generating charts on demand
 
-Usage: Ros2TraceAnalyzer viewer [OPTIONS] <DOTFILE>
-
-Arguments:
-  <DOTFILE>  The dotfile to open
+Usage: Ros2TraceAnalyzer viewer [OPTIONS]
 
 Options:
-  -v, --verbose...
-          Increase logging verbosity
-      --viewer <VIEWER>
-          The entry point to the python viewer (defaults to ./xdotviewer/main.py)
-  -q, --quiet...
-          Decrease logging verbosity
-  -t, --tracer-exec <Ros2TraceAnalyzer>
-          The executable to run to invoke the Ros2TraceAnalyzer (defaults to ./target/release/Ros2TraceAnalyzer)
-  -d, --data <DATA>
-          The directory with the datafiles (defaults to CWD)
-  -h, --help
-          Print help
+  -v, --verbose...                    Increase logging verbosity
+      --viewer <VIEWER>               The entry point to the python viewer (defaults to ./py-src/xdotviewer/main.py)
+  -q, --quiet...                      Decrease logging verbosity
+  -t, --tracer-exec <TRACE ANALYZER>  The executable to run to invoke the Ros2TraceAnalyzer (defaults to ./target/release/Ros2TraceAnalyzer)
+  -d, --input <INPUT>                 Binary bundle file name or a directory containing r2ta_results.sqlite file
+  -h, --help                          Print help
 ```
 
 ## Extract
 This command retrieves various data from the "binary bundle" produced by the analysis subcommand.
 
-<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- extract --help` as text -->
-```text
+<!-- `$ cargo run extract --help` -->
+```
 Retrieve data from binary bundle produced by the analysis
 
 Usage: Ros2TraceAnalyzer extract [OPTIONS] <COMMAND>
@@ -405,3 +396,4 @@ agency of the Czech Republic under the project TN01000026 *Božek
 Vehicle Engineering National Center of Competence*.
 
 <a href="https://tacr.gov.cz/program/program-narodni-centra-kompetence/"><img width="400" height="109" alt="National Centres of Competence Programme_red_small" src="https://github.com/user-attachments/assets/15931535-8dcb-4d39-9d52-0ad1326fa203" /></a>
+

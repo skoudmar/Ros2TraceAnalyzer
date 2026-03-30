@@ -16,6 +16,7 @@ mod visualization;
 use core::panic;
 use std::ffi::CString;
 use std::io::Write;
+use std::process::Stdio;
 
 use argsv2::Args;
 use argsv2::helpers::prepare_trace_paths;
@@ -76,7 +77,7 @@ fn run_charting(args: &ChartArgs) -> color_eyre::eyre::Result<()> {
 
     if args.overwrite || !output_file.exists() {
         let chart_data =
-            extract::extract_property(&args.input, args.element_id, &args.chart.quantity.into())?;
+            extract::extract_property(&args.input, args.element_id, &args.chart.quantity)?;
 
         charting::render_chart(&output_file, chart_data, &args.chart, output_format)?;
     }
@@ -86,7 +87,37 @@ fn run_charting(args: &ChartArgs) -> color_eyre::eyre::Result<()> {
     Ok(())
 }
 
-fn run_viewer(_args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
+fn run_viewer(args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
+    let viewer = args
+        .viewer
+        .clone()
+        .unwrap_or(std::env::current_dir()?.join("./py-src/xdotviewer/main.py"));
+
+    let tracer = args
+        .tracer_exec
+        .clone()
+        .unwrap_or(String::from("Ros2TraceAnalyzer"));
+
+    let input = args.input_path();
+
+    let mut cmd = if args.viewer.is_some() {
+        std::process::Command::new(viewer)
+    } else {
+        let mut cmd = std::process::Command::new("python");
+        cmd.arg(viewer);
+        cmd
+    };
+    cmd.arg(tracer).arg(&input);
+
+    let mut viewer = cmd.stdin(Stdio::piped()).spawn()?;
+
+    let mut stdin = viewer.stdin.take().unwrap();
+    writeln!(stdin, "{}", extract::extract_graph(&input)?)?;
+    stdin.flush()?;
+    drop(stdin);
+
+    viewer.wait()?;
+
     Ok(())
 }
 

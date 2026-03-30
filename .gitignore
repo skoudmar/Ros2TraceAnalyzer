@@ -9,3 +9,4 @@
 *.svg
 *.png
 
+**/__pycache__

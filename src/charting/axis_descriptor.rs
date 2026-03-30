@@ -176,7 +176,7 @@ pub const fn resolve_axis_descriptors(
 ) -> AxisDescriptors {
     match chart_variant {
         ChartVariants::Histogram(_) => match charted_value {
-            ChartedValue::CallbackDuration => AxisDescriptors {
+            ChartedValue::CallbackDurations => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Duration",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
@@ -186,7 +186,7 @@ pub const fn resolve_axis_descriptors(
                     quantity: AxisQuantity::new_si(SiPrefix::Base),
                 },
             },
-            ChartedValue::ActivationsDelay => AxisDescriptors {
+            ChartedValue::ActivationDelays => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Delay",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
@@ -196,7 +196,7 @@ pub const fn resolve_axis_descriptors(
                     quantity: AxisQuantity::new_si(SiPrefix::Base),
                 },
             },
-            ChartedValue::PublicationsDelay => AxisDescriptors {
+            ChartedValue::PublicationDelays => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Delay",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
@@ -206,7 +206,7 @@ pub const fn resolve_axis_descriptors(
                     quantity: AxisQuantity::new_si(SiPrefix::Base),
                 },
             },
-            ChartedValue::MessagesDelay => AxisDescriptors {
+            ChartedValue::MessageDelays => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Delay",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
@@ -216,7 +216,7 @@ pub const fn resolve_axis_descriptors(
                     quantity: AxisQuantity::new_si(SiPrefix::Base),
                 },
             },
-            ChartedValue::MessagesLatency => AxisDescriptors {
+            ChartedValue::MessageLatencies => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Latency",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
@@ -228,7 +228,7 @@ pub const fn resolve_axis_descriptors(
             },
         },
         ChartVariants::Scatter => match charted_value {
-            ChartedValue::CallbackDuration => AxisDescriptors {
+            ChartedValue::CallbackDurations => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Nth Sample",
                     quantity: AxisQuantity::new_si(SiPrefix::Base),
@@ -238,7 +238,7 @@ pub const fn resolve_axis_descriptors(
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
             },
-            ChartedValue::ActivationsDelay => AxisDescriptors {
+            ChartedValue::ActivationDelays => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Nth Activation",
                     quantity: AxisQuantity::new_si(SiPrefix::Base),
@@ -248,7 +248,7 @@ pub const fn resolve_axis_descriptors(
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
             },
-            ChartedValue::PublicationsDelay => AxisDescriptors {
+            ChartedValue::PublicationDelays => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Nth Publication",
                     quantity: AxisQuantity::new_si(SiPrefix::Base),
@@ -258,7 +258,7 @@ pub const fn resolve_axis_descriptors(
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
             },
-            ChartedValue::MessagesDelay => AxisDescriptors {
+            ChartedValue::MessageDelays => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Nth Message",
                     quantity: AxisQuantity::new_si(SiPrefix::Base),
@@ -268,7 +268,7 @@ pub const fn resolve_axis_descriptors(
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
             },
-            ChartedValue::MessagesLatency => AxisDescriptors {
+            ChartedValue::MessageLatencies => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Nth sample",
                     quantity: AxisQuantity::new_si(SiPrefix::Base),
