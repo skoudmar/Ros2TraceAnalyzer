@@ -55,14 +55,12 @@ pub enum ExtractContentArgs {
 
 #[derive(Debug, Clone, Args)]
 pub struct ExtractPropertyArgs {
+    /// The property to extract from the node.
+    property: AnalysisProperty,
+
     /// Identifies the element in the dependency graph for
     /// which to extract the data
-    #[clap(long)]
     element_id: i64,
-
-    /// The property to extract from the node.
-    #[clap(long)]
-    property: AnalysisProperty,
 }
 
 impl ExtractPropertyArgs {

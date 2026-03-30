@@ -12,6 +12,8 @@ pub enum BinarySQLStoreError {
     NoStore(std::path::PathBuf),
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
+    #[error("No entry for id {1} in store {0}")]
+    NoEntry(String, String),
 }
 
 pub struct BinarySqlStore {
@@ -102,7 +104,7 @@ impl BinarySqlStore {
     }
 
     pub fn get_by_id<T: Entity>(&self, id: usize) -> Result<T, BinarySQLStoreError> {
-        Ok(self.connection.query_row(
+        let results = self.connection.query_row(
             &format!(
                 "SELECT {} FROM {} WHERE id = ?1",
                 T::PARAMS
@@ -114,7 +116,17 @@ impl BinarySqlStore {
             ),
             (id as i64,),
             |r| T::from_row(r),
-        )?)
+        );
+
+        match results {
+            Ok(r) => Ok(r),
+            Err(e) => Err(match e {
+                rusqlite::Error::QueryReturnedNoRows => {
+                    BinarySQLStoreError::NoEntry(T::TABLE.to_owned(), id.to_string())
+                }
+                _ => BinarySQLStoreError::SQLiteError(e),
+            }),
+        }
     }
 }
 
