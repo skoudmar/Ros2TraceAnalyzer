@@ -420,7 +420,7 @@ impl std::fmt::Display for DisplayLargeDuration {
 
         let mut value = self.0;
         let mut suffix = 0;
-        while suffix < SUFFIX.len() - 1 && value % FACTOR[suffix] == 0 {
+        while suffix < SUFFIX.len() - 1 && value.is_multiple_of(FACTOR[suffix]) {
             value /= FACTOR[suffix];
 
             suffix += 1;
