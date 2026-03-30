@@ -210,7 +210,7 @@ impl CallbackDuration {
         }
     }
 
-    pub fn get_durations_for_callback(
+    pub(super) fn get_durations_for_callback(
         &self,
         callback: &ArcMutWrapper<Callback>,
     ) -> Option<Vec<i64>> {
@@ -219,7 +219,7 @@ impl CallbackDuration {
             .map(|data| data.iter().map(|data| data.duration).collect::<Vec<_>>())
     }
 
-    pub fn get_all_durations(&self) -> HashMap<ArcMutWrapper<Callback>, Vec<i64>> {
+    pub(super) fn get_all_durations(&self) -> HashMap<ArcMutWrapper<Callback>, Vec<i64>> {
         self.execution_data
             .iter()
             .map(|(k, v)| (k.clone(), v.iter().map(|data| data.duration).collect()))
@@ -243,12 +243,17 @@ impl CallbackDuration {
         Some(inter_callback_time)
     }
 
-    pub fn get_inter_arrival_time(&self, callback: &ArcMutWrapper<Callback>) -> Option<Vec<i64>> {
+    pub(super) fn get_inter_arrival_time(
+        &self,
+        callback: &ArcMutWrapper<Callback>,
+    ) -> Option<Vec<i64>> {
         let start_times = self.execution_data.get(callback)?;
         Self::get_inter_arrival_time_inner(start_times)
     }
 
-    pub fn get_execution_data(&self) -> &HashMap<ArcMutWrapper<Callback>, Vec<ExecutionData>> {
+    pub(super) fn get_execution_data(
+        &self,
+    ) -> &HashMap<ArcMutWrapper<Callback>, Vec<ExecutionData>> {
         &self.execution_data
     }
 }

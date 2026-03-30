@@ -49,7 +49,7 @@ pub struct DependencyGraph {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Node {
+enum Node {
     Publisher(ArcMutWrapper<Publisher>),
     Subscriber(ArcMutWrapper<Subscriber>),
     Service(ArcMutWrapper<Service>),
