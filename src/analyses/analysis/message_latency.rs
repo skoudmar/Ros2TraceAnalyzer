@@ -4,11 +4,10 @@ use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 
-use crate::analysis::utils::DisplayDurationStats;
 use crate::model::display::get_node_name_from_weak;
 use crate::model::{Publisher, Subscriber, SubscriptionMessage};
 use crate::processed_events::{Event, FullEvent, ros2};
-use crate::utils::{DurationDisplayImprecise, Known};
+use crate::utils::Known;
 
 use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};
 
@@ -174,33 +173,6 @@ impl MessageLatency {
                 }
             })
             .collect()
-    }
-
-    pub(crate) fn print_stats(&self) {
-        println!("Message latency statistics:");
-        let mut stats = self.calculate_stats();
-        stats.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-        for (i, stat) in stats.iter().enumerate() {
-            let subscriber = stat.subscriber.lock().unwrap();
-            let topic = &stat.topic;
-            let publisher = stat.publisher.as_ref().map(|p| p.lock().unwrap());
-
-            println!("- [{i:4}] Topic {topic}:");
-            println!("    Subscriber: {subscriber:#}");
-            if let Some(publisher) = publisher {
-                println!("    Publisher: {publisher}");
-            } else {
-                println!("    Publisher: Unknown");
-            }
-            let display = DisplayDurationStats::new(&stat.latencies, "\n\t");
-            println!("\t{display}");
-            let (mean, std_dev) = display.mean_and_std_dev();
-            println!(
-                "\tMean: {}, Std. dev.: {}",
-                DurationDisplayImprecise(mean),
-                DurationDisplayImprecise(std_dev as i64)
-            );
-        }
     }
 }
 

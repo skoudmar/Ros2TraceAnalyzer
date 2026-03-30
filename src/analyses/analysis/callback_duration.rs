@@ -3,13 +3,11 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::vec::Vec;
 
-use crate::argsv2::Args;
 use crate::events_common::Context;
-use crate::model::display::{DisplayCallbackSummary, get_node_name_from_weak};
+use crate::model::display::get_node_name_from_weak;
 use crate::model::{Callback, CallbackInstance, Time};
 use crate::processed_events::{Event, FullEvent, ros2};
-use crate::statistics::{Quantile, Sorted};
-use crate::utils::{DurationDisplayImprecise, WeakKnown};
+use crate::utils::WeakKnown;
 
 use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};
 
@@ -51,12 +49,6 @@ pub struct Record {
 
     durations: Vec<i64>,
     inter_arrival_times: Vec<i64>,
-}
-
-#[derive(Debug, Clone)]
-pub struct RecordSummary {
-    pub(crate) call_count: usize,
-    pub(crate) quantiles: Vec<(Quantile, i64)>,
 }
 
 impl CallbackDuration {
@@ -134,36 +126,6 @@ impl CallbackDuration {
             .collect();
     }
 
-    fn calculate_duration_summary(
-        &self,
-        callback: &ArcMutWrapper<Callback>,
-    ) -> Option<RecordSummary> {
-        let exec_data = self.execution_data.get(callback)?;
-        debug_assert!(
-            !exec_data.is_empty(),
-            "Callback should have at least one execution data. Otherwise, it should not be present in the map."
-        );
-
-        let dur_len = exec_data.len();
-        let mut durations: Vec<i64> = exec_data.iter().map(|data| data.duration).collect();
-        durations.sort_unstable();
-        let durations_sorted = Sorted::from_sorted(durations).unwrap();
-
-        let duration_quantiles = Args::get_analyses_args()
-            .quantiles()
-            .iter()
-            .map(|q| {
-                let duration = *durations_sorted.quantile(*q).expect("Should not be empty");
-                (*q, duration)
-            })
-            .collect::<Vec<_>>();
-
-        Some(RecordSummary {
-            call_count: dur_len,
-            quantiles: duration_quantiles,
-        })
-    }
-
     pub fn get_records(&self) -> Vec<Record> {
         self.execution_data
             .iter()
@@ -185,44 +147,6 @@ impl CallbackDuration {
                         .unwrap_or_default(),
                 }
             })
-            .collect()
-    }
-
-    pub(crate) fn print_stats(&self) {
-        println!("Callback duration statistics:");
-        for (i, callback_arc) in self.execution_data.keys().enumerate() {
-            let callback = callback_arc.0.lock().unwrap();
-            let summary = self
-                .calculate_duration_summary(callback_arc)
-                .expect("Callback key should exist.");
-
-            println!("- [{i:4}] Callback {}:", DisplayCallbackSummary(&callback));
-            println!("    Call count: {}", summary.call_count);
-            if summary.call_count > 0 {
-                println!("    Duration quantiles:");
-                for (quantile, duration) in &summary.quantiles {
-                    println!(
-                        "        {quantile:5}: {duration_display}",
-                        duration_display = DurationDisplayImprecise(*duration),
-                    );
-                }
-            }
-        }
-    }
-
-    pub(super) fn get_durations_for_callback(
-        &self,
-        callback: &ArcMutWrapper<Callback>,
-    ) -> Option<Vec<i64>> {
-        self.execution_data
-            .get(callback)
-            .map(|data| data.iter().map(|data| data.duration).collect::<Vec<_>>())
-    }
-
-    pub(super) fn get_all_durations(&self) -> HashMap<ArcMutWrapper<Callback>, Vec<i64>> {
-        self.execution_data
-            .iter()
-            .map(|(k, v)| (k.clone(), v.iter().map(|data| data.duration).collect()))
             .collect()
     }
 
