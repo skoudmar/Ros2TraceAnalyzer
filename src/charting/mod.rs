@@ -25,20 +25,20 @@ pub fn render_chart(
     chart_request: &ChartRequest,
     output_format: ChartOutputFormat,
 ) -> Result<(), ChartConstructionCommonError> {
-    let spacing = ChartSpacing::try_from((chart_request.width, chart_request.height))?;
+    let spacing = ChartSpacing::try_from((chart_request.size.0, chart_request.size.1))?;
 
     let axis_description = resolve_axis_descriptors(chart_request.quantity, &chart_request.plot);
 
     match output_format {
         crate::argsv2::chart_args::ChartOutputFormat::Svg => draw_into_canvas(
-            SVGBackend::new(&file_name, (chart_request.width, chart_request.height)),
+            SVGBackend::new(&file_name, (chart_request.size.0, chart_request.size.1)),
             charting_data,
             &chart_request.plot,
             &spacing,
             &axis_description,
         )?,
         crate::argsv2::chart_args::ChartOutputFormat::Png => draw_into_canvas(
-            BitMapBackend::new(&file_name, (chart_request.width, chart_request.height)),
+            BitMapBackend::new(&file_name, (chart_request.size.0, chart_request.size.1)),
             charting_data,
             &chart_request.plot,
             &spacing,

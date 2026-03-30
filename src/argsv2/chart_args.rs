@@ -43,21 +43,17 @@ pub struct ChartRequest {
     #[clap(long)]
     pub quantity: ChartedValue,
 
-    /// The width of the image in pixels
+    /// The size of the image in pixels
     ///
     /// - For PNG this directly translates to pixels
     ///
     /// - For SVG this is the size in pixels with scale 1.0
-    #[clap(long, default_value = "800")]
-    pub width: u32,
-
-    /// The width of the image in pixels
-    ///
-    /// - For PNG this directly translates to pixels
-    ///
-    /// - For SVG this is the size in pixels with scale 1.0
-    #[clap(long, default_value = "600")]
-    pub height: u32,
+    #[clap(long, value_name = "WIDTHxHEIGHT", default_value = "800x600", value_parser = |s: &str| -> Result<(u32, u32), String> {
+        s.split_once('x')
+            .and_then(|(w, h)| Some((w.parse().ok()?, h.parse().ok()?)))
+            .ok_or_else(|| "Format must be WIDTHxHEIGHT (e.g., 1024x768)".to_string())
+    })]
+    pub size: (u32, u32),
 
     /// The type of chart to render the data as
     #[command(subcommand)]
@@ -81,7 +77,7 @@ impl ChartRequest {
             ChartVariants::Scatter => "scatter".to_owned(),
         };
 
-        format!("{}_{}_{}x{}", value, plot, self.width, self.height)
+        format!("{}_{}_{}x{}", value, plot, self.size.0, self.size.1)
     }
 }
 

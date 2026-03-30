@@ -327,23 +327,14 @@ Options:
           - messages-delay:     Delays between subscriber messages
           - messages-latency:   Latency of a communication channel
 
-      --width <WIDTH>
-          The width of the image in pixels
+      --size <WIDTHxHEIGHT>
+          The size of the image in pixels
           
           - For PNG this directly translates to pixels
           
           - For SVG this is the size in pixels with scale 1.0
           
-          [default: 800]
-
-      --height <HEIGHT>
-          The width of the image in pixels
-          
-          - For PNG this directly translates to pixels
-          
-          - For SVG this is the size in pixels with scale 1.0
-          
-          [default: 600]
+          [default: 800x600]
 
   -h, --help
           Print help (see a summary with '-h')
