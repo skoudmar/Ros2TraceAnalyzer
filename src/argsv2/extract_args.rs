@@ -73,7 +73,18 @@ impl ExtractPropertyArgs {
     }
 }
 
-#[derive(Debug, Display, ValueEnum, Clone, PartialEq, Eq, Hash)]
+#[derive(
+    Debug,
+    Display,
+    ValueEnum,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub enum AnalysisProperty {
     /// Callback execution durations
     #[display("Callback execution time")]

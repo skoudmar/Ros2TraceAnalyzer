@@ -114,6 +114,7 @@ impl Analyses {
                 store.insert(&graph_analysis.publication_delays(dot_graph.node_ids()))?;
                 store.insert(&graph_analysis.callback_durations(dot_graph.node_ids()))?;
                 store.insert(&graph_analysis.message_delays(dot_graph.node_ids()))?;
+                store.insert(&graph_analysis.node_overview(dot_graph.node_ids()))?;
             }
         } else {
             if let Some(path) = args.dependency_graph_path() {

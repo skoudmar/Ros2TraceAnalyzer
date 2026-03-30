@@ -2,12 +2,13 @@ use std::io::Write;
 use std::path::Path;
 
 use derive_more::Display;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::analyses::analysis::dependency_graph::{
     ActivationDelayExport, CallbackDurationExport, MessageLatencyExport, MessagesDelayExport,
-    PublicationDelayExport,
+    NodeOverviewExport, PublicationDelayExport,
 };
 use crate::argsv2::extract_args::AnalysisProperty;
 use crate::utils::binary_sql_store::{BinarySQLStoreError, BinarySqlStore};
@@ -34,7 +35,18 @@ pub enum ChartableData {
 #[derive(Error, Debug)]
 pub enum DataExtractionError {
     #[error("An error occurred during data parsing\n{0}")]
-    SourceDataParseError(BinarySQLStoreError),
+    SourceDataParseError(#[from] BinarySQLStoreError),
+    #[error(
+        "The requested analysis {analysis} is not available for element {element}. Available analyses are [{}]",
+        analyses.iter().map(ToString::to_string).join(", ")
+    )]
+    IncompatibleElementAnalysis {
+        analysis: AnalysisProperty,
+        element: usize,
+        analyses: Vec<AnalysisProperty>,
+    },
+    #[error("There is no element with id {0}.")]
+    NoSuchElement(usize),
 }
 
 pub fn extract_graph(input: &Path) -> color_eyre::eyre::Result<String> {
@@ -51,6 +63,27 @@ pub fn extract_property(
     let store = BinarySqlStore::open(input)?;
 
     let element_id = element_id as usize;
+
+    if *property != AnalysisProperty::MessageLatencies {
+        let id_node_meta =
+            store
+                .get_by_id::<NodeOverviewExport>(element_id)
+                .map_err(|e| match e {
+                    BinarySQLStoreError::NoResults => {
+                        DataExtractionError::NoSuchElement(element_id)
+                    }
+                    _ => e.into(),
+                })?;
+
+        if !id_node_meta.analyses.contains(property) {
+            return Err(DataExtractionError::IncompatibleElementAnalysis {
+                analysis: *property,
+                element: element_id,
+                analyses: id_node_meta.analyses,
+            }
+            .into());
+        }
+    }
 
     Ok(match property {
         AnalysisProperty::CallbackDurations => ChartableData::I64(
@@ -80,7 +113,12 @@ pub fn extract_property(
         AnalysisProperty::MessageLatencies => ChartableData::I64(
             store
                 .get_by_id::<MessageLatencyExport>(element_id)
-                .map_err(DataExtractionError::SourceDataParseError)?
+                .map_err(|e| match e {
+                    BinarySQLStoreError::NoResults => {
+                        DataExtractionError::NoSuchElement(element_id)
+                    }
+                    _ => e.into(),
+                })?
                 .messages_latencies,
         ),
     })

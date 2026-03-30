@@ -3,6 +3,7 @@ use std::ops::Not;
 use std::sync::{Arc, Mutex};
 
 use crate::analysis::utils::DisplayDurationStats;
+use crate::argsv2::extract_args::AnalysisProperty;
 use crate::events_common::Context;
 use crate::extract::{RosChannelCompleteName, RosInterfaceCompleteName};
 use crate::model::display::get_node_name_from_weak;
@@ -57,6 +58,24 @@ pub enum Node {
     Service(ArcMutWrapper<Service>),
     Timer(ArcMutWrapper<Timer>),
     Callback(ArcMutWrapper<Callback>),
+}
+
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    derive_more::Display,
+    strum::EnumString,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub enum NodeType {
+    Publisher,
+    Subscriber,
+    Service,
+    Timer,
+    Callback,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -675,6 +694,62 @@ impl DependencyGraph {
             })
             .collect()
     }
+
+    pub fn node_overview(&self, node_ids: &HashMap<Node, usize>) -> Vec<NodeOverviewExport> {
+        let mut ext = vec![];
+
+        for (publisher, _) in &self.publisher_nodes {
+            let id = node_ids[&Node::Publisher(publisher.clone())];
+
+            ext.push(NodeOverviewExport {
+                id,
+                element_type: NodeType::Publisher,
+                analyses: vec![AnalysisProperty::PublicationDelays],
+            });
+        }
+
+        for (subscriber, _) in &self.subscriber_nodes {
+            let id = node_ids[&Node::Subscriber(subscriber.clone())];
+
+            ext.push(NodeOverviewExport {
+                id,
+                element_type: NodeType::Subscriber,
+                analyses: vec![AnalysisProperty::MessageDelays],
+            });
+        }
+
+        for (callback, _) in &self.callback_nodes {
+            let id = node_ids[&Node::Callback(callback.clone())];
+
+            ext.push(NodeOverviewExport {
+                id,
+                element_type: NodeType::Callback,
+                analyses: vec![
+                    AnalysisProperty::ActivationDelays,
+                    AnalysisProperty::CallbackDurations,
+                ],
+            });
+        }
+
+        for (timer, _) in &self.timer_nodes {
+            let id = node_ids[&Node::Timer(timer.clone())];
+
+            ext.push(NodeOverviewExport {
+                id,
+                element_type: NodeType::Timer,
+                analyses: vec![AnalysisProperty::ActivationDelays],
+            });
+        }
+
+        ext
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct NodeOverviewExport {
+    pub id: usize,
+    pub element_type: NodeType,
+    pub analyses: Vec<AnalysisProperty>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
