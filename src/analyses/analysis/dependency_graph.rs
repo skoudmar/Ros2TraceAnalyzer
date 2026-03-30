@@ -174,7 +174,7 @@ impl DependencyGraph {
         color: bool,
         thickness: bool,
         min_multiplier: f64,
-    ) -> DisplayAsDot {
+    ) -> DisplayAsDot<'_> {
         DisplayAsDot::new(self, color, thickness, min_multiplier)
     }
 }

@@ -196,55 +196,55 @@ impl AnalysisArgs {
         self.spin_duration.is_some()
     }
 
-    pub fn dependency_graph_path(&self) -> Option<Cow<Path>> {
+    pub fn dependency_graph_path(&self) -> Option<Cow<'_, Path>> {
         self.dependency_graph
             .as_ref()
             .map(|p| self.concatenate_with_out_path(p))
     }
 
-    pub fn message_latency_path(&self) -> Option<Cow<Path>> {
+    pub fn message_latency_path(&self) -> Option<Cow<'_, Path>> {
         self.message_latency
             .as_ref()
             .map(|p| self.concatenate_with_out_path(p))
     }
 
-    pub fn callback_duration_path(&self) -> Option<Cow<Path>> {
+    pub fn callback_duration_path(&self) -> Option<Cow<'_, Path>> {
         self.callback_duration
             .as_ref()
             .map(|p| self.concatenate_with_out_path(p))
     }
 
-    pub fn callback_publications_path(&self) -> Option<Cow<Path>> {
+    pub fn callback_publications_path(&self) -> Option<Cow<'_, Path>> {
         self.callback_publications
             .as_ref()
             .map(|p| self.concatenate_with_out_path(p))
     }
 
-    pub fn callback_dependency_path(&self) -> Option<Cow<Path>> {
+    pub fn callback_dependency_path(&self) -> Option<Cow<'_, Path>> {
         self.callback_dependency
             .as_ref()
             .map(|p| self.concatenate_with_out_path(p))
     }
 
-    pub fn message_take_to_callback_latency_path(&self) -> Option<Cow<Path>> {
+    pub fn message_take_to_callback_latency_path(&self) -> Option<Cow<'_, Path>> {
         self.message_take_to_callback_latency
             .as_ref()
             .map(|p| self.concatenate_with_out_path(p))
     }
 
-    pub fn utilization_path(&self) -> Option<Cow<Path>> {
+    pub fn utilization_path(&self) -> Option<Cow<'_, Path>> {
         self.utilization
             .as_ref()
             .map(|p| self.concatenate_with_out_path(p))
     }
 
-    pub fn real_utilization_path(&self) -> Option<Cow<Path>> {
+    pub fn real_utilization_path(&self) -> Option<Cow<'_, Path>> {
         self.real_utilization
             .as_ref()
             .map(|p| self.concatenate_with_out_path(p))
     }
 
-    pub fn spin_duration_path(&self) -> Option<Cow<Path>> {
+    pub fn spin_duration_path(&self) -> Option<Cow<'_, Path>> {
         self.spin_duration
             .as_ref()
             .map(|p| self.concatenate_with_out_path(p))
