@@ -27,6 +27,7 @@ impl<T> Known<T> {
     }
 
     #[inline]
+    #[track_caller]
     pub fn unwrap(self) -> T {
         match self {
             Self::Known(value) => value,
@@ -106,6 +107,7 @@ impl<T> Known<T> {
         }
     }
 
+    #[track_caller]
     pub fn expect(self, msg: &str) -> T {
         match self {
             Self::Known(value) => value,
@@ -190,6 +192,7 @@ impl<T> WeakKnown<T> {
     }
 
     #[inline]
+    #[track_caller]
     pub fn unwrap(self) -> T {
         match self {
             Self::Known(value) => value,

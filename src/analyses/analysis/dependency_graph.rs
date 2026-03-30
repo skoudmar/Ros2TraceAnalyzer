@@ -762,6 +762,7 @@ impl EventAnalysis for DependencyGraph {
 
 struct EdgeWeightStats {
     subscriber_to_callback: (i64, i64),
+    service_to_callback: (i64, i64),
     timer_to_callback: (i64, i64),
     callback_to_publisher: (i64, i64),
 }
@@ -775,6 +776,11 @@ impl EdgeWeightStats {
     fn update_timer_to_callback(&mut self, latency: i64) {
         self.timer_to_callback.0 = self.timer_to_callback.0.min(latency);
         self.timer_to_callback.1 = self.timer_to_callback.1.max(latency);
+    }
+
+    fn update_service_to_callback(&mut self, latency: i64) {
+        self.service_to_callback.0 = self.service_to_callback.0.min(latency);
+        self.service_to_callback.1 = self.service_to_callback.1.max(latency);
     }
 
     fn update_callback_to_publisher(&mut self, latency: i64) {
@@ -795,11 +801,10 @@ impl EdgeWeightStats {
             EdgeType::SubscriberCallbackInvocation => {
                 Self::validate_range(self.subscriber_to_callback)
             }
+            EdgeType::ServiceCallbackInvocation => Self::validate_range(self.service_to_callback),
             EdgeType::TimerCallbackInvocation => Self::validate_range(self.timer_to_callback),
             EdgeType::PublicationInCallback => Self::validate_range(self.callback_to_publisher),
-            EdgeType::ServiceCallbackInvocation | EdgeType::PublisherSubscriberCommunication => {
-                None
-            }
+            EdgeType::PublisherSubscriberCommunication => None,
         }
     }
 }
@@ -808,6 +813,7 @@ impl Default for EdgeWeightStats {
     fn default() -> Self {
         Self {
             subscriber_to_callback: (i64::MAX, i64::MIN),
+            service_to_callback: (i64::MAX, i64::MIN),
             timer_to_callback: (i64::MAX, i64::MIN),
             callback_to_publisher: (i64::MAX, i64::MIN),
         }
@@ -891,6 +897,27 @@ impl DotGraph {
             graph_node_to_ros_node.insert(node, ros_node.clone().into());
         }
 
+        let service_nodes = graph
+            .edges
+            .keys()
+            .filter_map(|edge| match edge {
+                Edge::ServiceCallbackInvocation(service, _) => Some(service.clone()),
+                _ => None,
+            })
+            .collect::<HashSet<_>>();
+        for service in service_nodes {
+            let node = Node::Service(service.clone());
+            node_to_id.insert(node.clone(), graph_node_id);
+            graph_node_id += 1;
+
+            let service = service.0.lock().unwrap();
+            if let Known::Known(ros_node_arc) = service.get_node() {
+                if let Some(ros_node) = ros_node_arc.get_arc() {
+                    graph_node_to_ros_node.insert(node, ros_node.into());
+                }
+            }
+        }
+
         let unique_used_ros_nodes = graph_node_to_ros_node
             .values()
             .collect::<HashSet<_>>()
@@ -957,13 +984,35 @@ fn process_edges(
 
     for (edge, edge_data) in graph_edges {
         let latencies = Sorted::from_unsorted(&edge_data.latencies);
-        let median = *latencies.median().unwrap();
+        let Some(median) = latencies.median().copied() else {
+            log::warn!("Skipping edge without latency samples: {edge:?}");
+            continue;
+        };
         let edge_type = edge.as_type();
 
         let source = edge.source();
         let target = edge.target();
-        let source_ros_node = &graph_node_to_ros_node[&source];
-        let target_ros_node = &graph_node_to_ros_node[&target];
+        let Some(source_id) = node_to_id.get(&source).copied() else {
+            log::warn!("Skipping edge {edge_type:?}: source node missing from id map: {source:?}");
+            continue;
+        };
+        let Some(target_id) = node_to_id.get(&target).copied() else {
+            log::warn!("Skipping edge {edge_type:?}: target node missing from id map: {target:?}");
+            continue;
+        };
+
+        let Some(source_ros_node) = graph_node_to_ros_node.get(&source) else {
+            log::warn!(
+                "Skipping edge {edge_type:?}: source ROS-node mapping missing for {source:?}"
+            );
+            continue;
+        };
+        let Some(target_ros_node) = graph_node_to_ros_node.get(&target) else {
+            log::warn!(
+                "Skipping edge {edge_type:?}: target ROS-node mapping missing for {target:?}"
+            );
+            continue;
+        };
 
         let node_id = match edge_type {
             EdgeType::PublisherSubscriberCommunication => {
@@ -976,26 +1025,30 @@ fn process_edges(
                     .entry(source_ros_node.clone())
                     .or_default()
                     .update_subscriber_to_callback(median);
-                Some(ros_node_to_id[source_ros_node])
+                ros_node_to_id.get(source_ros_node).copied()
+            }
+            EdgeType::ServiceCallbackInvocation if source_ros_node == target_ros_node => {
+                ros_nodes_min_max_latency_stats
+                    .entry(source_ros_node.clone())
+                    .or_default()
+                    .update_service_to_callback(median);
+                ros_node_to_id.get(source_ros_node).copied()
             }
             EdgeType::TimerCallbackInvocation if source_ros_node == target_ros_node => {
                 ros_nodes_min_max_latency_stats
                     .entry(source_ros_node.clone())
                     .or_default()
                     .update_timer_to_callback(median);
-                Some(ros_node_to_id[source_ros_node])
+                ros_node_to_id.get(source_ros_node).copied()
             }
             EdgeType::PublicationInCallback if source_ros_node == target_ros_node => {
                 ros_nodes_min_max_latency_stats
                     .entry(source_ros_node.clone())
                     .or_default()
                     .update_callback_to_publisher(median);
-                Some(ros_node_to_id[source_ros_node])
+                ros_node_to_id.get(source_ros_node).copied()
             }
-            _ => {
-                // ServiceToCallback: Service is represented by its callback so the latency is always 0.
-                None
-            }
+            _ => None,
         };
 
         let source_id = node_to_id[&source];
@@ -1098,9 +1151,19 @@ impl std::fmt::Display for DotGraph {
 
         let mut clusters = vec![Vec::new(); self.ros_node_to_id.len()];
         for (node, ros_node) in &self.graph_node_to_ros_node {
-            let id = self.ros_node_to_id[ros_node];
-            let graph_node_id = self.node_to_id[node];
-            clusters[id].push(graph_node_id);
+            let Some(id) = self.ros_node_to_id.get(ros_node).copied() else {
+                log::warn!(
+                    "Skipping cluster placement due to missing ROS-node id for node {node:?}"
+                );
+                continue;
+            };
+            let Some(graph_node_id) = self.node_to_id.get(node).copied() else {
+                log::warn!("Skipping cluster placement due to missing graph node id for {node:?}");
+                continue;
+            };
+            if let Some(cluster) = clusters.get_mut(id) {
+                cluster.push(graph_node_id);
+            }
         }
 
         let mut graph = graphviz_export::Graph::new();
@@ -1138,8 +1201,10 @@ impl std::fmt::Display for DotGraph {
                 EdgeType::PublisherSubscriberCommunication => self.pub_sub_latency_range,
                 _ => {
                     if let Some(node_id) = edge.node_index {
-                        self.ros_nodes_min_max_latency_stats[&self.ros_nodes[node_id]]
-                            .range_for_type(edge.edge_type)
+                        self.ros_nodes
+                            .get(node_id)
+                            .and_then(|node| self.ros_nodes_min_max_latency_stats.get(node))
+                            .and_then(|stats| stats.range_for_type(edge.edge_type))
                     } else {
                         None
                     }
@@ -1161,10 +1226,15 @@ impl std::fmt::Display for DotGraph {
                 if self.thickness {
                     const MIN_PENWIDTH: f64 = 0.2;
                     const MAX_PENWIDTH: f64 = 3.0;
+                    const DEFAULT_RATIO: f64 = 0.5;
 
-                    let thickness =
-                        (weight - min_latency) as f64 / (max_latency - min_latency) as f64;
-                    let thickness = MIN_PENWIDTH + thickness * (MAX_PENWIDTH - MIN_PENWIDTH);
+                    let thickness_ratio = if max_latency > min_latency {
+                        ((weight - min_latency) as f64 / (max_latency - min_latency) as f64)
+                            .clamp(0.0, 1.0)
+                    } else {
+                        DEFAULT_RATIO
+                    };
+                    let thickness = MIN_PENWIDTH + thickness_ratio * (MAX_PENWIDTH - MIN_PENWIDTH);
                     graph_edge.set_attribute("penwidth", &format!("{thickness}"));
                 }
             }
