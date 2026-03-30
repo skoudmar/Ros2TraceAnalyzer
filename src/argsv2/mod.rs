@@ -20,7 +20,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn get() -> &'static Args {
+    pub fn get() -> &'static Self {
         CLI_ARGS.get_or_init(Self::parse)
     }
 
