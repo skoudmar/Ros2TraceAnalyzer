@@ -20,7 +20,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub fn get() -> &'static Args {
+    pub fn get() -> &'static Self {
         CLI_ARGS.get_or_init(Self::parse)
     }
 
@@ -50,6 +50,10 @@ impl Args {
 }
 
 #[derive(Debug, Subcommand, Clone, derive_more::Display)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "This enum is used as a singleton so only one instance should be constructed."
+)]
 pub enum TracerCommand {
     /// Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
     #[display("analyze")]

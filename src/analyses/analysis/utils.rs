@@ -6,19 +6,15 @@ pub struct DisplayDurationStats<'a>(&'a [i64], &'a str);
 
 impl<'a> DisplayDurationStats<'a> {
     pub fn with_newline(slice: &'a [i64]) -> Self {
-        Self(slice, "\n")
+        Self::new(slice, "\n")
     }
 
     pub fn with_comma(slice: &'a [i64]) -> Self {
-        Self(slice, ", ")
+        Self::new(slice, ", ")
     }
 
     pub fn new(slice: &'a [i64], separator: &'a str) -> Self {
         Self(slice, separator)
-    }
-
-    pub(crate) fn print(&self) {
-        println!("{self}");
     }
 
     pub fn mean_and_std_dev(&self) -> (i64, f64) {
@@ -30,7 +26,7 @@ impl<'a> DisplayDurationStats<'a> {
         let variance = self
             .0
             .iter()
-            .map(|&x| (x - mean))
+            .map(|&x| x - mean)
             .map(|x| i128::from(x) * i128::from(x))
             .sum::<i128>()
             / (self.0.len() - 1) as i128;

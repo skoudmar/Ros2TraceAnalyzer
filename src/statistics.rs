@@ -113,7 +113,7 @@ impl TryFrom<f64> for Quantile {
     type Error = QuantileConversionError;
 
     fn try_from(quantile: f64) -> Result<Self, Self::Error> {
-        Quantile::new(quantile)
+        Self::new(quantile)
     }
 }
 
@@ -121,9 +121,10 @@ impl FromStr for Quantile {
     type Err = QuantileStringConversionError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Quantile::new(s.parse().map_err(|e| {
-            QuantileStringConversionError::ParseFloatError(e, s.to_string())
-        })?)?)
+        let value: f64 = s
+            .parse()
+            .map_err(|e| QuantileStringConversionError::ParseFloatError(e, s.to_string()))?;
+        Ok(Self::new(value)?)
     }
 }
 
