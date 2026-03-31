@@ -70,7 +70,7 @@ pub enum Node {
     serde::Serialize,
     serde::Deserialize,
 )]
-pub enum NodeType {
+pub enum ElementType {
     Publisher,
     Subscriber,
     Service,
@@ -504,6 +504,48 @@ impl DependencyGraph {
     }
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct NodeOverviewExport {
+    pub id: usize,
+    pub element_type: ElementType,
+    pub analyses: Vec<AnalysisProperty>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct ActivationDelayExport {
+    pub id: usize,
+    pub name: RosInterfaceCompleteName,
+    pub activation_delays: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct PublicationDelayExport {
+    pub id: usize,
+    pub name: RosInterfaceCompleteName,
+    pub publication_delays: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct MessagesDelayExport {
+    pub id: usize,
+    pub name: RosInterfaceCompleteName,
+    pub messages_delays: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct CallbackDurationExport {
+    pub id: usize,
+    pub name: RosInterfaceCompleteName,
+    pub callback_durations: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct MessageLatencyExport {
+    pub id: usize,
+    pub name: RosChannelCompleteName,
+    pub messages_latencies: Vec<i64>,
+}
+
 impl DependencyGraph {
     pub fn activation_delays(&self, node_ids: &HashMap<Node, usize>) -> Vec<ActivationDelayExport> {
         let timers = self.timer_nodes.iter().map(|(k, v)| {
@@ -696,14 +738,14 @@ impl DependencyGraph {
     }
 
     pub fn node_overview(&self, node_ids: &HashMap<Node, usize>) -> Vec<NodeOverviewExport> {
-        let mut ext = vec![];
+        let mut overview = vec![];
 
         for (publisher, _) in &self.publisher_nodes {
             let id = node_ids[&Node::Publisher(publisher.clone())];
 
-            ext.push(NodeOverviewExport {
+            overview.push(NodeOverviewExport {
                 id,
-                element_type: NodeType::Publisher,
+                element_type: ElementType::Publisher,
                 analyses: vec![AnalysisProperty::PublicationDelays],
             });
         }
@@ -711,9 +753,9 @@ impl DependencyGraph {
         for (subscriber, _) in &self.subscriber_nodes {
             let id = node_ids[&Node::Subscriber(subscriber.clone())];
 
-            ext.push(NodeOverviewExport {
+            overview.push(NodeOverviewExport {
                 id,
-                element_type: NodeType::Subscriber,
+                element_type: ElementType::Subscriber,
                 analyses: vec![AnalysisProperty::MessageDelays],
             });
         }
@@ -721,9 +763,9 @@ impl DependencyGraph {
         for (callback, _) in &self.callback_nodes {
             let id = node_ids[&Node::Callback(callback.clone())];
 
-            ext.push(NodeOverviewExport {
+            overview.push(NodeOverviewExport {
                 id,
-                element_type: NodeType::Callback,
+                element_type: ElementType::Callback,
                 analyses: vec![
                     AnalysisProperty::ActivationDelays,
                     AnalysisProperty::CallbackDurations,
@@ -734,57 +776,15 @@ impl DependencyGraph {
         for (timer, _) in &self.timer_nodes {
             let id = node_ids[&Node::Timer(timer.clone())];
 
-            ext.push(NodeOverviewExport {
+            overview.push(NodeOverviewExport {
                 id,
-                element_type: NodeType::Timer,
+                element_type: ElementType::Timer,
                 analyses: vec![AnalysisProperty::ActivationDelays],
             });
         }
 
-        ext
+        overview
     }
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct NodeOverviewExport {
-    pub id: usize,
-    pub element_type: NodeType,
-    pub analyses: Vec<AnalysisProperty>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct ActivationDelayExport {
-    pub id: usize,
-    pub name: RosInterfaceCompleteName,
-    pub activation_delays: Vec<i64>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct PublicationDelayExport {
-    pub id: usize,
-    pub name: RosInterfaceCompleteName,
-    pub publication_delays: Vec<i64>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct MessagesDelayExport {
-    pub id: usize,
-    pub name: RosInterfaceCompleteName,
-    pub messages_delays: Vec<i64>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct CallbackDurationExport {
-    pub id: usize,
-    pub name: RosInterfaceCompleteName,
-    pub callback_durations: Vec<i64>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct MessageLatencyExport {
-    pub id: usize,
-    pub name: RosChannelCompleteName,
-    pub messages_latencies: Vec<i64>,
 }
 
 impl EventAnalysis for DependencyGraph {

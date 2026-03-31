@@ -328,7 +328,7 @@ impl Entity for NodeOverviewExport {
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(NodeOverviewExport {
             id: row.get::<_, i64>("id")? as usize,
-            element_type: crate::analyses::analysis::dependency_graph::NodeType::from_str(
+            element_type: crate::analyses::analysis::dependency_graph::ElementType::from_str(
                 &row.get::<_, String>("element_type")?,
             )
             .unwrap(),

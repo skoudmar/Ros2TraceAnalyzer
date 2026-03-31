@@ -37,13 +37,13 @@ pub enum DataExtractionError {
     #[error("An error occurred during data parsing\n{0}")]
     SourceDataParseError(#[from] BinarySQLStoreError),
     #[error(
-        "The requested analysis {analysis} is not available for element {element}. Available analyses are [{}]",
-        analyses.iter().map(ToString::to_string).join(", ")
+        "The requested property {property} is not available for element {element}. Available analyses are [{}]",
+        properties.iter().map(|v| clap::ValueEnum::to_possible_value(v).unwrap().get_name().to_owned()).join(", ")
     )]
     IncompatibleElementAnalysis {
-        analysis: AnalysisProperty,
+        property: AnalysisProperty,
         element: usize,
-        analyses: Vec<AnalysisProperty>,
+        properties: Vec<AnalysisProperty>,
     },
     #[error("There is no element with id {0}.")]
     NoSuchElement(usize),
@@ -77,9 +77,9 @@ pub fn extract_property(
 
         if !id_node_meta.analyses.contains(property) {
             return Err(DataExtractionError::IncompatibleElementAnalysis {
-                analysis: *property,
+                property: *property,
                 element: element_id,
-                analyses: id_node_meta.analyses,
+                properties: id_node_meta.analyses,
             }
             .into());
         }
