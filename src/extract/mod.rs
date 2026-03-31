@@ -64,7 +64,7 @@ pub fn extract_property(
 
     let element_id = element_id as usize;
 
-    if *property != AnalysisProperty::MessageLatencies {
+    if *property != AnalysisProperty::MessageLatency {
         let id_node_meta =
             store
                 .get_by_id::<NodeOverviewExport>(element_id)
@@ -86,31 +86,31 @@ pub fn extract_property(
     }
 
     Ok(match property {
-        AnalysisProperty::CallbackDurations => ChartableData::I64(
+        AnalysisProperty::CallbackDuration => ChartableData::I64(
             store
                 .get_by_id::<CallbackDurationExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .callback_durations,
         ),
-        AnalysisProperty::ActivationDelays => ChartableData::I64(
+        AnalysisProperty::ActivationDelay => ChartableData::I64(
             store
                 .get_by_id::<ActivationDelayExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .activation_delays,
         ),
-        AnalysisProperty::PublicationDelays => ChartableData::I64(
+        AnalysisProperty::PublicationDelay => ChartableData::I64(
             store
                 .get_by_id::<PublicationDelayExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .publication_delays,
         ),
-        AnalysisProperty::MessageDelays => ChartableData::I64(
+        AnalysisProperty::MessageDelay => ChartableData::I64(
             store
                 .get_by_id::<MessagesDelayExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .messages_delays,
         ),
-        AnalysisProperty::MessageLatencies => ChartableData::I64(
+        AnalysisProperty::MessageLatency => ChartableData::I64(
             store
                 .get_by_id::<MessageLatencyExport>(element_id)
                 .map_err(|e| match e {

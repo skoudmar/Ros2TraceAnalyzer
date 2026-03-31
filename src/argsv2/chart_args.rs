@@ -64,10 +64,10 @@ impl ChartRequest {
     pub(crate) fn name_descriptor(&self) -> String {
         let value = match self.quantity {
             ChartedValue::CallbackDuration => "execution_timing",
-            ChartedValue::ActivationsDelay => "activations_delay",
-            ChartedValue::PublicationsDelay => "publication_delay",
-            ChartedValue::MessagesDelay => "message_delay",
-            ChartedValue::MessagesLatency => "latency",
+            ChartedValue::ActivationDelay => "activations_delay",
+            ChartedValue::PublicationDelay => "publication_delay",
+            ChartedValue::MessageDelay => "message_delay",
+            ChartedValue::MessageLatency => "latency",
         };
 
         let plot = match &self.plot {
@@ -108,39 +108,7 @@ impl TryFrom<&str> for ChartOutputFormat {
     }
 }
 
-#[derive(Debug, Display, ValueEnum, Clone, Copy)]
-pub enum ChartedValue {
-    /// Callback execution durations
-    #[display("Callback execution time")]
-    CallbackDuration,
-    /// Delays between callback or timer activations
-    #[display("Delays between activations")]
-    ActivationsDelay,
-
-    /// Delays between publisher publications
-    #[display("Delay between publication")]
-    PublicationsDelay,
-
-    /// Delays between subscriber messages
-    #[display("Delay between")]
-    MessagesDelay,
-
-    /// Latency of a communication channel
-    #[display("Latency")]
-    MessagesLatency,
-}
-
-impl From<AnalysisProperty> for ChartedValue {
-    fn from(value: AnalysisProperty) -> Self {
-        match value {
-            AnalysisProperty::CallbackDurations => ChartedValue::CallbackDuration,
-            AnalysisProperty::ActivationDelays => ChartedValue::ActivationsDelay,
-            AnalysisProperty::PublicationDelays => ChartedValue::PublicationsDelay,
-            AnalysisProperty::MessageDelays => ChartedValue::MessagesDelay,
-            AnalysisProperty::MessageLatencies => ChartedValue::MessagesLatency,
-        }
-    }
-}
+pub type ChartedValue = AnalysisProperty;
 
 #[derive(Debug, Display, Subcommand, Clone, Copy)]
 pub enum ChartVariants {

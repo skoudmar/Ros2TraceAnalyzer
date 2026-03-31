@@ -73,7 +73,7 @@ Options:
 ```
 
 ## Analyze
-This command analyzes the traces and saves relevant information for later use into JSON, TXT and DOT files. 
+This command analyzes traces and saves relevant information for later use into JSON, TXT and DOT files. 
 
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- analyze --help` as text -->
 ```text
@@ -228,14 +228,14 @@ jq '.[]|select(.topic=="/clock" and .subscriber_node=="/rviz2")|.latencies[]' js
 
 ![raw graph of measured latencies](./doc/gnuplot-latency.png)
 
-**Utilization** analysis allow to estimate CPU utilization by
+**Utilization** analysis allows to estimate CPU utilization by
 individual threads for different quantiles of callback execution
 times. To analyze theoretical worst-case utilization, add `--quantile 1.0`. For median utilization, use `--quantile 0.5`.
 
 Example output of utilization analysis is shown below:
 
 ```sh
-Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 --utilization --utilization-quantile 0.9
+Ros2TraceAnalyzer analyze ~/lttng-traces/session-20240123-123456 --utilization --utilization-quantile 0.9
 ```
 
 ```
@@ -272,12 +272,16 @@ Thread 1737158 on steelpick has utilization  2.10334 %
 > The utilization analysis is based solely on timestamps from ROS
 > callbacks. It ignores kernel scheduling events such as context
 > switches and other activities executed by the application outside of
-> callbacks. Therefore, the result are not guaranteed to be always
+> callbacks. Therefore, the results are not guaranteed to be always
 > correct. However, they are already useful indication for when
 > something goes wrong in your application.
 
 ## Chart
-This command is reserved for later use. It is intended for generating charts from analyzed traces.
+Generates a chart of an analysed property for a node. This command can be
+used only on traces which were analysed with the `dependency-graph` feature
+selected.
+
+> This command *is currently not* meant for direct use, as the element IDs have no direct correlation to their ROS counterparts and therefore cannot be deterministically selected. Instead, use the provided `viewer` command to generate the charts from an interactive UI. 
 
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- chart --help` as text -->
 ```text
@@ -321,11 +325,11 @@ Options:
           The value to plot into the chart
 
           Possible values:
-          - callback-duration:  Callback execution durations
-          - activations-delay:  Delays between callback or timer activations
-          - publications-delay: Delays between publisher publications
-          - messages-delay:     Delays between subscriber messages
-          - messages-latency:   Latency of a communication channel
+          - callback-duration: Callback execution durations
+          - activation-delay:  Delays between callback or timer activations
+          - publication-delay: Delays between publisher publications
+          - message-delay:     Delays between subscriber messages
+          - message-latency:   Latency of a communication channel
 
       --size <WIDTHxHEIGHT>
           The size of the image in pixels
@@ -340,8 +344,25 @@ Options:
           Print help (see a summary with '-h')
 ```
 
+### Examples
+- Generate a histogram chart of callback durations with default bin count for node ID 15 from and to the current directory with default (600x400) size
+```sh
+Ros2TraceAnalyzer chart --element-id 15 --quantity callback-duration histogram
+```
+
+- Generate a scatter chart of publication delays for node ID 63 with size 450 by 700 px into file chart.png
+```sh
+Ros2TraceAnalyzer chart --element-id 63 --quantity publication-delay --size 450x700 -o chart.png scatter
+```
+
+- Generate a histogram chart with 52 bins of message latencies from results file located elsewhere into temporary directory with default name and custom size for node ID 124
+```sh
+Ros2TraceAnalyzer chart --element-id 124 --quantity message-latency --size 641x531 -i /some/file.sqlite -o /tmp histogram --bins 52
+```
+
 ## Viewer
 This command is reserved for later use. Builtin .dot graphs viewer.
+
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- viewer --help` as text -->
 ```text
 Start an interactive results graph viewer with chart previews
@@ -377,7 +398,7 @@ Usage: Ros2TraceAnalyzer extract [OPTIONS] <COMMAND>
 
 Commands:
   graph     Extract dependency graph
-  property  Extract property values for a node
+  property  Extract property data for a node
   help      Print this message or the help of the given subcommand(s)
 
 Options:
@@ -388,8 +409,33 @@ Options:
   -h, --help               Print help
 ```
 
+The `extract graph` command always extracts the `dependency-graph` stored in the results file.
+
+The `extract property` command extracts selected property (analysed value of an element) for the given element id. The possible properties are the same as analysed by the `dependency-graph` analysis. IDs are assigned serially but in no deterministic order (see [ID assignment](#id-assignment)) and are in no way connected to the ROS element. 
+
+> This command *is currently not* meant for direct use, as the element IDs have no direct correlation to their ROS counterparts and therefore cannot be deterministically selected. Instead, use the provided `viewer` command to select the desired element and extract the properties through the GUI
+
+### Examples
+- Extract dependency graph
+```sh
+Ros2TraceAnalyzer extract graph
+```
+- Extract callback durations for node ID 43
+```sh
+Ros2TraceAnalyzer extract property callback-duration 43
+```
+
+<hr>
+
 [`ros2trace`]: https://index.ros.org/p/ros2trace/
 [xdot.py]: https://github.com/jrfonseca/xdot.py
+
+## ID assignment
+> This is a description of an implementation detail and may be changed at any time
+
+IDs to graph nodes are assigned serially in order of the element initialisation in the trace grouped by the element type (subscriber IDs are assigned after publisher IDs) in this order: Publishers, Subscribers, Timers, Callbacks
+
+Edge IDs are assigned serially in order they are created in the trace.
 
 **Acknowledgment:**
 

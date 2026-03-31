@@ -746,7 +746,7 @@ impl DependencyGraph {
             overview.push(NodeOverviewExport {
                 id,
                 element_type: ElementType::Publisher,
-                analyses: vec![AnalysisProperty::PublicationDelays],
+                analyses: vec![AnalysisProperty::PublicationDelay],
             });
         }
 
@@ -756,7 +756,7 @@ impl DependencyGraph {
             overview.push(NodeOverviewExport {
                 id,
                 element_type: ElementType::Subscriber,
-                analyses: vec![AnalysisProperty::MessageDelays],
+                analyses: vec![AnalysisProperty::MessageDelay],
             });
         }
 
@@ -767,8 +767,8 @@ impl DependencyGraph {
                 id,
                 element_type: ElementType::Callback,
                 analyses: vec![
-                    AnalysisProperty::ActivationDelays,
-                    AnalysisProperty::CallbackDurations,
+                    AnalysisProperty::ActivationDelay,
+                    AnalysisProperty::CallbackDuration,
                 ],
             });
         }
@@ -779,7 +779,7 @@ impl DependencyGraph {
             overview.push(NodeOverviewExport {
                 id,
                 element_type: ElementType::Timer,
-                analyses: vec![AnalysisProperty::ActivationDelays],
+                analyses: vec![AnalysisProperty::ActivationDelay],
             });
         }
 

@@ -49,7 +49,7 @@ impl ExtractArgs {
 pub enum ExtractContentArgs {
     /// Extract dependency graph
     Graph,
-    /// Extract property values for a node
+    /// Extract property data for a node
     Property(ExtractPropertyArgs),
 }
 
@@ -88,33 +88,21 @@ impl ExtractPropertyArgs {
 pub enum AnalysisProperty {
     /// Callback execution durations
     #[display("Callback execution time")]
-    CallbackDurations,
+    CallbackDuration,
 
     /// Delays between callback or timer activations
     #[display("Delays between activations")]
-    ActivationDelays,
+    ActivationDelay,
 
     /// Delays between publisher publications
     #[display("Delay between publication")]
-    PublicationDelays,
+    PublicationDelay,
 
     /// Delays between subscriber messages
     #[display("Delay between")]
-    MessageDelays,
+    MessageDelay,
 
     /// Latency of a communication channel
     #[display("Message latency")]
-    MessageLatencies,
-}
-
-impl From<ChartedValue> for AnalysisProperty {
-    fn from(value: ChartedValue) -> Self {
-        match value {
-            ChartedValue::CallbackDuration => AnalysisProperty::CallbackDurations,
-            ChartedValue::ActivationsDelay => AnalysisProperty::ActivationDelays,
-            ChartedValue::PublicationsDelay => AnalysisProperty::PublicationDelays,
-            ChartedValue::MessagesDelay => AnalysisProperty::MessageDelays,
-            ChartedValue::MessagesLatency => AnalysisProperty::MessageLatencies,
-        }
-    }
+    MessageLatency,
 }
