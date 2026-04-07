@@ -1000,6 +1000,8 @@ fn process_edges(
             log::warn!("Skipping edge {edge_type:?}: target node missing from id map: {target:?}");
             continue;
         };
+        edge_ids.insert((source_id, target_id), edge_id);
+        edge_id += 1;
 
         let Some(source_ros_node) = graph_node_to_ros_node.get(&source) else {
             log::warn!(
@@ -1050,12 +1052,6 @@ fn process_edges(
             }
             _ => None,
         };
-
-        let source_id = node_to_id[&source];
-        let target_id = node_to_id[&target];
-
-        edge_ids.insert((source_id, target_id), edge_id);
-        edge_id += 1;
 
         edges.push(DisplayAsDotEdge {
             source: source_id,
