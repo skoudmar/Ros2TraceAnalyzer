@@ -4,9 +4,9 @@ use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 pub mod analysis_args;
-pub mod chart_args;
 pub mod extract_args;
 pub mod helpers;
+pub mod plot_args;
 pub mod viewer_args;
 
 pub static CLI_ARGS: OnceLock<Args> = OnceLock::new();
@@ -60,11 +60,11 @@ pub enum TracerCommand {
     #[display("analyze")]
     Analyze(Box<analysis_args::AnalysisArgs>),
 
-    /// Render a chart of a selected analysis result
-    #[display("chart")]
-    Chart(chart_args::ChartArgs),
+    /// Render a plot of a selected analysis result
+    #[display("plot")]
+    Plot(plot_args::PlotArgs),
 
-    /// Start an interactive results graph viewer with chart previews
+    /// Start an interactive results graph viewer with plot previews
     #[display("viewer")]
     Viewer(viewer_args::ViewerArgs),
 

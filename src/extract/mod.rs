@@ -28,7 +28,7 @@ pub struct RosChannelCompleteName {
     pub topic: String,
 }
 
-pub enum ChartableData {
+pub enum PlottableData {
     I64(Vec<i64>),
 }
 
@@ -59,7 +59,7 @@ pub fn extract_property(
     input: &Path,
     element_id: i64,
     property: &AnalysisProperty,
-) -> color_eyre::eyre::Result<ChartableData> {
+) -> color_eyre::eyre::Result<PlottableData> {
     let store = BinarySqlStore::open(input)?;
 
     let element_id = element_id as usize;
@@ -86,31 +86,31 @@ pub fn extract_property(
     }
 
     Ok(match property {
-        AnalysisProperty::CallbackDuration => ChartableData::I64(
+        AnalysisProperty::CallbackDuration => PlottableData::I64(
             store
                 .get_by_id::<CallbackDurationExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .callback_durations,
         ),
-        AnalysisProperty::ActivationDelay => ChartableData::I64(
+        AnalysisProperty::ActivationDelay => PlottableData::I64(
             store
                 .get_by_id::<ActivationDelayExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .activation_delays,
         ),
-        AnalysisProperty::PublicationDelay => ChartableData::I64(
+        AnalysisProperty::PublicationDelay => PlottableData::I64(
             store
                 .get_by_id::<PublicationDelayExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .publication_delays,
         ),
-        AnalysisProperty::MessageDelay => ChartableData::I64(
+        AnalysisProperty::MessageDelay => PlottableData::I64(
             store
                 .get_by_id::<MessagesDelayExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?
                 .messages_delays,
         ),
-        AnalysisProperty::MessageLatency => ChartableData::I64(
+        AnalysisProperty::MessageLatency => PlottableData::I64(
             store
                 .get_by_id::<MessageLatencyExport>(element_id)
                 .map_err(|e| match e {
@@ -124,10 +124,10 @@ pub fn extract_property(
     })
 }
 
-impl ChartableData {
+impl PlottableData {
     pub fn export(&self, output: &mut impl Write) -> color_eyre::eyre::Result<()> {
         let data = match self {
-            ChartableData::I64(items) => serde_json::to_string(&items)?,
+            PlottableData::I64(items) => serde_json::to_string(&items)?,
         };
 
         writeln!(output, "{data}")?;

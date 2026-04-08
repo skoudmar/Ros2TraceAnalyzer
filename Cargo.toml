@@ -29,6 +29,7 @@ itertools = "0.14.0"
 plotters = { version = "0.3.7", features = [] }
 plotters-svg = "0.3.7"
 strum = { version = "0.28", features = [ "derive" ] }
+image = { version = "*" }
 
 [workspace]
 members = ["bt2-derive", "bt2-sys"]

@@ -740,7 +740,7 @@ impl DependencyGraph {
     pub fn node_overview(&self, node_ids: &HashMap<Node, usize>) -> Vec<NodeOverviewExport> {
         let mut overview = vec![];
 
-        for (publisher, _) in &self.publisher_nodes {
+        for publisher in self.publisher_nodes.keys() {
             let id = node_ids[&Node::Publisher(publisher.clone())];
 
             overview.push(NodeOverviewExport {
@@ -750,7 +750,7 @@ impl DependencyGraph {
             });
         }
 
-        for (subscriber, _) in &self.subscriber_nodes {
+        for subscriber in self.subscriber_nodes.keys() {
             let id = node_ids[&Node::Subscriber(subscriber.clone())];
 
             overview.push(NodeOverviewExport {
@@ -760,7 +760,7 @@ impl DependencyGraph {
             });
         }
 
-        for (callback, _) in &self.callback_nodes {
+        for callback in self.callback_nodes.keys() {
             let id = node_ids[&Node::Callback(callback.clone())];
 
             overview.push(NodeOverviewExport {
@@ -773,7 +773,7 @@ impl DependencyGraph {
             });
         }
 
-        for (timer, _) in &self.timer_nodes {
+        for timer in self.timer_nodes.keys() {
             let id = node_ids[&Node::Timer(timer.clone())];
 
             overview.push(NodeOverviewExport {

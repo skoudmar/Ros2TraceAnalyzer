@@ -9,13 +9,22 @@ use crate::extract::{RosChannelCompleteName, RosInterfaceCompleteName};
 #[derive(thiserror::Error, std::fmt::Debug)]
 pub enum BinarySQLStoreError {
     #[error("rusqlite error: {0}")]
-    SQLiteError(#[from] rusqlite::Error),
+    SQLiteError(#[source] rusqlite::Error),
     #[error("Binary bundle {0:?} does not exist")]
     NoStore(std::path::PathBuf),
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
     #[error("The query returned no results")]
     NoResults,
+}
+
+impl From<rusqlite::Error> for BinarySQLStoreError {
+    fn from(value: rusqlite::Error) -> Self {
+        match value {
+            rusqlite::Error::QueryReturnedNoRows => BinarySQLStoreError::NoResults,
+            e => BinarySQLStoreError::SQLiteError(e),
+        }
+    }
 }
 
 pub struct BinarySqlStore {
@@ -106,7 +115,7 @@ impl BinarySqlStore {
     }
 
     pub fn get_by_id<T: Entity>(&self, id: usize) -> Result<T, BinarySQLStoreError> {
-        let results = self.connection.query_row(
+        Ok(self.connection.query_row(
             &format!(
                 "SELECT {} FROM {} WHERE id = ?1",
                 T::PARAMS
@@ -118,12 +127,7 @@ impl BinarySqlStore {
             ),
             (id as i64,),
             |r| T::from_row(r),
-        );
-
-        results.map_err(|e| match e {
-            rusqlite::Error::QueryReturnedNoRows => BinarySQLStoreError::NoResults,
-            _ => e.into(),
-        })
+        )?)
     }
 }
 

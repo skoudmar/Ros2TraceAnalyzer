@@ -4,13 +4,13 @@ use plotters::coord::types::RangedCoordi64;
 use plotters::prelude::{Cartesian2d, DrawingBackend, IntoLogRange, LogCoord, Rectangle};
 use plotters::style::Color;
 
-use crate::argsv2::chart_args::HistogramData;
-use crate::charting::axis_descriptor::{AxisDescriptors, ScaledAxisDescriptor};
-use crate::charting::charts::{ChartData, resolve_axis_range};
-use crate::charting::error::ChartConstructionError;
-use crate::extract::ChartableData;
+use crate::argsv2::plot_args::HistogramData;
+use crate::extract::PlottableData;
+use crate::plotting::axis_descriptor::{AxisDescriptors, ScaledAxisDescriptor};
+use crate::plotting::error::PlotConstructionError;
+use crate::plotting::plots::{PlotData, resolve_axis_range};
 
-pub struct HistogramChart {
+pub struct HistogramPlot {
     _bin_count: usize,
     bin_width: u64,
     x_range: (i64, i64),
@@ -19,13 +19,13 @@ pub struct HistogramChart {
     scaled_axis: [ScaledAxisDescriptor; 2],
 }
 
-impl HistogramChart {
+impl HistogramPlot {
     pub fn new(
         histogram_data: &HistogramData,
-        data: ChartableData,
+        data: PlottableData,
         axis_descriptor: &AxisDescriptors,
     ) -> Self {
-        let ChartableData::I64(data) = data;
+        let PlottableData::I64(data) = data;
 
         // How many bins the data should be split into (this is how many bins will actually render)
         let bin_count = if let Some(bins) = histogram_data.bins
@@ -74,7 +74,7 @@ impl HistogramChart {
             axis_descriptor.y.scaled_axis_unit(1),
         ];
 
-        HistogramChart {
+        HistogramPlot {
             _bin_count: bin_count,
             bin_width: bin_width as u64,
             x_range,
@@ -86,17 +86,17 @@ impl HistogramChart {
 }
 
 type Coords = Cartesian2d<RangedCoordi64, LogCoord<i64>>;
-impl ChartData<Coords> for HistogramChart {
+impl PlotData<Coords> for HistogramPlot {
     fn draw_into<'a, B: DrawingBackend>(
         &self,
         canvas: &mut ChartBuilder<B>,
-    ) -> Result<ChartContext<'a, B, Coords>, ChartConstructionError<B::ErrorType>> {
+    ) -> Result<ChartContext<'a, B, Coords>, PlotConstructionError<B::ErrorType>> {
         let mut context = canvas
             .build_cartesian_2d(
                 self.x_range.0..self.x_range.1,
                 (self.y_range.0..self.y_range.1).log_scale(),
             )
-            .map_err(ChartConstructionError::InvalidCoordinateSystem)?;
+            .map_err(PlotConstructionError::InvalidCoordinateSystem)?;
 
         context
             .draw_series(self.data.iter().enumerate().map(|(b, size)| {
@@ -105,7 +105,7 @@ impl ChartData<Coords> for HistogramChart {
 
                 Rectangle::new([(x0, *size), (x1, 0)], plotters::style::BLUE.filled())
             }))
-            .map_err(ChartConstructionError::ChartSeriesError)?;
+            .map_err(PlotConstructionError::PlotSeriesError)?;
 
         Ok(context)
     }

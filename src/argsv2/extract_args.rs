@@ -4,7 +4,6 @@ use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use derive_more::Display;
 
 use crate::argsv2::analysis_args::filenames;
-use crate::argsv2::chart_args::ChartedValue;
 
 #[derive(Debug, Clone, Args)]
 pub struct ExtractArgs {

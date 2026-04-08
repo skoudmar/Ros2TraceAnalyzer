@@ -2,10 +2,10 @@
 
 mod analyses;
 mod argsv2;
-mod charting;
 mod events_common;
 mod extract;
 mod model;
+mod plotting;
 mod processed_events;
 mod processor;
 mod raw_events;
@@ -13,7 +13,6 @@ mod statistics;
 mod utils;
 mod visualization;
 
-use core::panic;
 use std::ffi::CString;
 use std::io::Write;
 
@@ -21,8 +20,8 @@ use argsv2::Args;
 use argsv2::helpers::prepare_trace_paths;
 
 use crate::argsv2::analysis_args::AnalysisArgs;
-use crate::argsv2::chart_args::{ChartArgs, ChartOutputFormat};
 use crate::argsv2::extract_args::ExtractArgs;
+use crate::argsv2::plot_args::{PlotArgs, PlotOutputFormat};
 use crate::argsv2::viewer_args::ViewerArgs;
 
 use analyses::analysis;
@@ -45,43 +44,33 @@ fn run_analysis<L: clap_verbosity_flag::LogLevel>(
     Ok(())
 }
 
-fn run_charting(args: &ChartArgs) -> color_eyre::eyre::Result<()> {
-    let default_file_name = format!(
-        "{}_{}.{}",
-        args.element_id,
-        args.chart.name_descriptor(),
-        ChartOutputFormat::default()
-    );
-
-    let mut output_format = ChartOutputFormat::default();
-
-    let output_file = match &args.output {
+fn run_plotting(args: &PlotArgs) -> color_eyre::eyre::Result<()> {
+    let mut output = match &args.output {
         Some(o) => {
-            if o.is_dir() {
-                o.join(&default_file_name)
+            if args.overwrite {
+                Box::new(std::fs::File::create(o)?)
             } else {
-                match o.extension() {
-                    Some(ext) => {
-                        output_format = ChartOutputFormat::try_from(ext.to_str().unwrap())?;
-                    }
-                    _ => {
-                        panic!("The selected file must have an extension")
-                    }
-                }
-                o.to_path_buf()
+                Box::new(std::fs::File::create_new(o)?)
             }
         }
-        None => std::env::current_dir().unwrap().join(&default_file_name),
+        None => Box::new(std::io::stdout()) as Box<dyn Write>,
     };
 
-    if args.overwrite || !output_file.exists() {
-        let chart_data =
-            extract::extract_property(&args.input, args.element_id, &args.chart.quantity.into())?;
+    let output_format = args
+        .output
+        .clone()
+        .map(|p| match p.extension() {
+            Some(ext) => PlotOutputFormat::try_from(ext.to_str().unwrap()).unwrap_or_default(),
+            None => PlotOutputFormat::default(),
+        })
+        .unwrap_or_default();
 
-        charting::render_chart(&output_file, chart_data, &args.chart, output_format)?;
+    if args.overwrite || !args.output.clone().map(|p| p.exists()).unwrap_or(false) {
+        let plot_data =
+            extract::extract_property(&args.input, args.element_id, &args.plot.quantity)?;
+
+        plotting::render_plot(&mut output, plot_data, &args.plot, output_format)?;
     }
-
-    println!("{}", output_file.to_string_lossy());
 
     Ok(())
 }
@@ -124,7 +113,7 @@ fn main() -> color_eyre::eyre::Result<()> {
     let args = Args::get();
     match &args.command {
         argsv2::TracerCommand::Analyze(analysis_args) => run_analysis(analysis_args, &args.verbose),
-        argsv2::TracerCommand::Chart(chart_args) => run_charting(chart_args),
+        argsv2::TracerCommand::Plot(plot_args) => run_plotting(plot_args),
         argsv2::TracerCommand::Viewer(viewer_args) => run_viewer(viewer_args),
         argsv2::TracerCommand::Extract(extract_args) => run_extract(extract_args),
     }

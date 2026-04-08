@@ -2,11 +2,11 @@ use derive_more::Display;
 use itertools::Itertools;
 use strum::{EnumIter, IntoEnumIterator};
 
-use crate::argsv2::chart_args::{ChartVariants, ChartedValue};
+use crate::argsv2::plot_args::{PlotVariants, PlottedValue};
 
 /// # Axis Descriptors
 ///
-/// Structure describing `x` and `y` axis formatting for a chart
+/// Structure describing `x` and `y` axis formatting for a plot
 #[derive(Debug)]
 pub struct AxisDescriptors {
     /// The formatting for the `x` axis
@@ -42,13 +42,17 @@ impl AxisDescriptor {
                         .unwrap()
                         .0,
                 ),
-                AxisQuantity::SimpleSi { base } => AxisQuantity::new_si(
+                AxisQuantity::SimpleSi {
+                    base,
+                    show_exponent,
+                } => AxisQuantity::new_si(
                     SiPrefix::iter()
                         .rev()
                         .map(|unit| (unit, unit.express_value(fit_to_value, base)))
                         .find_or_last(|&(_, value)| (0.0..1000.0).contains(&value))
                         .unwrap()
                         .0,
+                    show_exponent,
                 ),
             },
         }
@@ -65,11 +69,18 @@ impl ScaledAxisDescriptor {
     pub fn name(&self) -> String {
         match self.target {
             AxisQuantity::Duration { base } => format!("{} [{}]", self.default_axis.label, base),
-            AxisQuantity::SimpleSi { base } => {
+            AxisQuantity::SimpleSi {
+                base,
+                show_exponent,
+            } => {
                 if base == SiPrefix::Base {
                     self.default_axis.label.to_string()
                 } else {
-                    format!("{} [{}]", self.default_axis.label, base)
+                    if show_exponent {
+                        format!("{} ×{}", self.default_axis.label, base.exponent())
+                    } else {
+                        format!("{} [{}]", self.default_axis.label, base.to_string())
+                    }
                 }
             }
         }
@@ -80,9 +91,10 @@ impl ScaledAxisDescriptor {
             (AxisQuantity::Duration { base: source }, AxisQuantity::Duration { base: target }) => {
                 target.express_value(value, source)
             }
-            (AxisQuantity::SimpleSi { base: source }, AxisQuantity::SimpleSi { base: target }) => {
-                target.express_value(value, source)
-            }
+            (
+                AxisQuantity::SimpleSi { base: source, .. },
+                AxisQuantity::SimpleSi { base: target, .. },
+            ) => target.express_value(value, source),
             _ => unreachable!(),
         }
     }
@@ -118,6 +130,17 @@ impl SiPrefix {
 
     fn express_value(self, value: i64, base: SiPrefix) -> f64 {
         value as f64 * (self.ratio() / base.ratio())
+    }
+
+    fn exponent(self) -> &'static str {
+        match self {
+            SiPrefix::Mega => "10⁶",
+            SiPrefix::Kilo => "10³",
+            SiPrefix::Base => "",
+            SiPrefix::Milli => "10⁻³",
+            SiPrefix::Micro => "10⁻⁶",
+            SiPrefix::Nano => "10⁻⁹",
+        }
     }
 }
 
@@ -157,7 +180,7 @@ impl DurationUnit {
 #[derive(Clone, Copy, Debug)]
 pub enum AxisQuantity {
     Duration { base: DurationUnit },
-    SimpleSi { base: SiPrefix },
+    SimpleSi { base: SiPrefix, show_exponent: bool },
 }
 
 impl AxisQuantity {
@@ -165,113 +188,116 @@ impl AxisQuantity {
         Self::Duration { base: unit }
     }
 
-    pub const fn new_si(unit: SiPrefix) -> Self {
-        Self::SimpleSi { base: unit }
+    pub const fn new_si(unit: SiPrefix, show_exponent: bool) -> Self {
+        Self::SimpleSi {
+            base: unit,
+            show_exponent,
+        }
     }
 }
 
 pub const fn resolve_axis_descriptors(
-    charted_value: ChartedValue,
-    chart_variant: &ChartVariants,
+    plotted_value: PlottedValue,
+    plot_variant: &PlotVariants,
 ) -> AxisDescriptors {
-    match chart_variant {
-        ChartVariants::Histogram(_) => match charted_value {
-            ChartedValue::CallbackDuration => AxisDescriptors {
+    match plot_variant {
+        PlotVariants::Histogram(_) => match plotted_value {
+            PlottedValue::CallbackDuration => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Duration",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
                 y: AxisDescriptor {
-                    label: "Samples",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base),
+                    label: "Callbacks",
+                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
                 },
             },
-            ChartedValue::ActivationDelay => AxisDescriptors {
+            PlottedValue::ActivationDelay => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Delay",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
                 y: AxisDescriptor {
                     label: "Activations",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base),
+                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
                 },
             },
-            ChartedValue::PublicationDelay => AxisDescriptors {
+            PlottedValue::PublicationDelay => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Delay",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
                 y: AxisDescriptor {
                     label: "Publications",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base),
+                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
                 },
             },
-            ChartedValue::MessageDelay => AxisDescriptors {
+            PlottedValue::MessageDelay => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Delay",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
                 y: AxisDescriptor {
                     label: "Messages",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base),
+                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
                 },
             },
-            ChartedValue::MessageLatency => AxisDescriptors {
+            PlottedValue::MessageLatency => AxisDescriptors {
                 x: AxisDescriptor {
                     label: "Latency",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
                 y: AxisDescriptor {
-                    label: "Samples",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base),
+                    label: "Message",
+                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
                 },
             },
         },
-        ChartVariants::Scatter => match charted_value {
-            ChartedValue::CallbackDuration => AxisDescriptors {
+        PlotVariants::Scatter => match plotted_value {
+            PlottedValue::CallbackDuration => AxisDescriptors {
                 x: AxisDescriptor {
-                    label: "Nth Sample",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base),
+                    label: "Callback #",
+                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
                 },
                 y: AxisDescriptor {
                     label: "Duration",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
             },
-            ChartedValue::ActivationDelay => AxisDescriptors {
+            PlottedValue::ActivationDelay => AxisDescriptors {
                 x: AxisDescriptor {
-                    label: "Nth Activation",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base),
+                    label: "Activation #",
+                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
                 },
                 y: AxisDescriptor {
                     label: "Delay",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
             },
-            ChartedValue::PublicationDelay => AxisDescriptors {
+            PlottedValue::PublicationDelay => AxisDescriptors {
                 x: AxisDescriptor {
-                    label: "Nth Publication",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base),
+                    label: "Publication #",
+                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
                 },
                 y: AxisDescriptor {
                     label: "Delay",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
             },
-            ChartedValue::MessageDelay => AxisDescriptors {
+            PlottedValue::MessageDelay => AxisDescriptors {
                 x: AxisDescriptor {
-                    label: "Nth Message",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base),
+                    label: "Message #",
+                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
                 },
                 y: AxisDescriptor {
                     label: "Delay",
                     quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
                 },
             },
-            ChartedValue::MessageLatency => AxisDescriptors {
+            PlottedValue::MessageLatency => AxisDescriptors {
                 x: AxisDescriptor {
-                    label: "Nth sample",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base),
+                    label: "Message #",
+                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
                 },
                 y: AxisDescriptor {
                     label: "Latency",

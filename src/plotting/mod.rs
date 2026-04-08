@@ -1,55 +1,71 @@
-use std::path::PathBuf;
-
 use plotters::chart::{ChartBuilder, ChartContext, LabelAreaPosition};
 use plotters::coord::ranged1d::ValueFormatter;
 use plotters::prelude::{BitMapBackend, Cartesian2d, DrawingBackend, IntoDrawingArea, Ranged};
 use plotters_svg::SVGBackend;
 
-use crate::argsv2::chart_args::{ChartOutputFormat, ChartRequest, ChartVariants};
-use crate::charting::axis_descriptor::{
+use crate::argsv2::plot_args::{PlotOutputFormat, PlotRequest, PlotVariants};
+use crate::extract::PlottableData;
+use crate::plotting::axis_descriptor::{
     AxisDescriptors, ScaledAxisDescriptor, resolve_axis_descriptors,
 };
-use crate::charting::charts::ChartData;
-use crate::charting::charts::histogram::HistogramChart;
-use crate::charting::charts::scatter::ScatterChart;
-use crate::charting::error::{ChartConstructionCommonError, ChartConstructionError};
-use crate::extract::ChartableData;
+use crate::plotting::error::{PlotConstructionCommonError, PlotConstructionError};
+use crate::plotting::plots::PlotData;
+use crate::plotting::plots::histogram::HistogramPlot;
+use crate::plotting::plots::scatter::ScatterPlot;
 
 mod axis_descriptor;
-mod charts;
 mod error;
+mod plots;
 
-pub fn render_chart(
-    file_name: &PathBuf,
-    charting_data: ChartableData,
-    chart_request: &ChartRequest,
-    output_format: ChartOutputFormat,
-) -> Result<(), ChartConstructionCommonError> {
-    let spacing = ChartSpacing::try_from((chart_request.size.0, chart_request.size.1))?;
+pub fn render_plot(
+    output: &mut Box<dyn std::io::Write>,
+    plotting_data: PlottableData,
+    plot_request: &PlotRequest,
+    output_format: PlotOutputFormat,
+) -> Result<(), PlotConstructionCommonError> {
+    let spacing = PlotSpacing::try_from((plot_request.size.0, plot_request.size.1))?;
 
-    let axis_description = resolve_axis_descriptors(chart_request.quantity, &chart_request.plot);
+    let axis_description = resolve_axis_descriptors(plot_request.quantity, &plot_request.plot);
 
     match output_format {
-        crate::argsv2::chart_args::ChartOutputFormat::Svg => draw_into_canvas(
-            SVGBackend::new(&file_name, (chart_request.size.0, chart_request.size.1)),
-            charting_data,
-            &chart_request.plot,
-            &spacing,
-            &axis_description,
-        )?,
-        crate::argsv2::chart_args::ChartOutputFormat::Png => draw_into_canvas(
-            BitMapBackend::new(&file_name, (chart_request.size.0, chart_request.size.1)),
-            charting_data,
-            &chart_request.plot,
-            &spacing,
-            &axis_description,
-        )?,
+        crate::argsv2::plot_args::PlotOutputFormat::Svg => {
+            let mut out = String::new();
+            draw_into_canvas(
+                SVGBackend::with_string(&mut out, (plot_request.size.0, plot_request.size.1)),
+                plotting_data,
+                &plot_request.plot,
+                &spacing,
+                &axis_description,
+            )?;
+            output.write_all(out.as_bytes()).unwrap();
+        }
+        crate::argsv2::plot_args::PlotOutputFormat::Png => {
+            let mut buffer = vec![0u8; (plot_request.size.0 * plot_request.size.1 * 3) as usize];
+            draw_into_canvas(
+                BitMapBackend::with_buffer(&mut buffer, (plot_request.size.0, plot_request.size.1)),
+                plotting_data,
+                &plot_request.plot,
+                &spacing,
+                &axis_description,
+            )?;
+
+            use image::ImageEncoder;
+            use image::codecs::png::PngEncoder;
+
+            let img_encoder = PngEncoder::new(&mut *output);
+            img_encoder.write_image(
+                &buffer,
+                plot_request.size.0,
+                plot_request.size.1,
+                image::ColorType::Rgb8,
+            )?;
+        }
     };
 
     Ok(())
 }
 
-struct ChartSpacing {
+struct PlotSpacing {
     /// Margins of the actual plot
     ///
     /// [left, top, right, bottom]
@@ -69,30 +85,30 @@ struct ChartSpacing {
     pub desc_size: i32,
 }
 
-impl TryFrom<(u32, u32)> for ChartSpacing {
-    type Error = ChartConstructionCommonError;
+impl TryFrom<(u32, u32)> for PlotSpacing {
+    type Error = PlotConstructionCommonError;
 
     fn try_from(value: (u32, u32)) -> Result<Self, Self::Error> {
         let aspect_ratio = value.0 as f32 / value.1 as f32;
         if !(0.5..2.0).contains(&aspect_ratio) {
-            return Err(ChartConstructionCommonError::ChartSizeRatio(aspect_ratio));
+            return Err(PlotConstructionCommonError::PlotSizeRatio(aspect_ratio));
         }
 
         Ok(match value {
-            (400..800, 400..800) => ChartSpacing {
+            (400..800, 400..800) => PlotSpacing {
                 margin: [16; 4],
                 label_margin: [48, 0, 0, 48],
                 label_size: [12; 2],
                 desc_size: 20,
             },
-            (800.., _) | (_, 800..) => ChartSpacing {
+            (800.., _) | (_, 800..) => PlotSpacing {
                 margin: [32; 4],
                 label_margin: [82, 0, 0, 64],
                 label_size: [20; 2],
                 desc_size: 32,
             },
             _ => {
-                return Err(ChartConstructionCommonError::ChartSizeTooSmall(
+                return Err(PlotConstructionCommonError::PlotSizeTooSmall(
                     value.0, value.1,
                 ));
             }
@@ -101,7 +117,7 @@ impl TryFrom<(u32, u32)> for ChartSpacing {
 }
 
 fn label_axis<B: DrawingBackend>(
-    mut chart: ChartContext<
+    mut plot: ChartContext<
         '_,
         B,
         Cartesian2d<
@@ -110,10 +126,9 @@ fn label_axis<B: DrawingBackend>(
         >,
     >,
     scaled_axis_descriptor: &[ScaledAxisDescriptor; 2],
-    sizes: &ChartSpacing,
-) -> Result<(), ChartConstructionError<B::ErrorType>> {
-    chart
-        .configure_mesh()
+    sizes: &PlotSpacing,
+) -> Result<(), PlotConstructionError<B::ErrorType>> {
+    plot.configure_mesh()
         .max_light_lines(1)
         .x_desc(scaled_axis_descriptor[0].name())
         .y_desc(scaled_axis_descriptor[1].name())
@@ -133,23 +148,22 @@ fn label_axis<B: DrawingBackend>(
         .y_label_style(("sans-serif", sizes.label_size[0]))
         .x_label_style(("sans-serif", sizes.label_size[1]))
         .draw()
-        .map_err(ChartConstructionError::InvalidCoordinateSystem)
+        .map_err(PlotConstructionError::InvalidCoordinateSystem)
 }
 
 fn draw_into_canvas<B: DrawingBackend>(
     canvas: B,
-    data: ChartableData,
-    variant: &ChartVariants,
-    spacing: &ChartSpacing,
+    data: PlottableData,
+    variant: &PlotVariants,
+    spacing: &PlotSpacing,
     axis_description: &AxisDescriptors,
-) -> Result<(), ChartConstructionError<B::ErrorType>> {
+) -> Result<(), PlotConstructionError<B::ErrorType>> {
     let area = canvas.into_drawing_area();
     area.fill(&plotters::style::WHITE).unwrap();
 
-    let mut chart = ChartBuilder::on(&area);
+    let mut plot = ChartBuilder::on(&area);
 
-    chart
-        .margin_left(spacing.margin[0])
+    plot.margin_left(spacing.margin[0])
         .margin_top(spacing.margin[1])
         .margin_right(spacing.margin[2])
         .margin_bottom(spacing.margin[3])
@@ -159,23 +173,19 @@ fn draw_into_canvas<B: DrawingBackend>(
         .set_label_area_size(LabelAreaPosition::Bottom, spacing.label_margin[3]);
 
     match &variant {
-        ChartVariants::Histogram(histogram_data) => {
-            let histogram = HistogramChart::new(histogram_data, data, axis_description);
+        PlotVariants::Histogram(histogram_data) => {
+            let histogram = HistogramPlot::new(histogram_data, data, axis_description);
             label_axis(
-                histogram.draw_into(&mut chart)?,
+                histogram.draw_into(&mut plot)?,
                 histogram.scale_axis(),
                 spacing,
             )?;
         }
-        ChartVariants::Scatter => {
-            let scatter = ScatterChart::new(data, axis_description);
-            label_axis(
-                scatter.draw_into(&mut chart)?,
-                scatter.scale_axis(),
-                spacing,
-            )?;
+        PlotVariants::Scatter => {
+            let scatter = ScatterPlot::new(data, axis_description);
+            label_axis(scatter.draw_into(&mut plot)?, scatter.scale_axis(), spacing)?;
         }
     }
 
-    area.present().map_err(ChartConstructionError::DrawingError)
+    area.present().map_err(PlotConstructionError::DrawingError)
 }

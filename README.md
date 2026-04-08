@@ -9,7 +9,7 @@ Ros2TraceAnalyzer is a fast command-line tool to extract useful data from LTTng 
 ## Installation
 
 First make sure you have development files for `Babeltrace 2` and Clang,
-and chart rendering dependencies (`freetype` and `fontconfig`). On Ubuntu,
+and plot rendering dependencies (`freetype` and `fontconfig`). On Ubuntu,
 install them using:
 
 ```sh
@@ -61,8 +61,8 @@ Usage: Ros2TraceAnalyzer [OPTIONS] <COMMAND>
 
 Commands:
   analyze  Analyze a ROS 2 trace and store the result either as a binary bundle or separate files
-  chart    Render a chart of a selected analysis result
-  viewer   Start an interactive results graph viewer with chart previews
+  plot     Render a plot of a selected analysis result
+  viewer   Start an interactive results graph viewer with plot previews
   extract  Retrieve data from binary bundle produced by the analysis
   help     Print this message or the help of the given subcommand(s)
 
@@ -73,7 +73,7 @@ Options:
 ```
 
 ## Analyze
-This command analyzes traces and saves relevant information for later use into JSON, TXT and DOT files. 
+This command analyzes traces and saves relevant information for later use.
 
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- analyze --help` as text -->
 ```text
@@ -276,18 +276,18 @@ Thread 1737158 on steelpick has utilization  2.10334 %
 > correct. However, they are already useful indication for when
 > something goes wrong in your application.
 
-## Chart
-Generates a chart of an analysed property for a node. This command can be
-used only on traces which were analysed with the `dependency-graph` feature
-selected.
+## Plot
+Generates a plot of an analysed property for the given entity. This command can be
+used only on traces which were analysed with the `dependency-graph` feature selected.
 
-> This command *is currently not* meant for direct use, as the element IDs have no direct correlation to their ROS counterparts and therefore cannot be deterministically selected. Instead, use the provided `viewer` command to generate the charts from an interactive UI. 
+> This command *is currently not* meant for direct use, as the element IDs are assigned consecutively starting from 1, in order depending on the order of events in the trace and are in no way connected to ROS objects. Instead, use the provided `viewer` command to select the desired element and extract the properties through the GUI
 
-<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- chart --help` as text -->
+
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- plot --help` as text -->
 ```text
-Render a chart of a selected analysis result
+Render a plot of a selected analysis result
 
-Usage: Ros2TraceAnalyzer chart [OPTIONS] --element-id <ELEMENT_ID> --quantity <QUANTITY> <COMMAND>
+Usage: Ros2TraceAnalyzer plot [OPTIONS] --element-id <ELEMENT_ID> --quantity <QUANTITY> <COMMAND>
 
 Commands:
   histogram  
@@ -296,7 +296,7 @@ Commands:
 
 Options:
   -e, --element-id <ELEMENT_ID>
-          Identifies the element in the dependency graph for which to generate the chart
+          Identifies the element in the dependency graph for which to generate the plot
 
   -v, --verbose...
           Increase logging verbosity
@@ -310,9 +310,7 @@ Options:
           Decrease logging verbosity
 
   -o, --output <FILENAME>
-          Directory or filename where to store the chart
-          
-          For directories, the chart file name will be <ID>_<QUANTITY>.svg.
+          The filename to store the plot to
           
           For filenames, the output type is determined by its extension. Supported extensions are: SVG [default] and PNG.
           
@@ -322,7 +320,7 @@ Options:
           Overwrite the output file if present
 
       --quantity <QUANTITY>
-          The value to plot into the chart
+          The quantity to plot into the plot
 
           Possible values:
           - callback-duration: Callback execution durations
@@ -345,27 +343,22 @@ Options:
 ```
 
 ### Examples
-- Generate a histogram chart of callback durations with default bin count for node ID 15 from and to the current directory with default (600x400) size
-```sh
-Ros2TraceAnalyzer chart --element-id 15 --quantity callback-duration histogram
-```
+- Generate a histogram plot of callback durations for node ID 15 from `r2ta_results.sqlite` in the current directory. The resulting plot is redirected to plot.svg
+  ```sh
+  Ros2TraceAnalyzer plot -o callback-duration-15.svg --element-id 15 --quantity callback-duration histogram > plot.svg
+  ```
 
-- Generate a scatter chart of publication delays for node ID 63 with size 450 by 700 px into file chart.png
-```sh
-Ros2TraceAnalyzer chart --element-id 63 --quantity publication-delay --size 450x700 -o chart.png scatter
-```
-
-- Generate a histogram chart with 52 bins of message latencies from results file located elsewhere into temporary directory with default name and custom size for node ID 124
-```sh
-Ros2TraceAnalyzer chart --element-id 124 --quantity message-latency --size 641x531 -i /some/file.sqlite -o /tmp histogram --bins 52
-```
+- Generate a scatter plot of publication delays for node ID 63 with size 450 by 700 px into file plot.png
+  ```sh
+  Ros2TraceAnalyzer plot --element-id 63 --quantity publication-delay --size 450x700 -o plot.png scatter
+  ```
 
 ## Viewer
 This command is reserved for later use. Builtin .dot graphs viewer.
 
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- viewer --help` as text -->
 ```text
-Start an interactive results graph viewer with chart previews
+Start an interactive results graph viewer with plot previews
 
 Usage: Ros2TraceAnalyzer viewer [OPTIONS] <DOTFILE>
 
@@ -390,6 +383,8 @@ Options:
 ## Extract
 This command retrieves various data from the "binary bundle" produced by the analysis subcommand.
 
+> This command *is currently not* meant for direct use, as the element IDs are assigned consecutively starting from 1, in order depending on the order of events in the trace and are in no way connected to ROS objects. Instead, use the provided `viewer` command to select the desired element and extract the properties through the GUI
+
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- extract --help` as text -->
 ```text
 Retrieve data from binary bundle produced by the analysis
@@ -409,33 +404,20 @@ Options:
   -h, --help               Print help
 ```
 
-The `extract graph` command always extracts the `dependency-graph` stored in the results file.
-
-The `extract property` command extracts selected property (analysed value of an element) for the given element id. The possible properties are the same as analysed by the `dependency-graph` analysis. IDs are assigned serially but in no deterministic order (see [ID assignment](#id-assignment)) and are in no way connected to the ROS element. 
-
-> This command *is currently not* meant for direct use, as the element IDs have no direct correlation to their ROS counterparts and therefore cannot be deterministically selected. Instead, use the provided `viewer` command to select the desired element and extract the properties through the GUI
-
 ### Examples
 - Extract dependency graph
-```sh
-Ros2TraceAnalyzer extract graph
-```
+  ```sh
+  Ros2TraceAnalyzer extract graph
+  ```
 - Extract callback durations for node ID 43
-```sh
-Ros2TraceAnalyzer extract property callback-duration 43
-```
+  ```sh
+  Ros2TraceAnalyzer extract property callback-duration 43
+  ```
 
 <hr>
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/
 [xdot.py]: https://github.com/jrfonseca/xdot.py
-
-## ID assignment
-> This is a description of an implementation detail and may be changed at any time
-
-IDs to graph nodes are assigned serially in order of the element initialisation in the trace grouped by the element type (subscriber IDs are assigned after publisher IDs) in this order: Publishers, Subscribers, Timers, Callbacks
-
-Edge IDs are assigned serially in order they are created in the trace.
 
 **Acknowledgment:**
 
