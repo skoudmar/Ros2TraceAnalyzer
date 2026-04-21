@@ -47,14 +47,19 @@ impl HistogramPlot {
             itertools::MinMaxResult::MinMax(l, h) => (*l, *h),
         };
 
-        let (bin_width, x_range) = histogram_x_axis_alignment(min, max, bin_count);
+        let (bin_width, x_range) = if data.len() > 1 {
+            histogram_x_axis_alignment(min, max, bin_count)
+        } else {
+            // This is an explicit case when there is only one data point
+            (1, (min, min + 1))
+        };
 
         let mut binned_data = vec![0; bin_count];
         let last_idx = bin_count
             .checked_sub(1)
             .expect("bin_count must be at least 1");
 
-        for d in data {
+        for d in &data {
             let bin = usize::try_from((d - min) / bin_width)
                 .unwrap()
                 .min(last_idx);

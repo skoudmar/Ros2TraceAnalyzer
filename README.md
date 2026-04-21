@@ -287,40 +287,16 @@ used only on traces which were analysed with the `dependency-graph` feature sele
 ```text
 Render a plot of a selected analysis result
 
-Usage: Ros2TraceAnalyzer plot [OPTIONS] --element-id <ELEMENT_ID> --quantity <QUANTITY> <COMMAND>
+Usage: Ros2TraceAnalyzer plot [OPTIONS] <PROPERTY> <ELEMENT_ID> <COMMAND>
 
 Commands:
   histogram  
   scatter    
   help       Print this message or the help of the given subcommand(s)
 
-Options:
-  -e, --element-id <ELEMENT_ID>
-          Identifies the element in the dependency graph for which to generate the plot
-
-  -v, --verbose...
-          Increase logging verbosity
-
-  -i, --input <FILENAME>
-          Binary bundle file name or a directory containing r2ta_results.sqlite file
-          
-          [default: r2ta_results.sqlite]
-
-  -q, --quiet...
-          Decrease logging verbosity
-
-  -o, --output <FILENAME>
-          The filename to store the plot to
-          
-          For filenames, the output type is determined by its extension. Supported extensions are: SVG [default] and PNG.
-          
-          If not given, the current directory is used.
-
-      --overwrite
-          Overwrite the output file if present
-
-      --quantity <QUANTITY>
-          The quantity to plot into the plot
+Arguments:
+  <PROPERTY>
+          The property to plot
 
           Possible values:
           - callback-duration: Callback execution durations
@@ -328,6 +304,27 @@ Options:
           - publication-delay: Delays between publisher publications
           - message-delay:     Delays between subscriber messages
           - message-latency:   Latency of a communication channel
+
+  <ELEMENT_ID>
+          Identifies the element in the dependency graph for which to generate the plot
+
+Options:
+  -i, --input <FILENAME>
+          Binary bundle file name or a directory containing r2ta_results.sqlite file
+          
+          [default: r2ta_results.sqlite]
+
+  -v, --verbose...
+          Increase logging verbosity
+
+  -o, --output <FILENAME>
+          File to write the image to, if not present the data is written to stdout
+
+  -q, --quiet...
+          Decrease logging verbosity
+
+      --overwrite
+          Overwrite the output file if present
 
       --size <WIDTHxHEIGHT>
           The size of the image in pixels

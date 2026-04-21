@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use plotters::chart::{ChartBuilder, ChartContext, LabelAreaPosition};
 use plotters::coord::ranged1d::ValueFormatter;
 use plotters::prelude::{BitMapBackend, Cartesian2d, DrawingBackend, IntoDrawingArea, Ranged};
@@ -25,7 +27,7 @@ pub fn render_plot(
 ) -> Result<(), PlotConstructionCommonError> {
     let spacing = PlotSpacing::try_from((plot_request.size.0, plot_request.size.1))?;
 
-    let axis_description = resolve_axis_descriptors(plot_request.quantity, &plot_request.plot);
+    let axis_description = resolve_axis_descriptors(plot_request.property, &plot_request.plot);
 
     match output_format {
         crate::argsv2::plot_args::PlotOutputFormat::Svg => {

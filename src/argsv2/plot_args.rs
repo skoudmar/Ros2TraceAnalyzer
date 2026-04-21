@@ -8,21 +8,11 @@ use crate::argsv2::extract_args::AnalysisProperty;
 
 #[derive(Debug, Clone, Args)]
 pub struct PlotArgs {
-    /// Identifies the element in the dependency graph for
-    /// which to generate the plot
-    #[clap(long, short = 'e')]
-    pub element_id: i64,
-
     /// Binary bundle file name or a directory containing r2ta_results.sqlite file
     #[clap(long, short = 'i', value_name = "FILENAME", value_hint = ValueHint::FilePath, default_value = analysis_args::filenames::BINARY_BUNDLE)]
     pub input: PathBuf,
 
-    /// The filename to store the plot to
-    ///
-    /// For filenames, the output type is determined by its extension.
-    /// Supported extensions are: SVG [default] and PNG.
-    ///
-    /// If not given, the current directory is used.
+    /// File to write the image to, if not present the data is written to stdout
     #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::FilePath)]
     pub output: Option<PathBuf>,
 
@@ -35,11 +25,14 @@ pub struct PlotArgs {
 }
 
 #[derive(Debug, Display, Args, Clone)]
-#[display("{plot} of {quantity}")]
+#[display("{plot} of {property}")]
 pub struct PlotRequest {
-    /// The quantity to plot into the plot
-    #[clap(long)]
-    pub quantity: PlottedValue,
+    /// The property to plot
+    pub property: PlottedValue,
+
+    /// Identifies the element in the dependency graph for
+    /// which to generate the plot
+    pub element_id: i64,
 
     /// The size of the image in pixels
     ///
@@ -56,27 +49,6 @@ pub struct PlotRequest {
     /// The type of plot to render the data as
     #[command(subcommand)]
     pub plot: PlotVariants,
-}
-
-impl PlotRequest {
-    pub(crate) fn name_descriptor(&self) -> String {
-        let value = match self.quantity {
-            PlottedValue::CallbackDuration => "execution_timing",
-            PlottedValue::ActivationDelay => "activations_delay",
-            PlottedValue::PublicationDelay => "publication_delay",
-            PlottedValue::MessageDelay => "message_delay",
-            PlottedValue::MessageLatency => "latency",
-        };
-
-        let plot = match &self.plot {
-            PlotVariants::Histogram(hist_data) => {
-                format!("histogram_{}", hist_data.bins.unwrap_or(0))
-            }
-            PlotVariants::Scatter => "scatter".to_owned(),
-        };
-
-        format!("{}_{}_{}x{}", value, plot, self.size.0, self.size.1)
-    }
 }
 
 #[derive(Debug, Display, ValueEnum, Clone, Copy, Default)]

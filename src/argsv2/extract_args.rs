@@ -98,7 +98,7 @@ pub enum AnalysisProperty {
     PublicationDelay,
 
     /// Delays between subscriber messages
-    #[display("Delay between")]
+    #[display("Delay between messages")]
     MessageDelay,
 
     /// Latency of a communication channel

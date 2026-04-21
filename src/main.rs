@@ -67,7 +67,7 @@ fn run_plotting(args: &PlotArgs) -> color_eyre::eyre::Result<()> {
 
     if args.overwrite || !args.output.clone().map(|p| p.exists()).unwrap_or(false) {
         let plot_data =
-            extract::extract_property(&args.input, args.element_id, &args.plot.quantity)?;
+            extract::extract_property(&args.input, args.plot.element_id, &args.plot.property)?;
 
         plotting::render_plot(&mut output, plot_data, &args.plot, output_format)?;
     }

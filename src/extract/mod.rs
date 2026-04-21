@@ -32,6 +32,15 @@ pub enum PlottableData {
     I64(Vec<i64>),
 }
 
+impl PlottableData {
+    fn assert_valid(&self) -> Result<(), DataExtractionError> {
+        match self {
+            PlottableData::I64(items) if items.len() == 0 => Err(DataExtractionError::EmptyData),
+            _ => Ok(()),
+        }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum DataExtractionError {
     #[error("An error occurred during data parsing\n{0}")]
@@ -47,6 +56,8 @@ pub enum DataExtractionError {
     },
     #[error("There is no element with id {0}.")]
     NoSuchElement(usize),
+    #[error("Element exists but has no data associated with it")]
+    EmptyData,
 }
 
 pub fn extract_graph(input: &Path) -> color_eyre::eyre::Result<String> {
@@ -85,7 +96,7 @@ pub fn extract_property(
         }
     }
 
-    Ok(match property {
+    let plottable_data = match property {
         AnalysisProperty::CallbackDuration => PlottableData::I64(
             store
                 .get_by_id::<CallbackDurationExport>(element_id)
@@ -121,7 +132,11 @@ pub fn extract_property(
                 })?
                 .messages_latencies,
         ),
-    })
+    };
+
+    let _ = plottable_data.assert_valid()?;
+
+    Ok(plottable_data)
 }
 
 impl PlottableData {
