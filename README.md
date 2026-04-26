@@ -354,24 +354,26 @@ This command is reserved for later use. Builtin .dot graphs viewer.
 ```text
 Start an interactive results graph viewer with plot previews
 
-Usage: Ros2TraceAnalyzer viewer [OPTIONS] <DOTFILE>
+Usage: Ros2TraceAnalyzer viewer [OPTIONS] [FILENAME]
 
 Arguments:
-  <DOTFILE>  The dotfile to open
+  [FILENAME]
+          Binary bundle file name or a directory containing r2ta_results.sqlite file
 
 Options:
   -v, --verbose...
           Increase logging verbosity
+
       --viewer <VIEWER>
-          The entry point to the python viewer (defaults to ./xdotviewer/main.py)
+          main.py file path or directory path containing the main.py file
+          
+          Defaults to $PWD/py-src/xdotviewer/main.py
+
   -q, --quiet...
           Decrease logging verbosity
-  -t, --tracer-exec <Ros2TraceAnalyzer>
-          The executable to run to invoke the Ros2TraceAnalyzer (defaults to ./target/release/Ros2TraceAnalyzer)
-  -d, --data <DATA>
-          The directory with the datafiles (defaults to CWD)
+
   -h, --help
-          Print help
+          Print help (see a summary with '-h')
 ```
 
 ## Extract

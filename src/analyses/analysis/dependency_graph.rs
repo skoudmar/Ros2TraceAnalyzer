@@ -1151,31 +1151,28 @@ fn process_edges(
     )
 }
 
-fn get_node_name_and_tooltip(node: &Node, ros_node_name: Known<&str>) -> (String, String) {
+fn get_node_name(node: &Node) -> String {
     match node {
         Node::Publisher(publisher_arc) => {
             let publisher = publisher_arc.0.lock().unwrap();
             let topic = publisher.get_topic().to_string();
             let name = format!("Publisher\n{topic}");
-            let tooltip = String::new();
 
-            (name, tooltip)
+            name
         }
         Node::Subscriber(subscriber_arc) => {
             let subscriber = subscriber_arc.0.lock().unwrap();
             let topic = subscriber.get_topic().to_string();
             let name = format!("Subscriber\n{topic}");
-            let tooltip = String::new();
 
-            (name, tooltip)
+            name
         }
         Node::Timer(timer_arc) => {
             let timer = timer_arc.0.lock().unwrap();
             let period = timer.get_period().unwrap();
             let name = format!("Timer\n{}", DisplayDuration(period));
-            let tooltip = String::new();
 
-            (name, tooltip)
+            name
         }
         Node::Callback(callback_arc) => {
             let callback = callback_arc.0.lock().unwrap();
@@ -1183,15 +1180,14 @@ fn get_node_name_and_tooltip(node: &Node, ros_node_name: Known<&str>) -> (String
                 "Callback\n{}",
                 Known::<&CallbackCaller>::from(callback.get_caller())
             );
-            let tooltip = String::new();
 
-            (name, tooltip)
+            name
         }
         Node::Service(service_arc) => {
             let service = service_arc.0.lock().unwrap();
             let name = format!("Service\n{}", service.get_name());
-            let tooltip = format!("Node: {ros_node_name}\nSee callback for details",);
-            (name, tooltip)
+
+            name
         }
     }
 }
@@ -1210,6 +1206,27 @@ fn get_node_name_from_graph_node(node: &Node) -> String {
         Known::Unknown => WeakKnown::Unknown,
     }
     .to_string()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
+pub enum NodeType {
+    Publisher,
+    Subscriber,
+    Service,
+    Timer,
+    Callback,
+}
+
+impl From<&Node> for NodeType {
+    fn from(value: &Node) -> Self {
+        match value {
+            Node::Publisher(..) => NodeType::Publisher,
+            Node::Subscriber(..) => NodeType::Subscriber,
+            Node::Service(..) => NodeType::Service,
+            Node::Timer(..) => NodeType::Timer,
+            Node::Callback(..) => NodeType::Callback,
+        }
+    }
 }
 
 impl std::fmt::Display for DotGraph {
@@ -1251,22 +1268,24 @@ impl std::fmt::Display for DotGraph {
                             .get_full_name()
                             .map(ToString::to_string)
                     });
-            let (node_name, tooltip) = get_node_name_and_tooltip(node, ros_node_name.as_deref());
+            let node_name = get_node_name(node);
 
             let graph_node = graph.add_node(&node_name, *id);
             graph_node.set_shape(NodeShape::Ellipse);
-            graph_node.set_attribute("tooltip", &tooltip);
+
+            let node_type = NodeType::from(node);
+            let reference = format!("r2ta-node://{}|{}", id, node_type);
+
+            graph_node.set_attribute("tooltip", &reference);
+            graph_node.set_attribute("URL", &reference);
         }
 
         for edge in &self.edges {
             let graph_edge = graph.add_edge(edge.source, edge.target, "");
-            graph_edge.set_attribute(
-                "tooltip",
-                &format!(
-                    "Latency:\n{}",
-                    DisplayDurationStats::with_newline(&edge.latencies),
-                ),
-            );
+            let reference = format!("r2ta-edge://{}", self.edge_ids[&(edge.source, edge.target)]);
+
+            graph_edge.set_attribute("tooltip", &reference);
+            graph_edge.set_attribute("URL", &reference);
 
             if let Some((min_latency, max_latency)) = match edge.edge_type {
                 EdgeType::PublisherSubscriberCommunication => self.pub_sub_latency_range,
