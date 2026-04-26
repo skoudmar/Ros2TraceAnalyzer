@@ -4,16 +4,6 @@
 /// of creating a plot of a variable for a specific node in the dependency graph
 #[derive(thiserror::Error, Debug)]
 pub enum PlotConstructionCommonError {
-    /// Plot size too small error
-    ///
-    /// The requested plot size is too small
-    #[error("The requested plot size '{0}x{1}' is too small")]
-    PlotSizeTooSmall(u32, u32),
-
-    /// Plot size aspect ratio error
-    #[error("The requested plot size ratio '{0}' is too small or too large")]
-    PlotSizeRatio(f32),
-
     /// Error reported by plotters during the construction of the plot
     #[error("Plot construction error")]
     ConstructionError(#[source] Box<dyn std::error::Error + Send + Sync>),
