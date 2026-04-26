@@ -8,11 +8,12 @@ Ros2TraceAnalyzer is a fast command-line tool to extract useful data from LTTng 
 
 ## Installation
 
-First make sure you have development version of Babeltrace 2 library
-and clang development files. On Ubuntu, it can be installed  using:
+First make sure you have development files for `Babeltrace 2` and Clang,
+and plot rendering dependencies (`freetype` and `fontconfig`). On Ubuntu,
+install them using:
 
 ```sh
-apt install libbabeltrace2-dev libclang-dev
+apt install libbabeltrace2-dev libclang-dev libfreetype6-dev libfontconfig1-dev
 ```
 
 The Ros2TraceAnalyzer can then be compiled and installed using `cargo` by running:
@@ -59,9 +60,10 @@ information from the trace.
 Usage: Ros2TraceAnalyzer [OPTIONS] <COMMAND>
 
 Commands:
-  analyze  Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
-  chart    Render a chart of a specific property of a ROS 2 interface
-  viewer   Start a .dot viewer capable of generating charts on demand
+  analyze  Analyze a ROS 2 trace and store the result either as a binary bundle or separate files
+  plot     Render a plot of a selected analysis result
+  viewer   Start an interactive results graph viewer with plot previews
+  extract  Retrieve data from binary bundle produced by the analysis
   help     Print this message or the help of the given subcommand(s)
 
 Options:
@@ -71,11 +73,13 @@ Options:
 ```
 
 ## Analyze
-This command analyzes the traces and saves relevant information for later use into JSON, TXT and DOT files. 
+This command analyzes traces and saves relevant information for later use.
 
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- analyze --help` as text -->
 ```text
-Analyze a ROS 2 trace and generate graphs, JSON or bundle outputs
+Analyze a ROS 2 trace and store the result either as a binary bundle or separate files.
+
+See the extract subcommand for how to work with the binary bundle.
 
 Usage: Ros2TraceAnalyzer analyze [OPTIONS] <TRACE_PATHS>...
 
@@ -126,12 +130,20 @@ Options:
       --spin-duration[=<FILENAME>]
           Analyze the duration of executor spins
 
+      --binary-bundle [<FILENAME>]
+          File path of the binary bundle output
+          
+          [default: r2ta_results.sqlite]
+
   -o, --out-dir <OUT_DIR>
           Directory to write output files
           
           If not provided, the current working directory is used.
           
           When analysis output filename is specified and it is not an absolute path, it is resolved relative to `OUT_DIR`.
+
+      --legacy-output
+          Store the results into multiple files rather than to the binary bundle
 
       --quantiles <QUANTILES>
           Quantiles to compute for the latency and duration analysis.
@@ -216,14 +228,14 @@ jq '.[]|select(.topic=="/clock" and .subscriber_node=="/rviz2")|.latencies[]' js
 
 ![raw graph of measured latencies](./doc/gnuplot-latency.png)
 
-**Utilization** analysis allow to estimate CPU utilization by
+**Utilization** analysis allows to estimate CPU utilization by
 individual threads for different quantiles of callback execution
 times. To analyze theoretical worst-case utilization, add `--quantile 1.0`. For median utilization, use `--quantile 0.5`.
 
 Example output of utilization analysis is shown below:
 
 ```sh
-Ros2TraceAnalyzer ~/lttng-traces/session-20240123-123456 --utilization --utilization-quantile 0.9
+Ros2TraceAnalyzer analyze ~/lttng-traces/session-20240123-123456 --utilization --utilization-quantile 0.9
 ```
 
 ```
@@ -260,81 +272,87 @@ Thread 1737158 on steelpick has utilization  2.10334 %
 > The utilization analysis is based solely on timestamps from ROS
 > callbacks. It ignores kernel scheduling events such as context
 > switches and other activities executed by the application outside of
-> callbacks. Therefore, the result are not guaranteed to be always
+> callbacks. Therefore, the results are not guaranteed to be always
 > correct. However, they are already useful indication for when
 > something goes wrong in your application.
 
-## Chart
-This command is reserved for later use. It is intended for generating charts from analyzed traces.
+## Plot
+Generates a plot of an analysed property for the given entity. This command can be
+used only on traces which were analysed with the `dependency-graph` feature selected.
 
-<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- chart --help` as text -->
+> This command *is currently not* meant for direct use, as the element IDs are assigned consecutively starting from 1, in order depending on the order of events in the trace and are in no way connected to ROS objects. Instead, use the provided `viewer` command to select the desired element and extract the properties through the GUI
+
+
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- plot --help` as text -->
 ```text
-Render a chart of a specific property of a ROS 2 interface
+Render a plot of a selected analysis result
 
-Usage: Ros2TraceAnalyzer chart [OPTIONS] --node <NODE> --value <VALUE> <COMMAND>
+Usage: Ros2TraceAnalyzer plot [OPTIONS] <PROPERTY> <ELEMENT_ID> <COMMAND>
 
 Commands:
   histogram  
   scatter    
   help       Print this message or the help of the given subcommand(s)
 
+Arguments:
+  <PROPERTY>
+          The property to plot
+
+          Possible values:
+          - callback-duration: Callback execution durations
+          - activation-delay:  Delays between callback or timer activations
+          - publication-delay: Delays between publisher publications
+          - message-delay:     Delays between subscriber messages
+          - message-latency:   Latency of a communication channel
+
+  <ELEMENT_ID>
+          Identifies the element in the dependency graph for which to generate the plot
+
 Options:
-  -n, --node <NODE>
-          Full name of the node to draw the chart for
+  -i, --input <FILENAME>
+          Binary bundle file name or a directory containing r2ta_results.sqlite file
           
-          The name should include the namespace and node's name
+          [default: r2ta_results.sqlite]
 
   -v, --verbose...
           Increase logging verbosity
 
-  -i, --input-path <INPUT>
-          The input path, either a file of the data or a folder containing the default named file with the necessary data
+  -o, --output <FILENAME>
+          File to write the image to, if not present the data is written to stdout
 
   -q, --quiet...
           Decrease logging verbosity
 
-  -o, --output-path <OUTPUT>
-          The output path, either a folder to which the file will be generated or a file to write into
-
-  -c, --clean
-          Indicates whether the chart should be rendered from scratch.
-          
-          If not set, an existing chart will be reused only if it matches all specified parameters.
-
-      --value <VALUE>
-          The value to plot into the chart
-
-          Possible values:
-          - callback-duration:  Callback execution durations
-          - activations-delay:  Delays between callback or timer activations
-          - publications-delay: Delays between publisher publications
-          - messages-delay:     Delays between subscriber messages
-          - messages-latency:   Latency of a communication channel
-
-      --size <SIZE>
-          The rectangular size of the rendered image in pixels
+      --size <WIDTHxHEIGHT>
+          The size of the image in pixels
           
           - For PNG this directly translates to pixels
           
           - For SVG this is the size in pixels with scale 1.0
           
-          [default: 800]
-
-      --output-format <OUTPUT_FORMAT>
-          The filetype (output format) the rendered image should be in
-          
-          [default: svg]
-          [possible values: svg, png]
+          [default: 800x600]
 
   -h, --help
           Print help (see a summary with '-h')
 ```
 
+### Examples
+- Generate a histogram plot of callback durations for node ID 15 from `r2ta_results.sqlite` in the current directory. The resulting plot is redirected to plot.svg
+  ```sh
+  Ros2TraceAnalyzer plot -o callback-duration-15.svg --element-id 15 --quantity callback-duration histogram > plot.svg
+  ```
+
+- Generate a scatter plot of publication delays for node ID 63 with size 450 by 700 px into file plot.png
+  ```sh
+  Ros2TraceAnalyzer plot --element-id 63 --quantity publication-delay --size 450x700 -o plot.png scatter
+  ```
+
 ## Viewer
 This command is reserved for later use. Builtin .dot graphs viewer.
+
 <!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- viewer --help` as text -->
 ```text
-Start a .dot viewer capable of generating charts on demand
+Start an interactive results graph viewer with plot previews
 
 Usage: Ros2TraceAnalyzer viewer [OPTIONS] <DOTFILE>
 
@@ -356,6 +374,41 @@ Options:
           Print help
 ```
 
+## Extract
+This command retrieves various data from the "binary bundle" produced by the analysis subcommand.
+
+> This command *is currently not* meant for direct use, as the element IDs are assigned consecutively starting from 1, in order depending on the order of events in the trace and are in no way connected to ROS objects. Instead, use the provided `viewer` command to select the desired element and extract the properties through the GUI
+
+<!-- `$ COLUMNS=100 NO_COLOR=1 cargo run --locked --quiet -- extract --help` as text -->
+```text
+Retrieve data from binary bundle produced by the analysis
+
+Usage: Ros2TraceAnalyzer extract [OPTIONS] <COMMAND>
+
+Commands:
+  graph     Extract dependency graph
+  property  Extract property data for a node
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+  -i, --input <FILENAME>   Binary bundle file name or a directory containing r2ta_results.sqlite file [default: r2ta_results.sqlite]
+  -v, --verbose...         Increase logging verbosity
+  -o, --output <FILENAME>  File to extract the data to, if not present the data is written to stdout
+  -q, --quiet...           Decrease logging verbosity
+  -h, --help               Print help
+```
+
+### Examples
+- Extract dependency graph
+  ```sh
+  Ros2TraceAnalyzer extract graph
+  ```
+- Extract callback durations for node ID 43
+  ```sh
+  Ros2TraceAnalyzer extract property callback-duration 43
+  ```
+
+<hr>
 
 [`ros2trace`]: https://index.ros.org/p/ros2trace/
 [xdot.py]: https://github.com/jrfonseca/xdot.py

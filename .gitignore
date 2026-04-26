@@ -4,3 +4,8 @@
 *.txt
 *.json
 *.dot
+*.sqlite
+
+*.svg
+*.png
+
