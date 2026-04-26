@@ -323,9 +323,6 @@ Options:
   -q, --quiet...
           Decrease logging verbosity
 
-      --overwrite
-          Overwrite the output file if present
-
       --size <WIDTHxHEIGHT>
           The size of the image in pixels
           

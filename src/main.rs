@@ -46,13 +46,7 @@ fn run_analysis<L: clap_verbosity_flag::LogLevel>(
 
 fn run_plotting(args: &PlotArgs) -> color_eyre::eyre::Result<()> {
     let mut output = match &args.output {
-        Some(o) => {
-            if args.overwrite {
-                Box::new(std::fs::File::create(o)?)
-            } else {
-                Box::new(std::fs::File::create_new(o)?)
-            }
-        }
+        Some(o) => Box::new(std::fs::File::create(o)?),
         None => Box::new(std::io::stdout()) as Box<dyn Write>,
     };
 
@@ -65,12 +59,10 @@ fn run_plotting(args: &PlotArgs) -> color_eyre::eyre::Result<()> {
         })
         .unwrap_or_default();
 
-    if args.overwrite || !args.output.clone().map(|p| p.exists()).unwrap_or(false) {
-        let plot_data =
-            extract::extract_property(&args.input, args.plot.element_id, &args.plot.property)?;
+    let plot_data =
+        extract::extract_property(&args.input, args.plot.element_id, &args.plot.property)?;
 
-        plotting::render_plot(&mut output, plot_data, &args.plot, output_format)?;
-    }
+    plotting::render_plot(&mut output, plot_data, &args.plot, output_format)?;
 
     Ok(())
 }

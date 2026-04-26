@@ -16,10 +16,6 @@ pub struct PlotArgs {
     #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::FilePath)]
     pub output: Option<PathBuf>,
 
-    /// Overwrite the output file if present
-    #[clap(long, default_value = "false")]
-    pub overwrite: bool,
-
     #[clap(flatten)]
     pub plot: PlotRequest,
 }
