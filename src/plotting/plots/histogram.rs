@@ -72,7 +72,7 @@ impl HistogramPlot {
         let scaled_axis = [
             axis_descriptor
                 .x
-                .scaled_axis_unit((x_range.1 - x_range.0) / 2),
+                .scaled_axis_unit(x_range.0 + (x_range.1 - x_range.0) / 2),
             // This has logarithmic scale so there is no reasonable unit to cover
             // the entire range. If this becomes a problem we can allow for formatting
             // individual ticks and display just the exponents
@@ -120,7 +120,7 @@ impl PlotData<Coords> for HistogramPlot {
     }
 }
 
-// This method selects a x axis range so that all ticks are placed
+// This method selects an x axis range so that all ticks are placed
 // on "nice" round numbers
 fn histogram_x_axis_alignment(min: i64, max: i64, data_bins: usize) -> (i64, (i64, i64)) {
     fn round_bin_width(value: f64) -> i64 {
