@@ -1,20 +1,49 @@
 use clap::{Args, ValueHint};
 use std::path::PathBuf;
 
+use crate::argsv2::analysis_args::filenames;
+
 #[derive(Debug, Clone, Args)]
 pub struct ViewerArgs {
-    /// The dotfile to open
-    pub dotfile: PathBuf,
+    /// Binary bundle file name or a directory containing r2ta_results.sqlite file
+    #[clap(value_name = "FILENAME", value_hint = ValueHint::FilePath)]
+    pub input: Option<PathBuf>,
 
+    /// main.py file path or directory path containing the main.py file
+    ///
+    /// Defaults to $PWD/py-src/xdotviewer/main.py
     #[clap(long, value_name = "VIEWER", value_hint = ValueHint::FilePath)]
-    /// The entry point to the python viewer (defaults to ./xdotviewer/main.py)
     pub viewer: Option<PathBuf>,
+}
 
-    /// The executable to run to invoke the Ros2TraceAnalyzer (defaults to ./target/release/Ros2TraceAnalyzer)
-    #[clap(long, short = 't', value_name = "Ros2TraceAnalyzer", value_hint = ValueHint::ExecutablePath)]
-    pub tracer_exec: Option<PathBuf>,
+impl ViewerArgs {
+    pub fn input_path(&self) -> PathBuf {
+        match &self.input {
+            Some(p) => {
+                if p.is_dir() {
+                    p.join(filenames::BINARY_BUNDLE)
+                } else {
+                    p.clone()
+                }
+            }
+            None => std::env::current_dir()
+                .unwrap()
+                .join(filenames::BINARY_BUNDLE),
+        }
+    }
 
-    /// The directory with the datafiles (defaults to CWD)
-    #[clap(long, short = 'd', value_name = "DATA", value_hint = ValueHint::DirPath)]
-    pub data: Option<PathBuf>,
+    pub fn viewer_path(&self) -> PathBuf {
+        match &self.viewer {
+            Some(p) => {
+                if p.is_dir() {
+                    p.join("main.py")
+                } else {
+                    p.clone()
+                }
+            }
+            None => std::env::current_dir()
+                .unwrap()
+                .join("py-src/xdotviewer/main.py"),
+        }
+    }
 }
