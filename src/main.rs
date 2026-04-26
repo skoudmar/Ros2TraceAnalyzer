@@ -5,6 +5,7 @@ mod argsv2;
 mod events_common;
 mod extract;
 mod model;
+mod plotting;
 mod processed_events;
 mod processor;
 mod raw_events;
@@ -19,8 +20,8 @@ use argsv2::Args;
 use argsv2::helpers::prepare_trace_paths;
 
 use crate::argsv2::analysis_args::AnalysisArgs;
-use crate::argsv2::chart_args::ChartArgs;
 use crate::argsv2::extract_args::ExtractArgs;
+use crate::argsv2::plot_args::{PlotArgs, PlotOutputFormat};
 use crate::argsv2::viewer_args::ViewerArgs;
 
 use analyses::analysis;
@@ -43,7 +44,26 @@ fn run_analysis<L: clap_verbosity_flag::LogLevel>(
     Ok(())
 }
 
-fn run_charting(_args: &ChartArgs) -> color_eyre::eyre::Result<()> {
+fn run_plotting(args: &PlotArgs) -> color_eyre::eyre::Result<()> {
+    let mut output = match &args.output {
+        Some(o) => Box::new(std::fs::File::create(o)?),
+        None => Box::new(std::io::stdout()) as Box<dyn Write>,
+    };
+
+    let output_format = args
+        .output
+        .clone()
+        .map(|p| match p.extension() {
+            Some(ext) => PlotOutputFormat::try_from(ext.to_str().unwrap()).unwrap_or_default(),
+            None => PlotOutputFormat::default(),
+        })
+        .unwrap_or_default();
+
+    let plot_data =
+        extract::extract_property(&args.input, args.plot.element_id, &args.plot.property)?;
+
+    plotting::render_plot(&mut output, plot_data, &args.plot, output_format)?;
+
     Ok(())
 }
 
@@ -85,7 +105,7 @@ fn main() -> color_eyre::eyre::Result<()> {
     let args = Args::get();
     match &args.command {
         argsv2::TracerCommand::Analyze(analysis_args) => run_analysis(analysis_args, &args.verbose),
-        argsv2::TracerCommand::Chart(chart_args) => run_charting(chart_args),
+        argsv2::TracerCommand::Plot(plot_args) => run_plotting(plot_args),
         argsv2::TracerCommand::Viewer(viewer_args) => run_viewer(viewer_args),
         argsv2::TracerCommand::Extract(extract_args) => run_extract(extract_args),
     }

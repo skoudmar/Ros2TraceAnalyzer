@@ -48,20 +48,18 @@ impl ExtractArgs {
 pub enum ExtractContentArgs {
     /// Extract dependency graph
     Graph,
-    /// Extract property values for a node
+    /// Extract property data for a node
     Property(ExtractPropertyArgs),
 }
 
 #[derive(Debug, Clone, Args)]
 pub struct ExtractPropertyArgs {
+    /// The property to extract from the node.
+    property: AnalysisProperty,
+
     /// Identifies the element in the dependency graph for
     /// which to extract the data
-    #[clap(long)]
     element_id: i64,
-
-    /// The property to extract from the node.
-    #[clap(long)]
-    property: AnalysisProperty,
 }
 
 impl ExtractPropertyArgs {
@@ -74,38 +72,36 @@ impl ExtractPropertyArgs {
     }
 }
 
-#[derive(Debug, Display, ValueEnum, Clone, PartialEq, Eq, Hash)]
+#[derive(
+    Debug,
+    Display,
+    ValueEnum,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub enum AnalysisProperty {
     /// Callback execution durations
     #[display("Callback execution time")]
-    CallbackDurations,
+    CallbackDuration,
 
     /// Delays between callback or timer activations
     #[display("Delays between activations")]
-    ActivationDelays,
+    ActivationDelay,
 
     /// Delays between publisher publications
     #[display("Delay between publication")]
-    PublicationDelays,
+    PublicationDelay,
 
     /// Delays between subscriber messages
-    #[display("Delay between")]
-    MessageDelays,
+    #[display("Delay between messages")]
+    MessageDelay,
 
     /// Latency of a communication channel
     #[display("Message latency")]
-    MessageLatencies,
-}
-
-impl AnalysisProperty {
-    /// Table name in the binary data blob for this property
-    pub const fn table_name(&self) -> &'static str {
-        match self {
-            AnalysisProperty::CallbackDurations => "callback_duration",
-            AnalysisProperty::ActivationDelays => "activations_delay",
-            AnalysisProperty::PublicationDelays => "publications_delay",
-            AnalysisProperty::MessageDelays => "messages_delay",
-            AnalysisProperty::MessageLatencies => "messages_latency",
-        }
-    }
+    MessageLatency,
 }

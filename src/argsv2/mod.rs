@@ -4,9 +4,9 @@ use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 pub mod analysis_args;
-pub mod chart_args;
 pub mod extract_args;
 pub mod helpers;
+pub mod plot_args;
 pub mod viewer_args;
 
 pub static CLI_ARGS: OnceLock<Args> = OnceLock::new();
@@ -53,16 +53,18 @@ impl Args {
 #[derive(Debug, Subcommand, Clone, derive_more::Display)]
 pub enum TracerCommand {
     /// Analyze a ROS 2 trace and store the result either as a binary bundle
-    /// or separate files. See the extract subcommand for how to work with the
-    /// binary bundle.
+    /// or separate files.
+    ///
+    /// See the extract subcommand for how to work with the binary
+    /// bundle.
     #[display("analyze")]
     Analyze(Box<analysis_args::AnalysisArgs>),
 
-    /// Render a chart of a specific property of a ROS 2 interface
-    #[display("chart")]
-    Chart(chart_args::ChartArgs),
+    /// Render a plot of a selected analysis result
+    #[display("plot")]
+    Plot(plot_args::PlotArgs),
 
-    /// Start a .dot viewer capable of generating charts on demand
+    /// Start an interactive results graph viewer with plot previews
     #[display("viewer")]
     Viewer(viewer_args::ViewerArgs),
 

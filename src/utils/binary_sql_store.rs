@@ -1,17 +1,30 @@
+use std::str::FromStr;
+
 use crate::analyses::analysis::dependency_graph::{
     ActivationDelayExport, CallbackDurationExport, MessageLatencyExport, MessagesDelayExport,
-    PublicationDelayExport,
+    NodeOverviewExport, PublicationDelayExport,
 };
 use crate::extract::{RosChannelCompleteName, RosInterfaceCompleteName};
 
 #[derive(thiserror::Error, std::fmt::Debug)]
 pub enum BinarySQLStoreError {
     #[error("rusqlite error: {0}")]
-    SQLiteError(#[from] rusqlite::Error),
+    SQLiteError(#[source] rusqlite::Error),
     #[error("Binary bundle {0:?} does not exist")]
     NoStore(std::path::PathBuf),
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
+    #[error("The query returned no results")]
+    NoResults,
+}
+
+impl From<rusqlite::Error> for BinarySQLStoreError {
+    fn from(value: rusqlite::Error) -> Self {
+        match value {
+            rusqlite::Error::QueryReturnedNoRows => BinarySQLStoreError::NoResults,
+            e => BinarySQLStoreError::SQLiteError(e),
+        }
+    }
 }
 
 pub struct BinarySqlStore {
@@ -163,7 +176,7 @@ impl Entity for MessageLatencyExport {
         TableColumn::new("topic", "TEXT"),
         TableColumn::new("latencies", "BLOB"),
     ];
-    const TABLE: &'static str = "message_latencies";
+    const TABLE: &'static str = "message_latency";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(MessageLatencyExport {
@@ -195,7 +208,7 @@ impl Entity for MessagesDelayExport {
         TableColumn::new("interface", "TEXT"),
         TableColumn::new("delays", "BLOB"),
     ];
-    const TABLE: &'static str = "message_delays";
+    const TABLE: &'static str = "message_delay";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(MessagesDelayExport {
@@ -204,7 +217,7 @@ impl Entity for MessagesDelayExport {
                 interface: row.get("interface")?,
                 node: row.get("node")?,
             },
-            messages_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("latencies")?).unwrap(),
+            messages_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("delays")?).unwrap(),
         })
     }
 
@@ -225,7 +238,7 @@ impl Entity for CallbackDurationExport {
         TableColumn::new("interface", "TEXT"),
         TableColumn::new("durations", "BLOB"),
     ];
-    const TABLE: &'static str = "callback_durations";
+    const TABLE: &'static str = "callback_duration";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(CallbackDurationExport {
@@ -255,7 +268,7 @@ impl Entity for PublicationDelayExport {
         TableColumn::new("interface", "TEXT"),
         TableColumn::new("delays", "BLOB"),
     ];
-    const TABLE: &'static str = "publication_delays";
+    const TABLE: &'static str = "publication_delay";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(PublicationDelayExport {
@@ -285,7 +298,7 @@ impl Entity for ActivationDelayExport {
         TableColumn::new("interface", "TEXT"),
         TableColumn::new("delays", "BLOB"),
     ];
-    const TABLE: &'static str = "activation_delays";
+    const TABLE: &'static str = "activation_delay";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
         Ok(ActivationDelayExport {
@@ -304,6 +317,34 @@ impl Entity for ActivationDelayExport {
             &self.name.node,
             &self.name.interface,
             postcard::to_allocvec(&self.activation_delays).unwrap(),
+        )
+    }
+}
+
+impl Entity for NodeOverviewExport {
+    const PARAMS: &'static [TableColumn] = &[
+        TableColumn::new("id", "INT PRIMARY KEY"),
+        TableColumn::new("element_type", "TEXT"),
+        TableColumn::new("analyses", "BLOB"),
+    ];
+    const TABLE: &'static str = "node_overview";
+
+    fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+        Ok(NodeOverviewExport {
+            id: row.get::<_, i64>("id")? as usize,
+            element_type: crate::analyses::analysis::dependency_graph::ElementType::from_str(
+                &row.get::<_, String>("element_type")?,
+            )
+            .unwrap(),
+            analyses: postcard::from_bytes(&row.get::<_, Vec<_>>("analyses")?).unwrap(),
+        })
+    }
+
+    fn to_params(&self) -> impl rusqlite::Params {
+        (
+            self.id as i64,
+            self.element_type.to_string(),
+            postcard::to_allocvec(&self.analyses).unwrap(),
         )
     }
 }
