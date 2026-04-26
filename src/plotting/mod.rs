@@ -25,7 +25,7 @@ pub fn render_plot(
     plot_request: &PlotRequest,
     output_format: PlotOutputFormat,
 ) -> Result<(), PlotConstructionCommonError> {
-    let spacing = PlotSpacing::try_from((plot_request.size.0, plot_request.size.1))?;
+    let spacing = PlotSpacing::from((plot_request.size.0, plot_request.size.1));
 
     let axis_description = resolve_axis_descriptors(plot_request.property, &plot_request.plot);
 
@@ -87,16 +87,15 @@ struct PlotSpacing {
     pub desc_size: i32,
 }
 
-impl TryFrom<(u32, u32)> for PlotSpacing {
-    type Error = PlotConstructionCommonError;
-
-    fn try_from(value: (u32, u32)) -> Result<Self, Self::Error> {
-        let aspect_ratio = value.0 as f32 / value.1 as f32;
-        if !(0.5..2.0).contains(&aspect_ratio) {
-            return Err(PlotConstructionCommonError::PlotSizeRatio(aspect_ratio));
-        }
-
-        Ok(match value {
+impl From<(u32, u32)> for PlotSpacing {
+    fn from(value: (u32, u32)) -> Self {
+        match value {
+            (..400, _) | (_, ..400) => PlotSpacing {
+                margin: [16; 4],
+                label_margin: [32, 0, 0, 32],
+                label_size: [12; 2],
+                desc_size: 14,
+            },
             (400..800, 400..800) => PlotSpacing {
                 margin: [16; 4],
                 label_margin: [48, 0, 0, 48],
@@ -109,12 +108,7 @@ impl TryFrom<(u32, u32)> for PlotSpacing {
                 label_size: [20; 2],
                 desc_size: 32,
             },
-            _ => {
-                return Err(PlotConstructionCommonError::PlotSizeTooSmall(
-                    value.0, value.1,
-                ));
-            }
-        })
+        }
     }
 }
 
