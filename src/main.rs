@@ -81,13 +81,11 @@ fn run_extract(args: &ExtractArgs) -> color_eyre::eyre::Result<()> {
     match args.content() {
         argsv2::extract_args::ExtractContentArgs::Graph => {
             let graph = extract::extract_graph(&source_file)?;
-
-            writeln!(output, "{graph}")?;
+            output.write_all(graph.as_bytes())?;
         }
         argsv2::extract_args::ExtractContentArgs::Property(args) => {
             let data = extract::extract_property(&source_file, args.element_id(), args.property())?;
-
-            writeln!(output, "{}", data.export_json()?)?;
+            output.write_all(data.export_json()?.as_bytes())?;
         }
     }
 
