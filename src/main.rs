@@ -14,7 +14,7 @@ mod utils;
 mod visualization;
 
 use std::ffi::CString;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 
 use argsv2::Args;
 use argsv2::helpers::prepare_trace_paths;
@@ -45,9 +45,9 @@ fn run_analysis<L: clap_verbosity_flag::LogLevel>(
 }
 
 fn run_plotting(args: &PlotArgs) -> color_eyre::eyre::Result<()> {
-    let mut output = match &args.output {
-        Some(o) => Box::new(std::fs::File::create(o)?),
-        None => Box::new(std::io::stdout()) as Box<dyn Write>,
+    let mut output: BufWriter<Box<dyn Write>> = match &args.output {
+        Some(o) => BufWriter::new(Box::new(std::fs::File::create(o)?)),
+        None => BufWriter::new(Box::new(std::io::stdout())),
     };
 
     let output_format = args
@@ -73,21 +73,19 @@ fn run_viewer(_args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
 
 fn run_extract(args: &ExtractArgs) -> color_eyre::eyre::Result<()> {
     let source_file = args.input_path();
-    let mut output: Box<dyn Write> = args
-        .output_path()
-        .map(|p| std::fs::File::create(p).map(|f| Box::new(f) as Box<dyn Write>))
-        .unwrap_or_else(|| Ok(Box::new(std::io::stdout()) as Box<dyn Write>))?;
+    let mut output: Box<BufWriter<Box<dyn Write>>> = match &args.output_path() {
+        Some(o) => Box::new(BufWriter::new(Box::new(std::fs::File::create(o)?))),
+        None => Box::new(BufWriter::new(Box::new(std::io::stdout()))),
+    };
 
     match args.content() {
         argsv2::extract_args::ExtractContentArgs::Graph => {
             let graph = extract::extract_graph(&source_file)?;
-
-            writeln!(output, "{graph}")?;
+            output.write_all(graph.as_bytes())?;
         }
         argsv2::extract_args::ExtractContentArgs::Property(args) => {
             let data = extract::extract_property(&source_file, args.element_id(), args.property())?;
-
-            data.export(&mut output)?;
+            output.write_all(data.export_json()?.as_bytes())?;
         }
     }
 
