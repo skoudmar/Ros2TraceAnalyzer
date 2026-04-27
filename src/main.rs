@@ -45,9 +45,9 @@ fn run_analysis<L: clap_verbosity_flag::LogLevel>(
 }
 
 fn run_plotting(args: &PlotArgs) -> color_eyre::eyre::Result<()> {
-    let mut output: Box<BufWriter<Box<dyn Write>>> = match &args.output {
-        Some(o) => Box::new(BufWriter::new(Box::new(std::fs::File::create(o)?))),
-        None => Box::new(BufWriter::new(Box::new(std::io::stdout()))),
+    let mut output: BufWriter<Box<dyn Write>> = match &args.output {
+        Some(o) => BufWriter::new(Box::new(std::fs::File::create(o)?)),
+        None => BufWriter::new(Box::new(std::io::stdout())),
     };
 
     let output_format = args

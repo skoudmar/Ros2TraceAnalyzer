@@ -20,7 +20,7 @@ mod error;
 mod plots;
 
 pub fn render_plot(
-    output: &mut Box<std::io::BufWriter<Box<dyn std::io::Write>>>,
+    output: &mut std::io::BufWriter<dyn std::io::Write>,
     plotting_data: PlottableData,
     plot_request: &PlotRequest,
     output_format: PlotOutputFormat,
