@@ -3,6 +3,8 @@ use std::sync::{Arc, Mutex, Weak};
 
 use derive_more::derive::From;
 
+pub mod binary_sql_store;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub enum Known<T> {
     Known(T),
