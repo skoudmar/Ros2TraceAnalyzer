@@ -22,7 +22,6 @@ from ros_element import (
     ChartType,
     ChartValue,
     ElementReference,
-    ElementType,
 )
 
 gi.require_version("Gtk", "3.0")
@@ -57,7 +56,7 @@ class TooltipWidget(xdot.ui.DotWidget):
                         size=(400, 400),
                     )
                 )
-                self.image.set_from_file(image_path)
+                self.image.set_from_pixbuf(image_path)
 
             self.image.show()
             self.frame.show()

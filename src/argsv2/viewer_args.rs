@@ -7,43 +7,36 @@ use crate::argsv2::analysis_args::filenames;
 pub struct ViewerArgs {
     /// Binary bundle file name or a directory containing r2ta_results.sqlite file
     #[clap(value_name = "FILENAME", value_hint = ValueHint::FilePath)]
-    pub input: Option<PathBuf>,
+    pub input: PathBuf,
 
     /// main.py file path or directory path containing the main.py file
-    ///
-    /// Defaults to $PWD/py-src/xdotviewer/main.py
-    #[clap(long, value_name = "VIEWER", value_hint = ValueHint::FilePath)]
-    pub viewer: Option<PathBuf>,
+    #[clap(long, value_name = "VIEWER", value_hint = ValueHint::FilePath, default_value = ".")]
+    pub viewer: PathBuf,
 }
 
 impl ViewerArgs {
     pub fn input_path(&self) -> PathBuf {
-        match &self.input {
-            Some(p) => {
-                if p.is_dir() {
-                    p.join(filenames::BINARY_BUNDLE)
-                } else {
-                    p.clone()
-                }
-            }
-            None => std::env::current_dir()
-                .unwrap()
-                .join(filenames::BINARY_BUNDLE),
+        if self.input.is_dir() {
+            self.input.join(filenames::BINARY_BUNDLE)
+        } else {
+            self.input.clone()
         }
     }
 
     pub fn viewer_path(&self) -> PathBuf {
-        match &self.viewer {
-            Some(p) => {
-                if p.is_dir() {
-                    p.join("main.py")
+        // use env var R2TA_VIEWER, which is expected to point to the main.py, if present
+        match option_env!("R2TA_VIEWER") {
+            Some(l) => l.into(),
+            None => {
+                if self.viewer.is_dir() {
+                    self.viewer
+                        .join("py-src")
+                        .join("xdotviewer")
+                        .join("main.py")
                 } else {
-                    p.clone()
+                    self.viewer.clone()
                 }
             }
-            None => std::env::current_dir()
-                .unwrap()
-                .join("py-src/xdotviewer/main.py"),
         }
     }
 }

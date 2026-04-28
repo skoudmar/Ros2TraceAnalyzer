@@ -73,16 +73,7 @@ fn run_viewer(args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
     let mut cmd = std::process::Command::new("python");
     cmd.args([
         args.viewer_path(),
-        #[cfg(debug_assertions)]
-        std::env::current_dir()?
-            .join("target")
-            .join("debug")
-            .join("Ros2TraceAnalyzer"),
-        #[cfg(not(debug_assertions))]
-        std::env::current_dir()?
-            .join("target")
-            .join("release")
-            .join("Ros2TraceAnalyzer"),
+        std::env::current_exe().unwrap(),
         input.clone(),
     ]);
 

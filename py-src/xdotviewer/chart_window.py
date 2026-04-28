@@ -106,10 +106,9 @@ class ChartWindow(Gtk.Window):
 
         vbox.pack_start(toolbar, False, False, 0)
 
-        self.image_path = self.render()
-        image = Gtk.Image.new_from_file(self.image_path)
-        vbox.pack_start(image, True, True, 0)
-        self.image = image
+        image_buffer = self.render()
+        self.image = Gtk.Image.new_from_pixbuf(image_buffer)
+        vbox.pack_start(self.image, True, True, 0)
 
     def render(self):
         return self.r2ta.render(
@@ -122,8 +121,8 @@ class ChartWindow(Gtk.Window):
         )
 
     def visualise(self):
-        self.image_path = self.render()
-        self.image.set_from_file(self.image_path)
+        image_buffer = self.render()
+        self.image.set_from_pixbuf(image_buffer)
 
     def set_and_rerun(self, param, value):
         if getattr(self, param) != value:
@@ -185,20 +184,16 @@ class ChartWindow(Gtk.Window):
 
         if chooser.run() == Gtk.ResponseType.OK:
             filename = chooser.get_filename()
-            format_ = output_formats[chooser.get_filter().get_name()]
             chooser.destroy()
-            self.export_file(filename, format_)
+
+            self.r2ta.save_as(
+                filename,
+                ChartRequest(
+                    node=self.element.node,
+                    value=self.value,
+                    plot=self.chart,
+                    bins=self.bins,
+                ),
+            )
         else:
             chooser.destroy()
-
-    def export_file(self, filename, format_):
-        if format_ == "png":
-            from cairosvg import svg2png
-
-            with open(self.image_path) as f:
-                s = f.read().encode("utf-8")
-                svg2png(bytestring=s, write_to=filename)
-        elif format_ == "svg":
-            import shutil
-
-            shutil.copy2(self.image_path, filename)
