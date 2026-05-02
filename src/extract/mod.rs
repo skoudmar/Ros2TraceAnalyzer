@@ -14,14 +14,14 @@ use crate::argsv2::extract_args::AnalysisProperty;
 use crate::utils::binary_sql_store::{BinarySQLStoreError, BinarySqlStore};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Display, Debug)]
-#[display("{node}::{interface}")]
+#[display("{node} {interface}")]
 pub struct RosInterfaceCompleteName {
     pub interface: String,
     pub node: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Display, Debug)]
-#[display("{source_node}-({topic})>{destination_node}")]
+#[display("{topic} ({source_node} → {destination_node})")]
 pub struct RosChannelCompleteName {
     pub source_node: String,
     pub destination_node: String,
@@ -70,7 +70,7 @@ pub fn extract_property(
     input: &Path,
     element_id: i64,
     property: &AnalysisProperty,
-) -> color_eyre::eyre::Result<PlottableData> {
+) -> color_eyre::eyre::Result<(String, PlottableData)> {
     let store = BinarySqlStore::open(input)?;
 
     let element_id = element_id as usize;
@@ -97,46 +97,50 @@ pub fn extract_property(
     }
 
     let plottable_data = match property {
-        AnalysisProperty::CallbackDuration => PlottableData::I64(
-            store
+        AnalysisProperty::CallbackDuration => {
+            let d = store
                 .get_by_id::<CallbackDurationExport>(element_id)
-                .map_err(DataExtractionError::SourceDataParseError)?
-                .callback_durations,
-        ),
-        AnalysisProperty::ActivationDelay => PlottableData::I64(
-            store
+                .map_err(DataExtractionError::SourceDataParseError)?;
+            (d.name.to_string(), PlottableData::I64(d.callback_durations))
+        }
+        AnalysisProperty::ActivationDelay => {
+            let d = store
                 .get_by_id::<ActivationDelayExport>(element_id)
-                .map_err(DataExtractionError::SourceDataParseError)?
-                .activation_delays,
-        ),
-        AnalysisProperty::PublicationDelay => PlottableData::I64(
-            store
+                .map_err(DataExtractionError::SourceDataParseError)?;
+            (d.name.to_string(), PlottableData::I64(d.activation_delays))
+        }
+        AnalysisProperty::PublicationDelay => {
+            let d = store
                 .get_by_id::<PublicationDelayExport>(element_id)
-                .map_err(DataExtractionError::SourceDataParseError)?
-                .publication_delays,
-        ),
-        AnalysisProperty::MessageDelay => PlottableData::I64(
-            store
+                .map_err(DataExtractionError::SourceDataParseError)?;
+            (d.name.to_string(), PlottableData::I64(d.publication_delays))
+        }
+        AnalysisProperty::MessageDelay => {
+            let d = store
                 .get_by_id::<MessagesDelayExport>(element_id)
-                .map_err(DataExtractionError::SourceDataParseError)?
-                .messages_delays,
-        ),
-        AnalysisProperty::MessageLatency => PlottableData::I64(
-            store
+                .map_err(DataExtractionError::SourceDataParseError)?;
+
+            (d.name.to_string(), PlottableData::I64(d.messages_delays))
+        }
+        AnalysisProperty::MessageLatency => {
+            let d = store
                 .get_by_id::<MessageLatencyExport>(element_id)
                 .map_err(|e| match e {
                     BinarySQLStoreError::NoResults => {
                         DataExtractionError::NoSuchElement(element_id)
                     }
                     _ => e.into(),
-                })?
-                .messages_latencies,
-        ),
+                })?;
+            (d.name.to_string(), PlottableData::I64(d.messages_latencies))
+        }
     };
 
-    let _ = plottable_data.assert_valid()?;
+    let _ = plottable_data.1.assert_valid()?;
 
-    Ok(plottable_data)
+    Ok((
+        format!("{} of: {}", property, &plottable_data.0),
+        plottable_data.1,
+    ))
 }
 
 impl PlottableData {

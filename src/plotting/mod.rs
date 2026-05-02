@@ -21,7 +21,7 @@ mod plots;
 
 pub fn render_plot(
     output: &mut Box<dyn std::io::Write>,
-    plotting_data: PlottableData,
+    plotting_data: (String, PlottableData),
     plot_request: &PlotRequest,
     output_format: PlotOutputFormat,
 ) -> Result<(), PlotConstructionCommonError> {
@@ -37,6 +37,7 @@ pub fn render_plot(
                 plotting_data,
                 &plot_request.plot,
                 &spacing,
+                plot_request.include_title,
                 &axis_description,
             )?;
             output.write_all(out.as_bytes()).unwrap();
@@ -48,6 +49,7 @@ pub fn render_plot(
                 plotting_data,
                 &plot_request.plot,
                 &spacing,
+                plot_request.include_title,
                 &axis_description,
             )?;
 
@@ -85,6 +87,9 @@ struct PlotSpacing {
 
     /// Font size of the axis description
     pub desc_size: i32,
+
+    /// Font size of the title
+    title_size: i32,
 }
 
 impl From<(u32, u32)> for PlotSpacing {
@@ -101,35 +106,38 @@ impl From<(u32, u32)> for PlotSpacing {
                 label_margin: [48, 0, 0, 48],
                 label_size: [12; 2],
                 desc_size: 20,
+                title_size: 24,
             },
             (800.., _) | (_, 800..) => PlotSpacing {
                 margin: [32; 4],
                 label_margin: [82, 0, 0, 64],
                 label_size: [20; 2],
                 desc_size: 32,
+                title_size: 36,
             },
         }
     }
 }
 
-fn label_axis<B: DrawingBackend>(
+fn label_axis<B: DrawingBackend, T: Copy>(
     mut plot: ChartContext<
         '_,
         B,
         Cartesian2d<
-            impl Ranged<ValueType = i64> + ValueFormatter<i64>,
+            impl Ranged<ValueType = T> + ValueFormatter<T>,
             impl Ranged<ValueType = i64> + ValueFormatter<i64>,
         >,
     >,
     scaled_axis_descriptor: &[ScaledAxisDescriptor; 2],
     sizes: &PlotSpacing,
+    fmap: impl Fn(T) -> i64,
 ) -> Result<(), PlotConstructionError<B::ErrorType>> {
     plot.configure_mesh()
         .max_light_lines(1)
         .x_desc(scaled_axis_descriptor[0].name())
         .y_desc(scaled_axis_descriptor[1].name())
         .x_label_formatter(&|v| {
-            format!("{:.2}", scaled_axis_descriptor[0].convert(*v))
+            format!("{:.2}", scaled_axis_descriptor[0].convert(fmap(*v)))
                 .trim_end_matches('0')
                 .trim_end_matches('.')
                 .to_string()
@@ -149,9 +157,10 @@ fn label_axis<B: DrawingBackend>(
 
 fn draw_into_canvas<B: DrawingBackend>(
     canvas: B,
-    data: PlottableData,
+    data: (String, PlottableData),
     variant: &PlotVariants,
     spacing: &PlotSpacing,
+    include_title: bool,
     axis_description: &AxisDescriptors,
 ) -> Result<(), PlotConstructionError<B::ErrorType>> {
     let area = canvas.into_drawing_area();
@@ -168,18 +177,28 @@ fn draw_into_canvas<B: DrawingBackend>(
         .set_label_area_size(LabelAreaPosition::Right, spacing.label_margin[2])
         .set_label_area_size(LabelAreaPosition::Bottom, spacing.label_margin[3]);
 
+    if include_title {
+        plot.caption(&data.0, ("sans-serif", spacing.title_size));
+    }
+
     match &variant {
         PlotVariants::Histogram(histogram_data) => {
-            let histogram = HistogramPlot::new(histogram_data, data, axis_description);
+            let histogram = HistogramPlot::new(histogram_data, data.1, axis_description);
             label_axis(
                 histogram.draw_into(&mut plot)?,
                 histogram.scale_axis(),
                 spacing,
+                |v| v as i64,
             )?;
         }
         PlotVariants::Scatter => {
-            let scatter = ScatterPlot::new(data, axis_description);
-            label_axis(scatter.draw_into(&mut plot)?, scatter.scale_axis(), spacing)?;
+            let scatter = ScatterPlot::new(data.1, axis_description);
+            label_axis(
+                scatter.draw_into(&mut plot)?,
+                scatter.scale_axis(),
+                spacing,
+                |v| v,
+            )?;
         }
     }
 
