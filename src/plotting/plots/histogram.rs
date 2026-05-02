@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use plotters::chart::{ChartBuilder, ChartContext};
-use plotters::coord::types::RangedCoordi64;
+use plotters::coord::types::RangedCoordf64;
 use plotters::prelude::{Cartesian2d, DrawingBackend, IntoLogRange, LogCoord, Rectangle};
 use plotters::style::Color;
 
@@ -90,7 +90,7 @@ impl HistogramPlot {
     }
 }
 
-type Coords = Cartesian2d<RangedCoordi64, LogCoord<i64>>;
+type Coords = Cartesian2d<RangedCoordf64, LogCoord<i64>>;
 impl PlotData<Coords> for HistogramPlot {
     fn draw_into<'a, B: DrawingBackend>(
         &self,
@@ -98,17 +98,22 @@ impl PlotData<Coords> for HistogramPlot {
     ) -> Result<ChartContext<'a, B, Coords>, PlotConstructionError<B::ErrorType>> {
         let mut context = canvas
             .build_cartesian_2d(
-                self.x_range.0..self.x_range.1,
+                (self.x_range.0 as f64)..(self.x_range.1 as f64),
                 (self.y_range.0..self.y_range.1).log_scale(),
             )
             .map_err(PlotConstructionError::InvalidCoordinateSystem)?;
 
+        let margin = self.bin_width as f64 * 0.05;
+
         context
             .draw_series(self.data.iter().enumerate().map(|(b, size)| {
-                let x0 = self.x_range.0 + (b as u64 * self.bin_width) as i64;
-                let x1 = x0 + self.bin_width as i64;
+                let x0 = (self.x_range.0 + (b as u64 * self.bin_width) as i64) as f64;
+                let x1 = x0 + self.bin_width as f64;
 
-                Rectangle::new([(x0, *size), (x1, 0)], plotters::style::BLUE.filled())
+                Rectangle::new(
+                    [(x0 + margin, *size), (x1 - margin, 0)],
+                    plotters::style::BLUE.filled(),
+                )
             }))
             .map_err(PlotConstructionError::PlotSeriesError)?;
 
