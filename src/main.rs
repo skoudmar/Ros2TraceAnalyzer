@@ -67,7 +67,21 @@ fn run_plotting(args: &PlotArgs) -> color_eyre::eyre::Result<()> {
     Ok(())
 }
 
-fn run_viewer(_args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
+fn run_viewer(args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
+    let input = args.input_path();
+
+    let mut cmd = std::process::Command::new("python");
+    cmd.args([&args.viewer, &std::env::current_exe().unwrap(), &input]);
+
+    let mut viewer = cmd.stdin(std::process::Stdio::piped()).spawn()?;
+
+    let mut stdin = viewer.stdin.take().unwrap();
+    writeln!(stdin, "{}", extract::extract_graph(&input)?)?;
+    stdin.flush()?;
+    drop(stdin);
+
+    viewer.wait()?;
+
     Ok(())
 }
 
