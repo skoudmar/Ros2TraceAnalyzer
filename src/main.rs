@@ -71,11 +71,7 @@ fn run_viewer(args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
     let input = args.input_path();
 
     let mut cmd = std::process::Command::new("python");
-    cmd.args([
-        args.viewer_path(),
-        std::env::current_exe().unwrap(),
-        input.clone(),
-    ]);
+    cmd.args([&args.viewer, &std::env::current_exe().unwrap(), &input]);
 
     let mut viewer = cmd.stdin(std::process::Stdio::piped()).spawn()?;
 

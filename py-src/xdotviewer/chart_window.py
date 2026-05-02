@@ -3,7 +3,7 @@ import os.path
 import pathlib
 
 import gi
-from gi.repository import Gtk
+from gi.repository import GdkPixbuf, Gtk
 from r2ta_interface import R2TAInterface
 from ros_element import (
     ChartRequest,
@@ -30,22 +30,28 @@ class ChartWindow(Gtk.Window):
         toolbar = Gtk.Toolbar()
         toolbar.set_style(Gtk.ToolbarStyle.ICONS)
 
-        scatter_icon = Gtk.Image.new_from_file(
+        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(
             os.path.join(
-                pathlib.Path(__file__).parent.resolve(), "media", "scatter.png"
-            )
+                pathlib.Path(__file__).parent.resolve(), "media", "scatter.svg"
+            ),
+            24,
+            24,
         )
+        scatter_icon = Gtk.Image.new_from_pixbuf(pixbuf)
         scatter = Gtk.ToolButton(label="Scatter plot", icon_widget=scatter_icon)
         scatter.connect(
             "clicked", lambda w: self.set_and_rerun("chart", ChartType.SCATTER)
         )
         toolbar.insert(scatter, -1)
 
-        histogram_icon = Gtk.Image.new_from_file(
+        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(
             os.path.join(
-                pathlib.Path(__file__).parent.resolve(), "media", "histogram.png"
-            )
+                pathlib.Path(__file__).parent.resolve(), "media", "histogram.svg"
+            ),
+            24,
+            24,
         )
+        histogram_icon = Gtk.Image.new_from_pixbuf(pixbuf)
         histogram = Gtk.ToolButton(label="Histogram", icon_widget=histogram_icon)
         histogram.connect(
             "clicked", lambda w: self.set_and_rerun("chart", ChartType.HISTOGRAM)
@@ -96,8 +102,8 @@ class ChartWindow(Gtk.Window):
         save_as.connect("clicked", self.save_as)
         toolbar.insert(save_as, -1)
 
-        export_as_icon = Gtk.Image.new_from_icon_name("document-save-as", 16)
-        export_as = Gtk.ToolButton(label="Export data", icon_widget=save_as_icon)
+        export_as_icon = Gtk.Image.new_from_icon_name("document-send", 16)
+        export_as = Gtk.ToolButton(label="Export data", icon_widget=export_as_icon)
         export_as.connect("clicked", self.export_as)
         toolbar.insert(export_as, -1)
 
