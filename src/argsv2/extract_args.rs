@@ -86,7 +86,7 @@ impl ExtractPropertyArgs {
 )]
 pub enum AnalysisProperty {
     /// Callback execution durations
-    #[display("Callback execution time")]
+    #[display("Callback execution times")]
     CallbackDuration,
 
     /// Delays between callback or timer activations
@@ -94,7 +94,7 @@ pub enum AnalysisProperty {
     ActivationDelay,
 
     /// Delays between publisher publications
-    #[display("Delay between publication")]
+    #[display("Delay between publications")]
     PublicationDelay,
 
     /// Delays between subscriber messages
@@ -102,6 +102,6 @@ pub enum AnalysisProperty {
     MessageDelay,
 
     /// Latency of a communication channel
-    #[display("Message latency")]
+    #[display("Message latencies")]
     MessageLatency,
 }

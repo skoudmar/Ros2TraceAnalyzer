@@ -42,6 +42,9 @@ pub struct PlotRequest {
     })]
     pub size: (u32, u32),
 
+    #[clap(long, value_name = "TITLE")]
+    pub include_title: bool,
+
     /// The type of plot to render the data as
     #[command(subcommand)]
     pub plot: PlotVariants,

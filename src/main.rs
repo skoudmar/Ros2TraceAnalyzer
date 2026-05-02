@@ -85,7 +85,8 @@ fn run_extract(args: &ExtractArgs) -> color_eyre::eyre::Result<()> {
             writeln!(output, "{graph}")?;
         }
         argsv2::extract_args::ExtractContentArgs::Property(args) => {
-            let data = extract::extract_property(&source_file, args.element_id(), args.property())?;
+            let (_, data) =
+                extract::extract_property(&source_file, args.element_id(), args.property())?;
 
             data.export(&mut output)?;
         }
