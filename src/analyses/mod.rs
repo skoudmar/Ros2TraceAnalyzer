@@ -101,7 +101,11 @@ impl Analyses {
             if let Some(graph_analysis) = &self.dependency_graph {
                 let mut store = BinarySqlStore::new(&path)?;
 
-                let dot_graph = graph_analysis.to_dot_graph(false, false, 1.0);
+                let dot_graph = graph_analysis.to_dot_graph(
+                    args.color(),
+                    args.thickness(),
+                    args.min_multiplier(),
+                );
 
                 store.insert(&[crate::utils::binary_sql_store::DependencyGraph {
                     graph: dot_graph.to_string(),
