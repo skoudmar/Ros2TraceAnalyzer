@@ -505,6 +505,7 @@ dependencies = [
  "num-traits",
  "phf",
  "serde",
+ "uncased",
 ]
 
 [[package]]
