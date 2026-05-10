@@ -54,6 +54,7 @@ class ChartRequest:
     plot: ChartType
     bins: int | None = None
     size: tuple[int, int] = (800, 800)
+    title: bool = False
 
 
 @dataclass

@@ -17,10 +17,23 @@ from ros_element import (
 gi.require_version("Gtk", "3.0")
 
 
+def add_button(toolbar: Gtk.Toolbar, size: int, label: str, icon_name: str, hook):
+    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(
+        os.path.join(pathlib.Path(__file__).parent.resolve(), "media", icon_name),
+        size,
+        size,
+    )
+    icon = Gtk.Image.new_from_pixbuf(pixbuf)
+    btn = Gtk.ToolButton(label=label, icon_widget=icon)
+    btn.connect("clicked", hook)
+    toolbar.insert(btn, -1)
+
+
 class ChartWindow(Gtk.Window):
     def __init__(self, r2ta: R2TAInterface, element: ElementReference):
         self.r2ta = r2ta
         self.element = element
+        self.title = True
 
         Gtk.Window.__init__(self)
 
@@ -30,46 +43,47 @@ class ChartWindow(Gtk.Window):
         toolbar = Gtk.Toolbar()
         toolbar.set_style(Gtk.ToolbarStyle.ICONS)
 
-        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(
-            os.path.join(
-                pathlib.Path(__file__).parent.resolve(), "media", "scatter.svg"
-            ),
+        add_button(
+            toolbar,
             24,
+            "Include title",
+            "histogram.svg",
+            lambda w: self.set_and_rerun("title", not self.title),
+        )
+        add_button(
+            toolbar,
             24,
+            "Scatter plot",
+            "scatter.svg",
+            lambda w: self.set_and_rerun("chart", ChartType.SCATTER),
         )
-        scatter_icon = Gtk.Image.new_from_pixbuf(pixbuf)
-        scatter = Gtk.ToolButton(label="Scatter plot", icon_widget=scatter_icon)
-        scatter.connect(
-            "clicked", lambda w: self.set_and_rerun("chart", ChartType.SCATTER)
+        add_button(
+            toolbar,
+            24,
+            "Histogram",
+            "histogram.svg",
+            lambda w: self.set_and_rerun("chart", ChartType.HISTOGRAM),
         )
-        toolbar.insert(scatter, -1)
 
-        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(
-            os.path.join(
-                pathlib.Path(__file__).parent.resolve(), "media", "histogram.svg"
+        histogram_bins = Gtk.SpinButton(
+            adjustment=Gtk.Adjustment(
+                value=0,
+                lower=0,
+                upper=2000,
+                step_increment=1,
+                page_increment=10,
             ),
-            24,
-            24,
+            climb_rate=0,
+            digits=0,
         )
-        histogram_icon = Gtk.Image.new_from_pixbuf(pixbuf)
-        histogram = Gtk.ToolButton(label="Histogram", icon_widget=histogram_icon)
-        histogram.connect(
-            "clicked", lambda w: self.set_and_rerun("chart", ChartType.HISTOGRAM)
-        )
-        toolbar.insert(histogram, -1)
-
-        histogram_bins = Gtk.SpinButton()
-        histogram_bins.set_range(0, 2000)
-        histogram_bins.set_increments(1, 10)
         histogram_bins.set_placeholder_text("Bin count")
         histogram_bins.set_width_chars(9)
         histogram_bins.connect(
-            "value-changed", lambda w: self.set_and_rerun("bins", w.get_text())
+            "value-changed",
+            lambda w: self.set_and_rerun("bins", w.get_value_as_int()),
         )
 
-        histogram_bins_item = Gtk.ToolItem()
-        histogram_bins_item.add(histogram_bins)
-        toolbar.insert(histogram_bins_item, -1)
+        toolbar.insert(Gtk.ToolItem(child=histogram_bins), -1)
 
         if self.element.element_type == ElementType.NODE:
             if self.element.node_type == NodeType.CALLBACK:
@@ -123,6 +137,7 @@ class ChartWindow(Gtk.Window):
                 value=self.value,
                 plot=self.chart,
                 bins=self.bins,
+                title=self.title,
             )
         )
 
@@ -199,6 +214,7 @@ class ChartWindow(Gtk.Window):
                     value=self.value,
                     plot=self.chart,
                     bins=self.bins,
+                    title=self.title,
                 ),
             )
         else:

@@ -18,6 +18,7 @@ class R2TAInterface:
             chart.node,
             "-i",
             self.data_dir,
+            *(["--include-title"] if chart.title else []),
             "--size",
             str(chart.size[0]) + "x" + str(chart.size[1]),
             chart.plot.value,
