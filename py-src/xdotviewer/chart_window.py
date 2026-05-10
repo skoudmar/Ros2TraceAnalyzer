@@ -3,7 +3,7 @@ import os.path
 import pathlib
 
 import gi
-from gi.repository import GdkPixbuf, Gtk
+from gi.repository import GdkPixbuf, GLib, Gtk
 from r2ta_interface import R2TAInterface
 from ros_element import (
     ChartRequest,
@@ -31,11 +31,14 @@ def add_button(toolbar: Gtk.Toolbar, size: int, label: str, icon_name: str, hook
 
 class ChartWindow(Gtk.Window):
     def __init__(self, r2ta: R2TAInterface, element: ElementReference):
+        super().__init__()
+
         self.r2ta = r2ta
         self.element = element
         self.title = True
-
-        Gtk.Window.__init__(self)
+        self.connect("size-allocate", self.on_reconfigure)
+        self.size = (800, 600)
+        self.set_default_size(800, 600)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.add(vbox)
@@ -128,7 +131,35 @@ class ChartWindow(Gtk.Window):
 
         image_buffer = self.render()
         self.image = Gtk.Image.new_from_pixbuf(image_buffer)
-        vbox.pack_start(self.image, True, True, 0)
+        self.image.set_size_request(1, 1)
+
+        self.scrolled = Gtk.ScrolledWindow()
+        self.scrolled.set_hexpand(True)
+        self.scrolled.set_vexpand(True)
+        self.scrolled.add(self.image)
+
+        vbox.pack_start(self.scrolled, True, True, 0)
+
+    def on_reconfigure(self, widget, event):
+        def resize():
+            self.resize_timer = None
+            self.set_and_rerun(
+                "size",
+                (
+                    self.scrolled.get_allocated_width(),
+                    self.scrolled.get_allocated_height(),
+                ),
+            )
+            return False
+
+        if not hasattr(self, "resize_timer"):
+            self.resize_timer = None
+            resize()
+        else:
+            if getattr(self, "resize_timer", None):
+                GLib.source_remove(self.resize_timer)
+            self.resize_timer = GLib.timeout_add(50, resize)
+        return False
 
     def render(self):
         return self.r2ta.render(
@@ -138,6 +169,7 @@ class ChartWindow(Gtk.Window):
                 plot=self.chart,
                 bins=self.bins,
                 title=self.title,
+                size=self.size,
             )
         )
 
@@ -215,6 +247,7 @@ class ChartWindow(Gtk.Window):
                     plot=self.chart,
                     bins=self.bins,
                     title=self.title,
+                    size=self.size,
                 ),
             )
         else:
