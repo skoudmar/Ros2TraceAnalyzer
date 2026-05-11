@@ -65,6 +65,8 @@ class ElementReference:
 
     @staticmethod
     def from_ref(ref: str) -> "ElementReference | None":
+        if ref is None:
+            return None
         if ref.startswith("r2ta-node://"):
             node, node_type = ref.removeprefix("r2ta-node://").split("|", 1)
             return ElementReference(
