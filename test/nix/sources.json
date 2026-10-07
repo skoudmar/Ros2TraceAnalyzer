@@ -5,10 +5,10 @@
         "homepage": null,
         "owner": "lopsided98",
         "repo": "nix-ros-overlay",
-        "rev": "c0659dc45d4c1736d71d5578b17f12e3b1afe190",
-        "sha256": "1branyrz5g8f5sgq09l89nif1q9xb0jrlk2bd9jnd6w0d5ygrm2h",
+        "rev": "e2d6dbe1121c128e5b662c29837e13701fe1f6e0",
+        "sha256": "0p48d7i9n1yvn6iz3hlllmhsxz0mi6savhp0pqv5pw9jslg4n0c3",
         "type": "tarball",
-        "url": "https://github.com/lopsided98/nix-ros-overlay/archive/c0659dc45d4c1736d71d5578b17f12e3b1afe190.tar.gz",
+        "url": "https://github.com/lopsided98/nix-ros-overlay/archive/e2d6dbe1121c128e5b662c29837e13701fe1f6e0.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

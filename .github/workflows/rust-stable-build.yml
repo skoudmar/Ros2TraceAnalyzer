@@ -2,7 +2,6 @@ name: build (stable)
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - "**"
@@ -18,7 +17,6 @@ concurrency:
 
 jobs:
   build:
-    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +24,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libbabeltrace2-dev
+          sudo apt-get install -y libbabeltrace2-dev libfreetype6-dev libfontconfig1-dev
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable

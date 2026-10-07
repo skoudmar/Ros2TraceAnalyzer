@@ -15,7 +15,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libbabeltrace2-dev
+          sudo apt-get install -y libbabeltrace2-dev libfreetype6-dev libfontconfig1-dev
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable

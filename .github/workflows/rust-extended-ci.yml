@@ -2,10 +2,9 @@ name: Extended CI (stable, beta, nightly, MSRV)
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
-      - main
+      - "**"
   workflow_dispatch:
     inputs:
       run_reason:
@@ -65,7 +64,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libbabeltrace2-dev
+          sudo apt-get install -y libbabeltrace2-dev libfreetype6-dev libfontconfig1-dev
 
       - name: Install Rust (${{ matrix.toolchain }})
         uses: dtolnay/rust-toolchain@stable
