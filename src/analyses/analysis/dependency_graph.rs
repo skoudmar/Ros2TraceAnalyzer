@@ -289,6 +289,13 @@ impl DependencyGraph {
                     Edge::ServiceCallbackInvocation(service_arc.clone().into(), callback_arc);
                 let edge_data = self.edges.entry(edge).or_default();
 
+                let service = service_arc.lock().unwrap();
+                if service.get_node().is_unknown() {
+                    return;
+                }
+
+                drop(service);
+
                 if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
                     debug_assert_eq!(
                         edge_data.activation_delay.len() + 1,
@@ -304,11 +311,9 @@ impl DependencyGraph {
                 }
 
                 let service = service_arc.lock().unwrap();
-                let node_arc = service
-                    .get_node()
-                    .expect("Service should be associated with a node when invoked.")
-                    .get_arc()
-                    .expect("Node should be alive.");
+
+                let node_arc = service.get_node().unwrap().get_arc().unwrap();
+
                 let latency = self
                     .last_spin_wake_up_time_for_node
                     .get(&node_arc.into())
@@ -406,6 +411,9 @@ impl DependencyGraph {
             return;
         }
         let message = event.message.lock().unwrap();
+        if message.get_subscriber().is_none() {
+            return;
+        }
         let subscriber_arc = message.get_subscriber().unwrap();
         let subscriber_node = self
             .subscriber_nodes
@@ -462,6 +470,9 @@ impl DependencyGraph {
         context: &Context,
     ) {
         let publication = event.message.lock().unwrap();
+        if publication.get_publisher().is_none() {
+            return;
+        }
         let publisher_arc = publication.get_publisher().unwrap();
 
         let publisher_node = self
@@ -968,6 +979,9 @@ impl DotGraph {
             graph_node_id += 1;
 
             let callback = callback.0.lock().unwrap();
+            if callback.get_node().is_none() {
+                continue;
+            }
             let ros_node = callback.get_node().unwrap().get_arc().unwrap();
             graph_node_to_ros_node.insert(node, ros_node.clone().into());
         }
@@ -1058,11 +1072,6 @@ fn process_edges(
     let mut edge_id = 1;
 
     for (edge, edge_data) in graph_edges {
-        let latencies = Sorted::from_unsorted(&edge_data.latencies);
-        let Some(median) = latencies.median().copied() else {
-            log::warn!("Skipping edge without latency samples: {edge:?}");
-            continue;
-        };
         let edge_type = edge.as_type();
 
         let source = edge.source();
@@ -1088,6 +1097,12 @@ fn process_edges(
             log::warn!(
                 "Skipping edge {edge_type:?}: target ROS-node mapping missing for {target:?}"
             );
+            continue;
+        };
+
+        let latencies = Sorted::from_unsorted(&edge_data.latencies);
+        let Some(median) = latencies.median().copied() else {
+            log::warn!("Skipping edge without latency samples: {edge:?}");
             continue;
         };
 

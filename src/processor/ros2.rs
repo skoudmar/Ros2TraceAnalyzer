@@ -538,12 +538,19 @@ impl Processor {
         context_id: ContextId,
         context: &Context,
     ) -> Result<processed_events::ros2::RmwTake> {
-        let subscriber = self
-            .subscribers_by_rmw
-            .get_or_err(
-                event.rmw_subscription_handle.into_id(context_id),
-                "rmw_handle",
-            )
+        let subscriber = self.subscribers_by_rmw.get_or_err(
+            event.rmw_subscription_handle.into_id(context_id),
+            "rmw_handle",
+        );
+
+        if subscriber.is_err() {
+            return Ok(processed_events::ros2::RmwTake {
+                message: Arc::new(Mutex::new(SubscriptionMessage::new(event.message))),
+                taken: event.taken,
+            });
+        }
+
+        let subscriber = subscriber
             .map_err(|e| e.with_ros2_event(event, time, context))
             .wrap_err("Taken message missing subscriber.")?;
         let topic = subscriber
@@ -879,7 +886,8 @@ impl Processor {
         let callback_arc =
             Callback::new_timer(event.callback, &timer_arc, context.hostname().to_owned());
 
-        self.callbacks_by_id
+        let _ = self
+            .callbacks_by_id
             .insert(event.callback.into_id(context_id), callback_arc.clone())
             .and_then(filter_out_removed_callers)
             .map_or(Ok(()), |old: Arc<Mutex<Callback>>| {
@@ -887,7 +895,7 @@ impl Processor {
                     error::AlreadyExists::with_id(event.callback, &callback_arc, old)
                         .with_ros2_event(event, time, context),
                 )
-            })?;
+            });
 
         timer_arc
             .lock()
