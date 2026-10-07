@@ -25,8 +25,7 @@ impl HistogramPlot {
         data: &[i64],
         axis_descriptor: &AxisDescriptors,
     ) -> Self {
-        // How many bins the data should be split into (this is how many bins will actually render)
-        let bin_count = if let Some(bins) = histogram_data.bins
+        let min_bin_count = if let Some(bins) = histogram_data.scale
             && bins != 0
         {
             bins
@@ -46,11 +45,12 @@ impl HistogramPlot {
         };
 
         let (bin_width, x_range) = if data.len() > 1 {
-            histogram_x_axis_alignment(min, max, bin_count)
+            histogram_x_axis_alignment(min, max, min_bin_count)
         } else {
             // This is an explicit case when there is only one data point
             (1, (min, min + 1))
         };
+        let bin_count = ((x_range.1 - x_range.0) / bin_width) as usize;
 
         let mut binned_data = vec![0; bin_count];
         let last_idx = bin_count
@@ -58,7 +58,7 @@ impl HistogramPlot {
             .expect("bin_count must be at least 1");
 
         for d in data {
-            let bin = usize::try_from((d - min) / bin_width)
+            let bin = usize::try_from((d - x_range.0) / bin_width)
                 .unwrap()
                 .min(last_idx);
 

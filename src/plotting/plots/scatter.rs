@@ -21,8 +21,12 @@ impl ScatterPlot {
         let y_range = resolve_axis_range(&data);
 
         let scaled_axis = [
-            axis_descriptors.x.scaled_axis_unit(x_range.1),
-            axis_descriptors.y.scaled_axis_unit(y_range.1),
+            axis_descriptors
+                .x
+                .scaled_axis_unit((x_range.1 - x_range.0) / 2),
+            axis_descriptors
+                .y
+                .scaled_axis_unit((y_range.1 - y_range.0) / 2),
         ];
 
         ScatterPlot {
