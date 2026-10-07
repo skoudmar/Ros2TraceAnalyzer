@@ -926,18 +926,17 @@ pub struct DotGraph {
 impl DotGraph {
     pub fn new(graph: &DependencyGraph, color: bool, thickness: bool, min_multiplier: f64) -> Self {
         fn element_name(node: Option<ArcWeak<Mutex<model::Node>>>, topic: impl Debug) -> String {
-            format!(
-                "{}{:?}",
-                node.map(|n| n
-                    .get_arc()
-                    .unwrap()
-                    .lock()
-                    .unwrap()
-                    .get_full_name()
-                    .to_string())
-                    .unwrap_or(String::new()),
-                topic
-            )
+            let node_name = node
+                .map(|n| {
+                    n.get_arc()
+                        .unwrap()
+                        .lock()
+                        .unwrap()
+                        .get_full_name()
+                        .to_string()
+                })
+                .unwrap_or(String::new());
+            format!("{node_name}{topic:?}")
         }
 
         let mut graph_node_to_ros_node: HashMap<Node, ArcMutWrapper<model::Node>> = HashMap::new();
