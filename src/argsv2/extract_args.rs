@@ -9,7 +9,7 @@ use crate::argsv2::analysis_args::filenames;
 pub struct ExtractArgs {
     /// Binary bundle file name or a directory containing r2ta_results.sqlite file
     #[clap(long, short = 'i', value_name = "FILENAME", value_hint = ValueHint::FilePath, default_value = super::analysis_args::filenames::BINARY_BUNDLE)]
-    input: Option<PathBuf>,
+    input: PathBuf,
 
     /// File to extract the data to, if not present the data is written to stdout
     #[clap(long, short = 'o', value_name = "FILENAME", value_hint = ValueHint::FilePath)]
@@ -21,17 +21,10 @@ pub struct ExtractArgs {
 
 impl ExtractArgs {
     pub fn input_path(&self) -> PathBuf {
-        match &self.input {
-            Some(p) => {
-                if p.is_dir() {
-                    p.join(filenames::BINARY_BUNDLE)
-                } else {
-                    p.clone()
-                }
-            }
-            None => std::env::current_dir()
-                .unwrap()
-                .join(filenames::BINARY_BUNDLE),
+        if self.input.is_dir() {
+            self.input.join(filenames::BINARY_BUNDLE)
+        } else {
+            self.input.clone()
         }
     }
 
@@ -86,7 +79,7 @@ impl ExtractPropertyArgs {
 )]
 pub enum AnalysisProperty {
     /// Callback execution durations
-    #[display("Callback execution time")]
+    #[display("Callback execution times")]
     CallbackDuration,
 
     /// Delays between callback or timer activations
@@ -94,7 +87,7 @@ pub enum AnalysisProperty {
     ActivationDelay,
 
     /// Delays between publisher publications
-    #[display("Delay between publication")]
+    #[display("Delay between publications")]
     PublicationDelay,
 
     /// Delays between subscriber messages
@@ -102,6 +95,6 @@ pub enum AnalysisProperty {
     MessageDelay,
 
     /// Latency of a communication channel
-    #[display("Message latency")]
+    #[display("Message latencies")]
     MessageLatency,
 }

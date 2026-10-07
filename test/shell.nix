@@ -18,4 +18,12 @@ with pkgs; mkShell {
       ];
     })
   ];
+  shellHook = ''
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [
+      sqlite
+      fontconfig
+      freetype
+      babeltrace2
+    ]}"
+  '';
 }

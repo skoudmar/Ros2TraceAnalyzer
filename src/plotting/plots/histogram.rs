@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use plotters::chart::{ChartBuilder, ChartContext};
-use plotters::coord::types::RangedCoordi64;
+use plotters::coord::types::RangedCoordf64;
 use plotters::prelude::{Cartesian2d, DrawingBackend, IntoLogRange, LogCoord, Rectangle};
 use plotters::style::Color;
 
@@ -8,7 +8,7 @@ use crate::argsv2::plot_args::HistogramData;
 use crate::extract::PlottableData;
 use crate::plotting::axis_descriptor::{AxisDescriptors, ScaledAxisDescriptor};
 use crate::plotting::error::PlotConstructionError;
-use crate::plotting::plots::{PlotData, resolve_axis_range};
+use crate::plotting::plots::PlotData;
 
 pub struct HistogramPlot {
     _bin_count: usize,
@@ -22,11 +22,9 @@ pub struct HistogramPlot {
 impl HistogramPlot {
     pub fn new(
         histogram_data: &HistogramData,
-        data: PlottableData,
+        data: &[i64],
         axis_descriptor: &AxisDescriptors,
     ) -> Self {
-        let PlottableData::I64(data) = data;
-
         let min_bin_count = if let Some(bins) = histogram_data.scale
             && bins != 0
         {
@@ -59,7 +57,7 @@ impl HistogramPlot {
             .checked_sub(1)
             .expect("bin_count must be at least 1");
 
-        for d in &data {
+        for d in data {
             let bin = usize::try_from((d - x_range.0) / bin_width)
                 .unwrap()
                 .min(last_idx);
@@ -67,12 +65,15 @@ impl HistogramPlot {
             binned_data[bin] += 1;
         }
 
-        let y_range = resolve_axis_range(&binned_data);
+        let y_max = *binned_data
+            .iter()
+            .max()
+            .expect("bin_count must be at least 1");
 
         let scaled_axis = [
             axis_descriptor
                 .x
-                .scaled_axis_unit((x_range.1 - x_range.0) / 2),
+                .scaled_axis_unit(x_range.0 + (x_range.1 - x_range.0) / 2),
             // This has logarithmic scale so there is no reasonable unit to cover
             // the entire range. If this becomes a problem we can allow for formatting
             // individual ticks and display just the exponents
@@ -83,14 +84,14 @@ impl HistogramPlot {
             _bin_count: bin_count,
             bin_width: bin_width as u64,
             x_range,
-            y_range: (0, y_range.1),
+            y_range: (0, y_max),
             data: binned_data,
             scaled_axis,
         }
     }
 }
 
-type Coords = Cartesian2d<RangedCoordi64, LogCoord<i64>>;
+type Coords = Cartesian2d<RangedCoordf64, LogCoord<i64>>;
 impl PlotData<Coords> for HistogramPlot {
     fn draw_into<'a, B: DrawingBackend>(
         &self,
@@ -98,17 +99,22 @@ impl PlotData<Coords> for HistogramPlot {
     ) -> Result<ChartContext<'a, B, Coords>, PlotConstructionError<B::ErrorType>> {
         let mut context = canvas
             .build_cartesian_2d(
-                self.x_range.0..self.x_range.1,
+                (self.x_range.0 as f64)..(self.x_range.1 as f64),
                 (self.y_range.0..self.y_range.1).log_scale(),
             )
             .map_err(PlotConstructionError::InvalidCoordinateSystem)?;
 
+        let margin = self.bin_width as f64 * 0.05;
+
         context
             .draw_series(self.data.iter().enumerate().map(|(b, size)| {
-                let x0 = self.x_range.0 + (b as u64 * self.bin_width) as i64;
-                let x1 = x0 + self.bin_width as i64;
+                let x0 = (self.x_range.0 + (b as u64 * self.bin_width) as i64) as f64;
+                let x1 = x0 + self.bin_width as f64;
 
-                Rectangle::new([(x0, *size), (x1, 0)], plotters::style::BLUE.filled())
+                Rectangle::new(
+                    [(x0 + margin, *size), (x1 - margin, 0)],
+                    plotters::style::BLUE.filled(),
+                )
             }))
             .map_err(PlotConstructionError::PlotSeriesError)?;
 
@@ -120,7 +126,7 @@ impl PlotData<Coords> for HistogramPlot {
     }
 }
 
-// This method selects a x axis range so that all ticks are placed
+// This method selects an x axis range so that all ticks are placed
 // on "nice" round numbers
 fn histogram_x_axis_alignment(min: i64, max: i64, data_bins: usize) -> (i64, (i64, i64)) {
     fn round_bin_width(value: f64) -> i64 {
