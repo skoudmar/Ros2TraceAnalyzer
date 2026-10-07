@@ -5,7 +5,6 @@ use plotters::prelude::{Cartesian2d, DrawingBackend, IntoLogRange, LogCoord, Rec
 use plotters::style::Color;
 
 use crate::argsv2::plot_args::HistogramData;
-use crate::extract::PlottableData;
 use crate::plotting::axis_descriptor::{AxisDescriptors, ScaledAxisDescriptor};
 use crate::plotting::error::PlotConstructionError;
 use crate::plotting::plots::PlotData;

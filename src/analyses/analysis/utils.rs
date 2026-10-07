@@ -5,10 +5,6 @@ use crate::utils::DurationDisplayImprecise;
 pub struct DisplayDurationStats<'a>(&'a [i64], &'a str);
 
 impl<'a> DisplayDurationStats<'a> {
-    pub fn with_newline(slice: &'a [i64]) -> Self {
-        Self::new(slice, "\n")
-    }
-
     pub fn with_comma(slice: &'a [i64]) -> Self {
         Self::new(slice, ", ")
     }

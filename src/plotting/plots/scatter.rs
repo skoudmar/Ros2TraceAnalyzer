@@ -3,7 +3,6 @@ use plotters::coord::types::RangedCoordi64;
 use plotters::prelude::{Cartesian2d, Circle, DrawingBackend};
 use plotters::style::Color;
 
-use crate::extract::PlottableData;
 use crate::plotting::axis_descriptor::{AxisDescriptors, ScaledAxisDescriptor};
 use crate::plotting::error::PlotConstructionError;
 use crate::plotting::plots::{PlotData, resolve_axis_range};
