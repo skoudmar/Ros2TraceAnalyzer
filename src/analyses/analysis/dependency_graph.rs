@@ -945,8 +945,8 @@ impl DotGraph {
         let mut graph_node_id = 1;
 
         for publisher in graph.publisher_nodes.keys().sorted_by_cached_key(|k| {
-            let v = k.0.lock().unwrap();
-            element_name(v.get_node().into(), v.get_topic())
+            let publ = k.0.lock().unwrap();
+            element_name(publ.get_node().into(), publ.get_topic())
         }) {
             let node = Node::Publisher(publisher.clone());
             node_to_id.insert(node.clone(), graph_node_id);
@@ -960,8 +960,8 @@ impl DotGraph {
         }
 
         for subscriber in graph.subscriber_nodes.keys().sorted_by_cached_key(|k| {
-            let v = k.0.lock().unwrap();
-            element_name(v.get_node().into(), v.get_topic())
+            let subs = k.0.lock().unwrap();
+            element_name(subs.get_node().into(), subs.get_topic())
         }) {
             let node = Node::Subscriber(subscriber.clone());
             node_to_id.insert(node.clone(), graph_node_id);
@@ -975,8 +975,8 @@ impl DotGraph {
         }
 
         for timer in graph.timer_nodes.keys().sorted_by_cached_key(|k| {
-            let v = k.0.lock().unwrap();
-            element_name(v.get_node().into(), v.get_period())
+            let timer = k.0.lock().unwrap();
+            element_name(timer.get_node().into(), timer.get_period())
         }) {
             let node = Node::Timer(timer.clone());
             node_to_id.insert(node.clone(), graph_node_id);
@@ -988,8 +988,8 @@ impl DotGraph {
         }
 
         for callback in graph.callback_nodes.keys().sorted_by_cached_key(|k| {
-            let v = k.0.lock().unwrap();
-            element_name(v.get_node(), v.get_name())
+            let cb = k.0.lock().unwrap();
+            element_name(cb.get_node(), cb.get_name())
         }) {
             let node = Node::Callback(callback.clone());
             node_to_id.insert(node.clone(), graph_node_id);
@@ -1085,8 +1085,8 @@ fn process_edges(
 
     let mut edge_id = 1;
 
-    for (edge, edge_data) in graph_edges.iter().sorted_by_cached_key(|e| {
-        (node_to_id[&e.0.source()] as u64) << 32 | node_to_id[&e.0.target()] as u64
+    for (edge, edge_data) in graph_edges.iter().sorted_by_cached_key(|(edge, _)| {
+        (node_to_id[&edge.source()] as u64) << 32 | node_to_id[&edge.target()] as u64
     }) {
         let latencies = Sorted::from_unsorted(&edge_data.latencies);
         let Some(median) = latencies.median().copied() else {
@@ -1271,7 +1271,7 @@ impl std::fmt::Display for DotGraph {
         for (node, ros_node) in self
             .graph_node_to_ros_node
             .iter()
-            .sorted_by_cached_key(|v| v.1.0.lock().unwrap().get_full_name().to_string())
+            .sorted_by_cached_key(|(_, node)| node.0.lock().unwrap().get_full_name().to_string())
         {
             let Some(id) = self.ros_node_to_id.get(ros_node).copied() else {
                 log::warn!(
@@ -1356,7 +1356,7 @@ impl std::fmt::Display for DotGraph {
         for (cluster_nodes, cluster_name) in clusters
             .into_iter()
             .zip(cluster_names)
-            .sorted_by_cached_key(|v| v.1.to_owned())
+            .sorted_by_cached_key(|(_node, name)| name.to_owned())
         {
             graph.add_cluster(&cluster_name, cluster_nodes);
         }

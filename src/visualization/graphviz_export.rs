@@ -186,7 +186,10 @@ impl Attributes {
 
 impl Display for Attributes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut iter = self.attributes.iter().sorted_by_cached_key(|v| v.0);
+        let mut iter = self
+            .attributes
+            .iter()
+            .sorted_by_cached_key(|(key, _val)| *key);
         // Write value with Debug to escape special characters
         write!(f, "[")?;
         if let Some((key, value)) = iter.next() {
