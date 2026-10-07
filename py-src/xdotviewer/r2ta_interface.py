@@ -25,7 +25,7 @@ class R2TAInterface:
         ]
 
         if chart.plot == ChartType.HISTOGRAM and chart.bins is not None:
-            args.extend(["--bins", str(chart.bins)])
+            args.extend(["--scale", str(chart.bins)])
 
         try:
             plot_process = subprocess.run(
