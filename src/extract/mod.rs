@@ -36,7 +36,7 @@ pub struct PlottableData {
 impl PlottableData {
     fn new(property: &AnalysisProperty, title: String, data: Vec<i64>) -> Self {
         PlottableData {
-            title: format!("{} of: {}", property, title),
+            title: format!("{property} of: {title}"),
             data,
         }
     }
