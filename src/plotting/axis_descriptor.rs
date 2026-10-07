@@ -70,18 +70,20 @@ impl ScaledAxisDescriptor {
         match self.target {
             AxisQuantity::Duration { base } => format!("{} [{}]", self.default_axis.label, base),
             AxisQuantity::SimpleSi {
+                base: SiPrefix::Base,
+                ..
+            } => self.default_axis.label.to_string(),
+            AxisQuantity::SimpleSi {
                 base,
-                show_exponent,
+                show_exponent: true,
             } => {
-                if base == SiPrefix::Base {
-                    self.default_axis.label.to_string()
-                } else {
-                    if show_exponent {
-                        format!("{} ×{}", self.default_axis.label, base.exponent())
-                    } else {
-                        format!("{} [{}]", self.default_axis.label, base.to_string())
-                    }
-                }
+                format!("{} ×{}", self.default_axis.label, base.exponent())
+            }
+            AxisQuantity::SimpleSi {
+                base,
+                show_exponent: false,
+            } => {
+                format!("{} [{}]", self.default_axis.label, base)
             }
         }
     }
@@ -196,114 +198,59 @@ impl AxisQuantity {
     }
 }
 
+const fn value_axis(plotted_value: PlottedValue) -> AxisDescriptor {
+    let label = match plotted_value {
+        PlottedValue::CallbackDuration => "Duration",
+        PlottedValue::ActivationDelay
+        | PlottedValue::PublicationDelay
+        | PlottedValue::MessageDelay => "Delay",
+        PlottedValue::MessageLatency => "Latency",
+    };
+    AxisDescriptor {
+        label,
+        quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
+    }
+}
+
+const fn count_label(plotted_value: PlottedValue) -> &'static str {
+    match plotted_value {
+        PlottedValue::CallbackDuration => "Callbacks",
+        PlottedValue::ActivationDelay => "Activations",
+        PlottedValue::PublicationDelay => "Publications",
+        PlottedValue::MessageDelay => "Messages",
+        PlottedValue::MessageLatency => "Message",
+    }
+}
+
+const fn sequence_label(plotted_value: PlottedValue) -> &'static str {
+    match plotted_value {
+        PlottedValue::CallbackDuration => "Callback #",
+        PlottedValue::ActivationDelay => "Activation #",
+        PlottedValue::PublicationDelay => "Publication #",
+        PlottedValue::MessageDelay | PlottedValue::MessageLatency => "Message #",
+    }
+}
+
 pub const fn resolve_axis_descriptors(
     plotted_value: PlottedValue,
     plot_variant: &PlotVariants,
 ) -> AxisDescriptors {
+    let count_axis = AxisDescriptor {
+        label: count_label(plotted_value),
+        quantity: AxisQuantity::new_si(SiPrefix::Base, true),
+    };
+    let sequence_axis = AxisDescriptor {
+        label: sequence_label(plotted_value),
+        quantity: AxisQuantity::new_si(SiPrefix::Base, true),
+    };
     match plot_variant {
-        PlotVariants::Histogram(_) => match plotted_value {
-            PlottedValue::CallbackDuration => AxisDescriptors {
-                x: AxisDescriptor {
-                    label: "Duration",
-                    quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
-                },
-                y: AxisDescriptor {
-                    label: "Callbacks",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
-                },
-            },
-            PlottedValue::ActivationDelay => AxisDescriptors {
-                x: AxisDescriptor {
-                    label: "Delay",
-                    quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
-                },
-                y: AxisDescriptor {
-                    label: "Activations",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
-                },
-            },
-            PlottedValue::PublicationDelay => AxisDescriptors {
-                x: AxisDescriptor {
-                    label: "Delay",
-                    quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
-                },
-                y: AxisDescriptor {
-                    label: "Publications",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
-                },
-            },
-            PlottedValue::MessageDelay => AxisDescriptors {
-                x: AxisDescriptor {
-                    label: "Delay",
-                    quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
-                },
-                y: AxisDescriptor {
-                    label: "Messages",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
-                },
-            },
-            PlottedValue::MessageLatency => AxisDescriptors {
-                x: AxisDescriptor {
-                    label: "Latency",
-                    quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
-                },
-                y: AxisDescriptor {
-                    label: "Message",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
-                },
-            },
+        PlotVariants::Histogram(_) => AxisDescriptors {
+            x: value_axis(plotted_value),
+            y: count_axis,
         },
-        PlotVariants::Scatter => match plotted_value {
-            PlottedValue::CallbackDuration => AxisDescriptors {
-                x: AxisDescriptor {
-                    label: "Callback #",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
-                },
-                y: AxisDescriptor {
-                    label: "Duration",
-                    quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
-                },
-            },
-            PlottedValue::ActivationDelay => AxisDescriptors {
-                x: AxisDescriptor {
-                    label: "Activation #",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
-                },
-                y: AxisDescriptor {
-                    label: "Delay",
-                    quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
-                },
-            },
-            PlottedValue::PublicationDelay => AxisDescriptors {
-                x: AxisDescriptor {
-                    label: "Publication #",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
-                },
-                y: AxisDescriptor {
-                    label: "Delay",
-                    quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
-                },
-            },
-            PlottedValue::MessageDelay => AxisDescriptors {
-                x: AxisDescriptor {
-                    label: "Message #",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
-                },
-                y: AxisDescriptor {
-                    label: "Delay",
-                    quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
-                },
-            },
-            PlottedValue::MessageLatency => AxisDescriptors {
-                x: AxisDescriptor {
-                    label: "Message #",
-                    quantity: AxisQuantity::new_si(SiPrefix::Base, true),
-                },
-                y: AxisDescriptor {
-                    label: "Latency",
-                    quantity: AxisQuantity::new_duration(DurationUnit::Nanosecond),
-                },
-            },
+        PlotVariants::Scatter => AxisDescriptors {
+            x: sequence_axis,
+            y: value_axis(plotted_value),
         },
     }
 }

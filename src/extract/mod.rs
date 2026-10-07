@@ -1,4 +1,3 @@
-use std::io::Write;
 use std::path::Path;
 
 use derive_more::Display;
@@ -151,11 +150,8 @@ pub fn extract_property(
 }
 
 impl PlottableData {
-    pub fn export(&self, output: &mut impl Write) -> color_eyre::eyre::Result<()> {
-        let json_string = serde_json::to_string(&self.data)?;
-
-        writeln!(output, "{json_string}")?;
-
-        Ok(())
+    pub fn export_json(&self) -> color_eyre::eyre::Result<String> {
+        let str = serde_json::to_string(&self.data)?;
+        Ok(str)
     }
 }

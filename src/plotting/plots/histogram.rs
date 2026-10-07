@@ -8,7 +8,7 @@ use crate::argsv2::plot_args::HistogramData;
 use crate::extract::PlottableData;
 use crate::plotting::axis_descriptor::{AxisDescriptors, ScaledAxisDescriptor};
 use crate::plotting::error::PlotConstructionError;
-use crate::plotting::plots::{PlotData, resolve_axis_range};
+use crate::plotting::plots::PlotData;
 
 pub struct HistogramPlot {
     _bin_count: usize,
@@ -65,12 +65,15 @@ impl HistogramPlot {
             binned_data[bin] += 1;
         }
 
-        let y_range = resolve_axis_range(&binned_data);
+        let y_max = *binned_data
+            .iter()
+            .max()
+            .expect("bin_count must be at least 1");
 
         let scaled_axis = [
             axis_descriptor
                 .x
-                .scaled_axis_unit((x_range.1 - x_range.0) / 2),
+                .scaled_axis_unit(x_range.0 + (x_range.1 - x_range.0) / 2),
             // This has logarithmic scale so there is no reasonable unit to cover
             // the entire range. If this becomes a problem we can allow for formatting
             // individual ticks and display just the exponents
@@ -81,7 +84,7 @@ impl HistogramPlot {
             _bin_count: bin_count,
             bin_width: bin_width as u64,
             x_range,
-            y_range: (0, y_range.1),
+            y_range: (0, y_max),
             data: binned_data,
             scaled_axis,
         }
@@ -123,7 +126,7 @@ impl PlotData<Coords> for HistogramPlot {
     }
 }
 
-// This method selects a x axis range so that all ticks are placed
+// This method selects an x axis range so that all ticks are placed
 // on "nice" round numbers
 fn histogram_x_axis_alignment(min: i64, max: i64, data_bins: usize) -> (i64, (i64, i64)) {
     fn round_bin_width(value: f64) -> i64 {

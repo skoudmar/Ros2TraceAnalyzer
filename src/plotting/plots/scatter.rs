@@ -11,7 +11,7 @@ use crate::plotting::plots::{PlotData, resolve_axis_range};
 pub struct ScatterPlot {
     x_range: (i64, i64),
     y_range: (i64, i64),
-    data: Vec<(i64, i64)>,
+    data: Vec<i64>,
     scaled_axis: [ScaledAxisDescriptor; 2],
 }
 
@@ -28,11 +28,7 @@ impl ScatterPlot {
         ScatterPlot {
             x_range,
             y_range,
-            data: data
-                .iter()
-                .enumerate()
-                .map(|(i, e)| (i as i64, *e))
-                .collect(),
+            data: data.to_vec(),
             scaled_axis,
         }
     }
@@ -55,7 +51,8 @@ impl PlotData<Coords> for ScatterPlot {
             .draw_series(
                 self.data
                     .iter()
-                    .map(|&(x, y)| Circle::new((x, y), 2, plotters::style::BLUE.filled())),
+                    .enumerate()
+                    .map(|(i, &y)| Circle::new((i as i64, y), 2, plotters::style::BLUE.filled())),
             )
             .map_err(PlotConstructionError::PlotSeriesError)?;
 

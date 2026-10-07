@@ -6,6 +6,7 @@
 *.dot
 *.sqlite
 
-*.svg
-*.png
+./*.svg
+./*.png
 
+**/__pycache__

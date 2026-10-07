@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use plotters::chart::{ChartBuilder, ChartContext};
 use plotters::coord::CoordTranslate;
 use plotters::prelude::DrawingBackend;
@@ -17,5 +18,9 @@ pub trait PlotData<C: CoordTranslate> {
 }
 
 pub fn resolve_axis_range(data: &[i64]) -> (i64, i64) {
-    (*data.iter().min().unwrap(), *data.iter().max().unwrap())
+    data.iter()
+        .minmax()
+        .into_option()
+        .map(|(&min, &max)| (min, max))
+        .unwrap()
 }
