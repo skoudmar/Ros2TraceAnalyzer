@@ -16,9 +16,7 @@ pub struct ScatterPlot {
 }
 
 impl ScatterPlot {
-    pub fn new(data: PlottableData, axis_descriptors: &AxisDescriptors) -> Self {
-        let PlottableData::I64(data) = data;
-
+    pub fn new(data: &[i64], axis_descriptors: &AxisDescriptors) -> Self {
         let x_range = (0, data.len() as i64);
         let y_range = resolve_axis_range(&data);
 
@@ -30,7 +28,7 @@ impl ScatterPlot {
         ScatterPlot {
             x_range,
             y_range,
-            data,
+            data: data.to_vec(),
             scaled_axis,
         }
     }

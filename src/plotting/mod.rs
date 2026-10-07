@@ -1,3 +1,4 @@
+use std::convert::identity;
 use std::io::Write;
 
 use plotters::chart::{ChartBuilder, ChartContext, LabelAreaPosition};
@@ -70,6 +71,9 @@ struct PlotSpacing {
 
     /// Font size of the axis description
     pub desc_size: i32,
+
+    /// Font size of the title
+    title_size: i32,
 }
 
 impl PlotSpacing {
@@ -95,6 +99,7 @@ impl From<(u32, u32)> for PlotSpacing {
                 y_label_size: 12,
                 x_label_size: 12,
                 desc_size: 14,
+                title_size: 24,
             },
             (400..800, 400..800) => PlotSpacing {
                 margin: [16; 4],
@@ -102,6 +107,7 @@ impl From<(u32, u32)> for PlotSpacing {
                 y_label_size: 12,
                 x_label_size: 12,
                 desc_size: 20,
+                title_size: 24,
             },
             (800.., _) | (_, 800..) => PlotSpacing {
                 margin: [32; 4],
@@ -109,6 +115,7 @@ impl From<(u32, u32)> for PlotSpacing {
                 y_label_size: 20,
                 x_label_size: 20,
                 desc_size: 32,
+                title_size: 36,
             },
         }
     }
@@ -121,23 +128,24 @@ fn format_tick(desc: &ScaledAxisDescriptor, v: i64) -> String {
         .to_string()
 }
 
-fn label_axis<B: DrawingBackend>(
+fn label_axis<B: DrawingBackend, T: Copy>(
     mut plot: ChartContext<
         '_,
         B,
         Cartesian2d<
-            impl Ranged<ValueType = i64> + ValueFormatter<i64>,
+            impl Ranged<ValueType = T> + ValueFormatter<T>,
             impl Ranged<ValueType = i64> + ValueFormatter<i64>,
         >,
     >,
     scaled_axis_descriptor: &[ScaledAxisDescriptor; 2],
     sizes: &PlotSpacing,
+    fmap: impl Fn(T) -> i64,
 ) -> Result<(), PlotConstructionError<B::ErrorType>> {
     plot.configure_mesh()
         .max_light_lines(1)
         .x_desc(scaled_axis_descriptor[0].name())
         .y_desc(scaled_axis_descriptor[1].name())
-        .x_label_formatter(&|v| format_tick(&scaled_axis_descriptor[0], *v))
+        .x_label_formatter(&|v| format_tick(&scaled_axis_descriptor[0], fmap(*v)))
         .y_label_formatter(&|v| format_tick(&scaled_axis_descriptor[1], *v))
         .axis_desc_style(("sans-serif", sizes.desc_size))
         .y_label_style(("sans-serif", sizes.y_label_size))
@@ -161,21 +169,27 @@ fn draw_into_canvas<B: DrawingBackend>(
     let mut plot = ChartBuilder::on(&area);
     spacing.apply_to(&mut plot);
 
+    if plot_request.include_title {
+        plot.caption(&data.title, ("sans-serif", spacing.title_size));
+    }
+
     match &plot_request.plot {
         PlotVariants::Histogram(histogram_data) => {
-            let histogram = HistogramPlot::new(histogram_data, data, &axis_description);
+            let histogram = HistogramPlot::new(histogram_data, &data.data, &axis_description);
             label_axis(
                 histogram.draw_into(&mut plot)?,
                 histogram.scale_axis(),
                 &spacing,
+                |v| v as i64,
             )?;
         }
         PlotVariants::Scatter => {
-            let scatter = ScatterPlot::new(data, &axis_description);
+            let scatter = ScatterPlot::new(&data.data, &axis_description);
             label_axis(
                 scatter.draw_into(&mut plot)?,
                 scatter.scale_axis(),
                 &spacing,
+                identity,
             )?;
         }
     }

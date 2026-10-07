@@ -332,6 +332,9 @@ Options:
           
           [default: 800x600]
 
+      --include-title
+          
+
   -h, --help
           Print help (see a summary with '-h')
 ```
