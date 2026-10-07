@@ -140,13 +140,13 @@ enum EdgeType {
 impl Edge {
     fn source(&self) -> Node {
         match self {
-            Edge::PublicationInCallback(_publisher, callback) => Node::Callback(callback.clone()),
-            Edge::SubscriberCallbackInvocation(subscriber, _callback) => {
+            Self::PublicationInCallback(_publisher, callback) => Node::Callback(callback.clone()),
+            Self::SubscriberCallbackInvocation(subscriber, _callback) => {
                 Node::Subscriber(subscriber.clone())
             }
-            Edge::ServiceCallbackInvocation(service, _callback) => Node::Service(service.clone()),
-            Edge::TimerCallbackInvocation(timer, _callback) => Node::Timer(timer.clone()),
-            Edge::PublisherSubscriberCommunication(publisher, _subscriber) => {
+            Self::ServiceCallbackInvocation(service, _callback) => Node::Service(service.clone()),
+            Self::TimerCallbackInvocation(timer, _callback) => Node::Timer(timer.clone()),
+            Self::PublisherSubscriberCommunication(publisher, _subscriber) => {
                 Node::Publisher(publisher.clone())
             }
         }
@@ -154,13 +154,13 @@ impl Edge {
 
     fn target(&self) -> Node {
         match self {
-            Edge::PublicationInCallback(publisher, _callback) => Node::Publisher(publisher.clone()),
-            Edge::SubscriberCallbackInvocation(_subscriber, callback) => {
+            Self::PublicationInCallback(publisher, _callback) => Node::Publisher(publisher.clone()),
+            Self::SubscriberCallbackInvocation(_subscriber, callback) => {
                 Node::Callback(callback.clone())
             }
-            Edge::ServiceCallbackInvocation(_service, callback) => Node::Callback(callback.clone()),
-            Edge::TimerCallbackInvocation(_timer, callback) => Node::Callback(callback.clone()),
-            Edge::PublisherSubscriberCommunication(_publisher, subscriber) => {
+            Self::ServiceCallbackInvocation(_service, callback) => Node::Callback(callback.clone()),
+            Self::TimerCallbackInvocation(_timer, callback) => Node::Callback(callback.clone()),
+            Self::PublisherSubscriberCommunication(_publisher, subscriber) => {
                 Node::Subscriber(subscriber.clone())
             }
         }
@@ -168,11 +168,11 @@ impl Edge {
 
     pub fn as_type(&self) -> EdgeType {
         match self {
-            Edge::PublicationInCallback(_, _) => EdgeType::PublicationInCallback,
-            Edge::SubscriberCallbackInvocation(_, _) => EdgeType::SubscriberCallbackInvocation,
-            Edge::ServiceCallbackInvocation(_, _) => EdgeType::ServiceCallbackInvocation,
-            Edge::TimerCallbackInvocation(_, _) => EdgeType::TimerCallbackInvocation,
-            Edge::PublisherSubscriberCommunication(_, _) => {
+            Self::PublicationInCallback(_, _) => EdgeType::PublicationInCallback,
+            Self::SubscriberCallbackInvocation(_, _) => EdgeType::SubscriberCallbackInvocation,
+            Self::ServiceCallbackInvocation(_, _) => EdgeType::ServiceCallbackInvocation,
+            Self::TimerCallbackInvocation(_, _) => EdgeType::TimerCallbackInvocation,
+            Self::PublisherSubscriberCommunication(_, _) => {
                 EdgeType::PublisherSubscriberCommunication
             }
         }

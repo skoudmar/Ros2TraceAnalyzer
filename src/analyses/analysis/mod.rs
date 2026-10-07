@@ -64,7 +64,7 @@ pub trait AnalysisOutputExt: AnalysisOutput {
 impl<T: AnalysisOutput> AnalysisOutputExt for T {}
 
 #[derive(Debug, From)]
-struct ArcMutWrapper<T>(Arc<Mutex<T>>);
+pub(super) struct ArcMutWrapper<T>(Arc<Mutex<T>>);
 
 impl<T> PartialEq for ArcMutWrapper<T> {
     fn eq(&self, other: &Self) -> bool {

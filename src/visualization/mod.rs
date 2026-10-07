@@ -43,6 +43,12 @@ impl ColorGradient {
     }
 }
 
+impl Default for ColorGradient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct Color([u8; 4]);
 
 impl Display for Color {

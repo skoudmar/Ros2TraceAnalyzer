@@ -17,7 +17,7 @@ impl SpinDuration {
         Self::default()
     }
 
-    pub(crate) fn print_stats(&self) {
+    pub fn print_stats(&self) {
         println!("Spin duration statistics:");
         for (i, (node, durations)) in self.processing_durations.iter().enumerate() {
             let node = node.0.lock().unwrap();

@@ -1,17 +1,17 @@
 #![forbid(unsafe_code, reason = "It shouldn't be needed")]
 
-mod analyses;
-mod argsv2;
-mod events_common;
-mod extract;
-mod model;
-mod plotting;
-mod processed_events;
-mod processor;
-mod raw_events;
-mod statistics;
-mod utils;
-mod visualization;
+pub mod analyses;
+pub mod argsv2;
+pub mod events_common;
+pub mod extract;
+pub mod model;
+pub mod plotting;
+pub mod processed_events;
+pub mod processor;
+pub mod raw_events;
+pub mod statistics;
+pub mod utils;
+pub mod visualization;
 
 use std::ffi::CString;
 use std::io::{BufWriter, Write};
