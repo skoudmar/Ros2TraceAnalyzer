@@ -90,9 +90,8 @@ pub enum PlotVariants {
 #[derive(Debug, Display, Args, Clone, Copy)]
 #[display("Histogram data {{ scale: {scale:?} }}")]
 pub struct HistogramData {
-    /// Scale controls the number of bins the data is split into
-    ///
-    /// The actual bin count is always a multiple of 4
+    // TODO: Rename this back to --bins and make it work sanely.
+    /// Approximate number of bins in the histogram
     #[arg(long, short = 's', value_name = "SCALE")]
     pub scale: Option<usize>,
 }
