@@ -44,13 +44,9 @@ impl HistogramPlot {
             itertools::MinMaxResult::MinMax(l, h) => (*l, *h),
         };
 
-        let (bin_width, x_range) = if data.len() > 1 {
-            histogram_x_axis_alignment(min, max, min_bin_count)
-        } else {
-            // This is an explicit case when there is only one data point
-            (1, (min, min + 1))
-        };
-        let bin_count = ((x_range.1 - x_range.0) / bin_width) as usize;
+        let x_axis = histogram_x_axis_alignment(min, max, min_bin_count);
+        let bin_count = usize::try_from((x_axis.end - x_axis.start) / x_axis.bin_width)
+            .expect("bin_count must fit into usize");
 
         let mut binned_data = vec![0; bin_count];
         let last_idx = bin_count
@@ -58,7 +54,7 @@ impl HistogramPlot {
             .expect("bin_count must be at least 1");
 
         for d in data {
-            let bin = usize::try_from((d - x_range.0) / bin_width)
+            let bin = usize::try_from((d - x_axis.start) / x_axis.bin_width)
                 .unwrap()
                 .min(last_idx);
 
@@ -73,7 +69,7 @@ impl HistogramPlot {
         let scaled_axis = [
             axis_descriptor
                 .x
-                .scaled_axis_unit(x_range.0 + (x_range.1 - x_range.0) / 2),
+                .scaled_axis_unit(x_axis.start + (x_axis.end - x_axis.start) / 2),
             // This has logarithmic scale so there is no reasonable unit to cover
             // the entire range. If this becomes a problem we can allow for formatting
             // individual ticks and display just the exponents
@@ -82,8 +78,8 @@ impl HistogramPlot {
 
         HistogramPlot {
             _bin_count: bin_count,
-            bin_width: bin_width as u64,
-            x_range,
+            bin_width: x_axis.bin_width as u64,
+            x_range: (x_axis.start, x_axis.end),
             y_range: (0, y_max),
             data: binned_data,
             scaled_axis,
@@ -126,6 +122,12 @@ impl PlotData<Coords> for HistogramPlot {
     }
 }
 
+struct XAxis {
+    bin_width: i64,
+    start: i64,
+    end: i64,
+}
+
 /// # Histogram axis alignment
 ///
 /// Expands a histogram x-axis so the axis bounds and tick spacing land on
@@ -154,7 +156,7 @@ impl PlotData<Coords> for HistogramPlot {
 /// - `1.3` → `2` (ns to 2 ns)
 /// - `552342` → `550000` (ns to 550 us)
 /// - `8656757` → `8700000` (ns to 8.7 ms)
-fn histogram_x_axis_alignment(min: i64, max: i64, data_bins: usize) -> (i64, (i64, i64)) {
+fn histogram_x_axis_alignment(min: i64, max: i64, data_bins: usize) -> XAxis {
     /// Round an estimated bin width into a human readable value.
     /// Examples:
     ///
@@ -192,7 +194,11 @@ fn histogram_x_axis_alignment(min: i64, max: i64, data_bins: usize) -> (i64, (i6
     // Degenerate case:
     // if all values are identical, create a small default range around them.
     if raw_range == 0 {
-        (1, ((min - 4).max(0), max + 4))
+        XAxis {
+            bin_width: 1,
+            start: (min - 4).max(0),
+            end: max + 4,
+        }
     } else {
         // Estimate the ideal bin width from the requested bin count.
         let normalized = raw_range as f64 / data_bins as f64;
@@ -241,18 +247,25 @@ fn histogram_x_axis_alignment(min: i64, max: i64, data_bins: usize) -> (i64, (i6
             }
         }
 
-        (bin_width, (x_start, x_end))
+        XAxis {
+            bin_width,
+            start: x_start,
+            end: x_end,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::histogram_x_axis_alignment;
+    use super::{XAxis, histogram_x_axis_alignment};
 
     fn assert_axis_invariants(min: i64, max: i64, data_bins: usize) -> (i64, i64, i64) {
-        let (bw, (start, end)) = histogram_x_axis_alignment(min, max, data_bins);
+        let XAxis {
+            bin_width: bw,
+            start,
+            end,
+        } = histogram_x_axis_alignment(min, max, data_bins);
 
-        assert!(bw > 0, "bin width must always be positive");
         assert!(start <= end, "axis start must not exceed axis end");
         assert!(start >= 0, "axis start must saturate at zero");
 
@@ -279,7 +292,11 @@ mod tests {
 
     #[test]
     fn zero_range_creates_default_padding() {
-        let (bw, (start, end)) = histogram_x_axis_alignment(10, 10, 8);
+        let XAxis {
+            bin_width: bw,
+            start,
+            end,
+        } = histogram_x_axis_alignment(10, 10, 8);
 
         assert_eq!(bw, 1);
 
