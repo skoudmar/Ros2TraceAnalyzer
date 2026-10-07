@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use std::ops::Not;
 use std::sync::{Arc, Mutex};
 
-use crate::analysis::utils::DisplayDurationStats;
+use itertools::Itertools;
+
 use crate::argsv2::extract_args::AnalysisProperty;
 use crate::events_common::Context;
 use crate::extract::{RosChannelCompleteName, RosInterfaceCompleteName};
@@ -13,7 +15,7 @@ use crate::model::{
 };
 use crate::processed_events::{Event, FullEvent, r2r, ros2};
 use crate::statistics::Sorted;
-use crate::utils::{DisplayDuration, Known, WeakKnown};
+use crate::utils::{ArcWeak, DisplayDuration, Known, WeakKnown};
 use crate::visualization::COLOR_GRADIENT;
 use crate::visualization::graphviz_export::{self, NodeShape};
 
@@ -923,12 +925,29 @@ pub struct DotGraph {
 
 impl DotGraph {
     pub fn new(graph: &DependencyGraph, color: bool, thickness: bool, min_multiplier: f64) -> Self {
+        fn element_name(node: Option<ArcWeak<Mutex<model::Node>>>, topic: impl Debug) -> String {
+            let node_name = node
+                .map(|n| {
+                    n.get_arc()
+                        .unwrap()
+                        .lock()
+                        .unwrap()
+                        .get_full_name()
+                        .to_string()
+                })
+                .unwrap_or(String::new());
+            format!("{node_name}{topic:?}")
+        }
+
         let mut graph_node_to_ros_node: HashMap<Node, ArcMutWrapper<model::Node>> = HashMap::new();
         let mut node_to_id = HashMap::new();
 
         let mut graph_node_id = 1;
 
-        for publisher in graph.publisher_nodes.keys() {
+        for publisher in graph.publisher_nodes.keys().sorted_by_cached_key(|k| {
+            let publ = k.0.lock().unwrap();
+            element_name(publ.get_node().into(), publ.get_topic())
+        }) {
             let node = Node::Publisher(publisher.clone());
             node_to_id.insert(node.clone(), graph_node_id);
             graph_node_id += 1;
@@ -940,7 +959,10 @@ impl DotGraph {
             }
         }
 
-        for subscriber in graph.subscriber_nodes.keys() {
+        for subscriber in graph.subscriber_nodes.keys().sorted_by_cached_key(|k| {
+            let subs = k.0.lock().unwrap();
+            element_name(subs.get_node().into(), subs.get_topic())
+        }) {
             let node = Node::Subscriber(subscriber.clone());
             node_to_id.insert(node.clone(), graph_node_id);
             graph_node_id += 1;
@@ -952,7 +974,10 @@ impl DotGraph {
             }
         }
 
-        for timer in graph.timer_nodes.keys() {
+        for timer in graph.timer_nodes.keys().sorted_by_cached_key(|k| {
+            let timer = k.0.lock().unwrap();
+            element_name(timer.get_node().into(), timer.get_period())
+        }) {
             let node = Node::Timer(timer.clone());
             node_to_id.insert(node.clone(), graph_node_id);
             graph_node_id += 1;
@@ -962,7 +987,10 @@ impl DotGraph {
             graph_node_to_ros_node.insert(node, ros_node.clone().into());
         }
 
-        for callback in graph.callback_nodes.keys() {
+        for callback in graph.callback_nodes.keys().sorted_by_cached_key(|k| {
+            let cb = k.0.lock().unwrap();
+            element_name(cb.get_node(), cb.get_name())
+        }) {
             let node = Node::Callback(callback.clone());
             node_to_id.insert(node.clone(), graph_node_id);
             graph_node_id += 1;
@@ -1057,7 +1085,9 @@ fn process_edges(
 
     let mut edge_id = 1;
 
-    for (edge, edge_data) in graph_edges {
+    for (edge, edge_data) in graph_edges.iter().sorted_by_cached_key(|(edge, _)| {
+        (node_to_id[&edge.source()] as u64) << 32 | node_to_id[&edge.target()] as u64
+    }) {
         let latencies = Sorted::from_unsorted(&edge_data.latencies);
         let Some(median) = latencies.median().copied() else {
             log::warn!("Skipping edge without latency samples: {edge:?}");
@@ -1238,7 +1268,11 @@ impl std::fmt::Display for DotGraph {
             .collect::<Vec<_>>();
 
         let mut clusters = vec![Vec::new(); self.ros_node_to_id.len()];
-        for (node, ros_node) in &self.graph_node_to_ros_node {
+        for (node, ros_node) in self
+            .graph_node_to_ros_node
+            .iter()
+            .sorted_by_cached_key(|(_, node)| node.0.lock().unwrap().get_full_name().to_string())
+        {
             let Some(id) = self.ros_node_to_id.get(ros_node).copied() else {
                 log::warn!(
                     "Skipping cluster placement due to missing ROS-node id for node {node:?}"
@@ -1256,18 +1290,7 @@ impl std::fmt::Display for DotGraph {
 
         let mut graph = graphviz_export::Graph::new();
         graph.set_attribute("rankdir", "LR");
-        for (node, id) in &self.node_to_id {
-            let ros_node_name =
-                self.graph_node_to_ros_node
-                    .get(node)
-                    .map_or(Known::Unknown, |node_arc| {
-                        node_arc
-                            .0
-                            .lock()
-                            .unwrap()
-                            .get_full_name()
-                            .map(ToString::to_string)
-                    });
+        for (node, id) in self.node_to_id.iter().sorted_by_key(|&(_, v)| v) {
             let node_name = get_node_name(node);
 
             let graph_node = graph.add_node(&node_name, *id);
@@ -1330,7 +1353,11 @@ impl std::fmt::Display for DotGraph {
             }
         }
 
-        for (cluster_nodes, cluster_name) in clusters.into_iter().zip(cluster_names) {
+        for (cluster_nodes, cluster_name) in clusters
+            .into_iter()
+            .zip(cluster_names)
+            .sorted_by_cached_key(|(_node, name)| name.to_owned())
+        {
             graph.add_cluster(&cluster_name, cluster_nodes);
         }
 
