@@ -34,7 +34,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        ros_distro: [jazzy, kilted, rolling]
+        ros_distro: [jazzy, kilted, lyrical, rolling]
       fail-fast: false
     runs-on: ubuntu-latest
     defaults: {run: {working-directory: ./test}}
