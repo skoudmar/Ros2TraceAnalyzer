@@ -1,11 +1,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::analysis::utils::DisplayDurationStats;
-use crate::model::display::DisplayCallbackSummary;
 use crate::model::{Callback, CallbackInstance, CallbackTrigger};
 use crate::processed_events::{Event, FullEvent, ros2};
-use crate::utils::DurationDisplayImprecise;
 
 use super::{AnalysisOutput, ArcMutWrapper, EventAnalysis};
 
@@ -34,24 +31,6 @@ impl MessageTakeToCallbackLatency {
                 .push(latency);
         } else {
             // Ignore other triggers
-        }
-    }
-
-    pub(crate) fn print_stats(&self) {
-        println!("Message take to callback execution latency statistics:");
-        for (i, (callback, latencies)) in self.latencies.iter().enumerate() {
-            let callback = callback.0.lock().unwrap();
-
-            println!("- [{i:4}] Callback {}:", DisplayCallbackSummary(&callback));
-            println!("    Call count: {}", latencies.len());
-            let display = DisplayDurationStats::with_comma(latencies);
-            println!("    Latency: {display}");
-            let (mean, std_dev) = display.mean_and_std_dev();
-            println!(
-                "    Mean: {}, Std. dev.: {}",
-                DurationDisplayImprecise(mean),
-                DurationDisplayImprecise(std_dev as i64)
-            );
         }
     }
 }

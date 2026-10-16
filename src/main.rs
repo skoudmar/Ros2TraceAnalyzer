@@ -1,23 +1,27 @@
 #![forbid(unsafe_code, reason = "It shouldn't be needed")]
 
-mod analyses;
-mod argsv2;
-mod events_common;
-mod model;
-mod processed_events;
-mod processor;
-mod raw_events;
-mod statistics;
-mod utils;
-mod visualization;
+pub mod analyses;
+pub mod argsv2;
+pub mod events_common;
+pub mod extract;
+pub mod model;
+pub mod plotting;
+pub mod processed_events;
+pub mod processor;
+pub mod raw_events;
+pub mod statistics;
+pub mod utils;
+pub mod visualization;
 
 use std::ffi::CString;
+use std::io::{BufWriter, Write};
 
 use argsv2::Args;
 use argsv2::helpers::prepare_trace_paths;
 
 use crate::argsv2::analysis_args::AnalysisArgs;
-use crate::argsv2::chart_args::ChartArgs;
+use crate::argsv2::extract_args::ExtractArgs;
+use crate::argsv2::plot_args::{PlotArgs, PlotOutputFormat};
 use crate::argsv2::viewer_args::ViewerArgs;
 
 use analyses::analysis;
@@ -40,11 +44,65 @@ fn run_analysis<L: clap_verbosity_flag::LogLevel>(
     Ok(())
 }
 
-fn run_charting(args: &ChartArgs) -> color_eyre::eyre::Result<()> {
+fn run_plotting(args: &PlotArgs) -> color_eyre::eyre::Result<()> {
+    let mut output: BufWriter<Box<dyn Write>> = match &args.output {
+        Some(o) => BufWriter::new(Box::new(std::fs::File::create(o)?)),
+        None => BufWriter::new(Box::new(std::io::stdout())),
+    };
+
+    let output_format = args
+        .output
+        .clone()
+        .map(|p| match p.extension() {
+            Some(ext) => PlotOutputFormat::try_from(ext.to_str().unwrap()).unwrap_or_default(),
+            None => PlotOutputFormat::default(),
+        })
+        .unwrap_or_default();
+
+    let plot_data =
+        extract::extract_property(&args.input, args.plot.element_id, &args.plot.property)?;
+
+    plotting::render_plot(&mut output, plot_data, &args.plot, output_format)?;
+
     Ok(())
 }
 
 fn run_viewer(args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
+    let input = args.input_path();
+
+    let mut cmd = std::process::Command::new("python");
+    cmd.args([&args.viewer, &std::env::current_exe().unwrap(), &input]);
+
+    let mut viewer = cmd.stdin(std::process::Stdio::piped()).spawn()?;
+
+    let mut stdin = viewer.stdin.take().unwrap();
+    writeln!(stdin, "{}", extract::extract_graph(&input)?)?;
+    stdin.flush()?;
+    drop(stdin);
+
+    viewer.wait()?;
+
+    Ok(())
+}
+
+fn run_extract(args: &ExtractArgs) -> color_eyre::eyre::Result<()> {
+    let source_file = args.input_path();
+    let mut output: Box<BufWriter<Box<dyn Write>>> = match &args.output_path() {
+        Some(o) => Box::new(BufWriter::new(Box::new(std::fs::File::create(o)?))),
+        None => Box::new(BufWriter::new(Box::new(std::io::stdout()))),
+    };
+
+    match args.content() {
+        argsv2::extract_args::ExtractContentArgs::Graph => {
+            let graph = extract::extract_graph(&source_file)?;
+            output.write_all(graph.as_bytes())?;
+        }
+        argsv2::extract_args::ExtractContentArgs::Property(args) => {
+            let data = extract::extract_property(&source_file, args.element_id(), args.property())?;
+            output.write_all(data.export_json()?.as_bytes())?;
+        }
+    }
+
     Ok(())
 }
 
@@ -58,10 +116,9 @@ fn main() -> color_eyre::eyre::Result<()> {
 
     let args = Args::get();
     match &args.command {
-        argsv2::TracerCommand::Analyze(analysis_args) => {
-            run_analysis(&analysis_args, &args.verbose)
-        }
-        argsv2::TracerCommand::Chart(chart_args) => run_charting(&chart_args),
-        argsv2::TracerCommand::Viewer(viewer_args) => run_viewer(&viewer_args),
+        argsv2::TracerCommand::Analyze(analysis_args) => run_analysis(analysis_args, &args.verbose),
+        argsv2::TracerCommand::Plot(plot_args) => run_plotting(plot_args),
+        argsv2::TracerCommand::Viewer(viewer_args) => run_viewer(viewer_args),
+        argsv2::TracerCommand::Extract(extract_args) => run_extract(extract_args),
     }
 }

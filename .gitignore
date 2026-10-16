@@ -4,3 +4,9 @@
 *.txt
 *.json
 *.dot
+*.sqlite
+
+./*.svg
+./*.png
+
+**/__pycache__

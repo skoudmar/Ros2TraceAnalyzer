@@ -3,6 +3,8 @@ use std::sync::{Arc, Mutex, Weak};
 
 use derive_more::derive::From;
 
+pub mod binary_sql_store;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub enum Known<T> {
     Known(T),
@@ -420,7 +422,7 @@ impl std::fmt::Display for DisplayLargeDuration {
 
         let mut value = self.0;
         let mut suffix = 0;
-        while suffix < SUFFIX.len() - 1 && value % FACTOR[suffix] == 0 {
+        while suffix < SUFFIX.len() - 1 && value.is_multiple_of(FACTOR[suffix]) {
             value /= FACTOR[suffix];
 
             suffix += 1;
