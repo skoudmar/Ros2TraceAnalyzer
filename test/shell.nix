@@ -24,6 +24,9 @@ with pkgs; mkShell {
       fontconfig
       freetype
       babeltrace2
+      # libtracetools dlopen()s liblttng-ust-tracepoint.so.1, but its RUNPATH
+      # lacks lttng-ust, so without this all ros2:* tracepoints stay disabled.
+      lttng-ust
     ]}"
   '';
 }
