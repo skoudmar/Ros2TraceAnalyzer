@@ -45,9 +45,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("tracer_cmd")
     parser.add_argument("source_dir")
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="print all Ros2TraceAnalyzer commands that are executed",
+    )
     args = parser.parse_args()
 
-    r2ta = R2TAInterface(args.tracer_cmd, args.source_dir)
+    r2ta = R2TAInterface(args.tracer_cmd, args.source_dir, verbose=args.verbose)
     window = MyDotWindow(r2ta)
 
     graph = sys.stdin.read()

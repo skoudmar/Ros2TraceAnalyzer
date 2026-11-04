@@ -1,3 +1,4 @@
+import shlex
 import subprocess
 import sys
 
@@ -6,9 +7,15 @@ from ros_element import ChartRequest, ChartType, ChartValue
 
 
 class R2TAInterface:
-    def __init__(self, tracer_cmd, data_dir):
+    def __init__(self, tracer_cmd, data_dir, verbose=False):
         self.tracer_cmd = tracer_cmd
         self.data_dir = data_dir
+        self.verbose = verbose
+
+    def _run(self, args, **kwargs) -> subprocess.CompletedProcess:
+        if self.verbose:
+            print("+ " + shlex.join(args), file=sys.stderr)
+        return subprocess.run(args, **kwargs)
 
     def render(self, chart: ChartRequest) -> GdkPixbuf.Pixbuf | None:
         args = [
@@ -28,7 +35,7 @@ class R2TAInterface:
             args.extend(["--scale", str(chart.bins)])
 
         try:
-            plot_process = subprocess.run(
+            plot_process = self._run(
                 args, capture_output=True, text=True, check=True
             )
         except subprocess.CalledProcessError as e:
@@ -56,7 +63,7 @@ class R2TAInterface:
         ]
 
         try:
-            subprocess.run(args, check=True)
+            self._run(args, check=True)
         except subprocess.CalledProcessError as e:
             print(e.stderr, file=sys.stderr)
 
@@ -76,6 +83,6 @@ class R2TAInterface:
         ]
 
         try:
-            subprocess.run(args, check=True)
+            self._run(args, check=True)
         except subprocess.CalledProcessError as e:
             print(e.stderr, file=sys.stderr)

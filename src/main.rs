@@ -72,6 +72,9 @@ fn run_viewer(args: &ViewerArgs) -> color_eyre::eyre::Result<()> {
 
     let mut cmd = std::process::Command::new("python");
     cmd.args([&args.viewer, &std::env::current_exe().unwrap(), &input]);
+    if Args::get().verbose.log_level_filter() >= log::LevelFilter::Info {
+        cmd.arg("--verbose");
+    }
 
     let mut viewer = cmd.stdin(std::process::Stdio::piped()).spawn()?;
 
