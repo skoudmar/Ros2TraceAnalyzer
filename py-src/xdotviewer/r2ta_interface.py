@@ -21,10 +21,10 @@ class R2TAInterface:
         args = [
             self.tracer_cmd,
             "plot",
-            chart.value.value,
-            chart.node,
             "-i",
             self.data_dir,
+            chart.value.value,
+            chart.node,
             *(["--include-title"] if chart.title else []),
             "--size",
             str(chart.size[0]) + "x" + str(chart.size[1]),
