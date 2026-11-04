@@ -49,6 +49,7 @@ pub struct DependencyGraph {
     timer_nodes: HashMap<ArcMutWrapper<Timer>, TimerNode>,
     callback_nodes: HashMap<ArcMutWrapper<Callback>, CallbackNode>,
 
+    /// Last spin wake-up times (only for R2R, because plain ROS doesn't have spin tracepoints)
     last_spin_wake_up_time_for_node: HashMap<ArcMutWrapper<model::Node>, Time>,
     running_callbacks: HashMap<ThreadId, Arc<Mutex<CallbackInstance>>>,
 }
@@ -285,9 +286,12 @@ impl DependencyGraph {
                 let latency = self
                     .last_spin_wake_up_time_for_node
                     .get(&node_arc.into())
-                    .map_or(LATENCY_INVALID, |wake_up_time| {
-                        event_time.timestamp_nanos() - wake_up_time.timestamp_nanos()
-                    });
+                    .map_or(
+                        0, // Latency cannot be calculated for non-R2R nodes
+                        |wake_up_time| {
+                            event_time.timestamp_nanos() - wake_up_time.timestamp_nanos()
+                        },
+                    );
 
                 edge_data.latencies.push(latency);
             }
