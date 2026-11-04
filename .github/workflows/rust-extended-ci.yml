@@ -2,10 +2,9 @@ name: Extended CI (stable, beta, nightly, MSRV)
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
-      - main
+      - "**"
   workflow_dispatch:
     inputs:
       run_reason:
@@ -31,9 +30,6 @@ jobs:
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     name: ${{ matrix.label }} (${{ matrix.toolchain }})
     runs-on: ubuntu-latest
-
-    # Require approval only for PR runs.
-    environment: ${{ github.event_name == 'pull_request' && 'ci-approval' || '' }}
 
     strategy:
       fail-fast: false
@@ -65,7 +61,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libbabeltrace2-dev
+          sudo apt-get install -y libbabeltrace2-dev libfreetype6-dev libfontconfig1-dev
 
       - name: Install Rust (${{ matrix.toolchain }})
         uses: dtolnay/rust-toolchain@stable

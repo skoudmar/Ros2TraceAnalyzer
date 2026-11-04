@@ -370,8 +370,8 @@ impl TryFrom<bt2_sys::field::BtFieldConst> for Gid {
         let array = value.try_into_array()?;
         let len = array.get_length() as usize;
         match len {
-            GID_SIZE_JAZZY => Ok(Gid::Jazzy(array.try_into()?)),
-            GID_SIZE_KILTED => Ok(Gid::Kilted(array.try_into()?)),
+            GID_SIZE_JAZZY => Ok(Self::Jazzy(array.try_into()?)),
+            GID_SIZE_KILTED => Ok(Self::Kilted(array.try_into()?)),
             _ => Err(ConversionError::User(GidConversionError(len).into())),
         }
     }

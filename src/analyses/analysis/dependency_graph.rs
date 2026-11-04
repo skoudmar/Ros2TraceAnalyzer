@@ -1,16 +1,21 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use std::ops::Not;
 use std::sync::{Arc, Mutex};
 
-use crate::analysis::utils::DisplayDurationStats;
+use itertools::Itertools;
+
+use crate::argsv2::extract_args::AnalysisProperty;
 use crate::events_common::Context;
+use crate::extract::{RosChannelCompleteName, RosInterfaceCompleteName};
+use crate::model::display::get_node_name_from_weak;
 use crate::model::{
     self, Callback, CallbackCaller, CallbackInstance, CallbackTrigger, Publisher, Service,
     Subscriber, Time, Timer,
 };
 use crate::processed_events::{Event, FullEvent, r2r, ros2};
 use crate::statistics::Sorted;
-use crate::utils::{DisplayDuration, Known};
+use crate::utils::{ArcWeak, DisplayDuration, Known, WeakKnown};
 use crate::visualization::COLOR_GRADIENT;
 use crate::visualization::graphviz_export::{self, NodeShape};
 
@@ -44,6 +49,7 @@ pub struct DependencyGraph {
     timer_nodes: HashMap<ArcMutWrapper<Timer>, TimerNode>,
     callback_nodes: HashMap<ArcMutWrapper<Callback>, CallbackNode>,
 
+    /// Last spin wake-up times (only for R2R, because plain ROS doesn't have spin tracepoints)
     last_spin_wake_up_time_for_node: HashMap<ArcMutWrapper<model::Node>, Time>,
     running_callbacks: HashMap<ThreadId, Arc<Mutex<CallbackInstance>>>,
 }
@@ -55,6 +61,24 @@ pub enum Node {
     Service(ArcMutWrapper<Service>),
     Timer(ArcMutWrapper<Timer>),
     Callback(ArcMutWrapper<Callback>),
+}
+
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    derive_more::Display,
+    strum::EnumString,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub enum ElementType {
+    Publisher,
+    Subscriber,
+    Service,
+    Timer,
+    Callback,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -78,7 +102,7 @@ pub struct SubscriberNode {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct TimerNode {
     /// Time between two consecutive timer activations
-    activation_delay: Vec<i64>,
+    inter_activation_delay: Vec<i64>,
 
     /// Last activation time
     last_activation: Option<Time>,
@@ -87,7 +111,7 @@ pub struct TimerNode {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct CallbackNode {
     /// Time between two consecutive callback activations. (c1.start) -> (c2.start)
-    activation_delay: Vec<i64>,
+    inter_activation_delay: Vec<i64>,
 
     /// Duration of the callback execution. (c1.start) -> (c1.end)
     durations: Vec<i64>,
@@ -117,13 +141,13 @@ enum EdgeType {
 impl Edge {
     fn source(&self) -> Node {
         match self {
-            Edge::PublicationInCallback(_publisher, callback) => Node::Callback(callback.clone()),
-            Edge::SubscriberCallbackInvocation(subscriber, _callback) => {
+            Self::PublicationInCallback(_publisher, callback) => Node::Callback(callback.clone()),
+            Self::SubscriberCallbackInvocation(subscriber, _callback) => {
                 Node::Subscriber(subscriber.clone())
             }
-            Edge::ServiceCallbackInvocation(service, _callback) => Node::Service(service.clone()),
-            Edge::TimerCallbackInvocation(timer, _callback) => Node::Timer(timer.clone()),
-            Edge::PublisherSubscriberCommunication(publisher, _subscriber) => {
+            Self::ServiceCallbackInvocation(service, _callback) => Node::Service(service.clone()),
+            Self::TimerCallbackInvocation(timer, _callback) => Node::Timer(timer.clone()),
+            Self::PublisherSubscriberCommunication(publisher, _subscriber) => {
                 Node::Publisher(publisher.clone())
             }
         }
@@ -131,13 +155,13 @@ impl Edge {
 
     fn target(&self) -> Node {
         match self {
-            Edge::PublicationInCallback(publisher, _callback) => Node::Publisher(publisher.clone()),
-            Edge::SubscriberCallbackInvocation(_subscriber, callback) => {
+            Self::PublicationInCallback(publisher, _callback) => Node::Publisher(publisher.clone()),
+            Self::SubscriberCallbackInvocation(_subscriber, callback) => {
                 Node::Callback(callback.clone())
             }
-            Edge::ServiceCallbackInvocation(_service, callback) => Node::Callback(callback.clone()),
-            Edge::TimerCallbackInvocation(_timer, callback) => Node::Callback(callback.clone()),
-            Edge::PublisherSubscriberCommunication(_publisher, subscriber) => {
+            Self::ServiceCallbackInvocation(_service, callback) => Node::Callback(callback.clone()),
+            Self::TimerCallbackInvocation(_timer, callback) => Node::Callback(callback.clone()),
+            Self::PublisherSubscriberCommunication(_publisher, subscriber) => {
                 Node::Subscriber(subscriber.clone())
             }
         }
@@ -145,11 +169,11 @@ impl Edge {
 
     pub fn as_type(&self) -> EdgeType {
         match self {
-            Edge::PublicationInCallback(_, _) => EdgeType::PublicationInCallback,
-            Edge::SubscriberCallbackInvocation(_, _) => EdgeType::SubscriberCallbackInvocation,
-            Edge::ServiceCallbackInvocation(_, _) => EdgeType::ServiceCallbackInvocation,
-            Edge::TimerCallbackInvocation(_, _) => EdgeType::TimerCallbackInvocation,
-            Edge::PublisherSubscriberCommunication(_, _) => {
+            Self::PublicationInCallback(_, _) => EdgeType::PublicationInCallback,
+            Self::SubscriberCallbackInvocation(_, _) => EdgeType::SubscriberCallbackInvocation,
+            Self::ServiceCallbackInvocation(_, _) => EdgeType::ServiceCallbackInvocation,
+            Self::TimerCallbackInvocation(_, _) => EdgeType::TimerCallbackInvocation,
+            Self::PublisherSubscriberCommunication(_, _) => {
                 EdgeType::PublisherSubscriberCommunication
             }
         }
@@ -158,7 +182,7 @@ impl Edge {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct EdgeData {
-    activation_delay: Vec<i64>,
+    inter_activation_delay: Vec<i64>,
     latencies: Vec<i64>,
     last_activation: Option<Time>,
 }
@@ -169,13 +193,8 @@ impl DependencyGraph {
         Self::default()
     }
 
-    pub fn display_as_dot(
-        &self,
-        color: bool,
-        thickness: bool,
-        min_multiplier: f64,
-    ) -> DisplayAsDot {
-        DisplayAsDot::new(self, color, thickness, min_multiplier)
+    pub fn to_dot_graph(&self, color: bool, thickness: bool, min_multiplier: f64) -> DotGraph {
+        DotGraph::new(self, color, thickness, min_multiplier)
     }
 }
 
@@ -188,11 +207,13 @@ impl DependencyGraph {
     fn process_timer_invocation(&mut self, timer: &Arc<Mutex<Timer>>, event_time: Time) {
         let timer_node = self.timer_nodes.entry(timer.clone().into()).or_default();
         if let Some(previous_activation) = timer_node.last_activation.replace(event_time) {
-            let activation_delay =
+            let inter_activation_delay =
                 event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-            timer_node.activation_delay.push(activation_delay);
+            timer_node
+                .inter_activation_delay
+                .push(inter_activation_delay);
         } else {
-            debug_assert!(timer_node.activation_delay.is_empty());
+            debug_assert!(timer_node.inter_activation_delay.is_empty());
         }
     }
 
@@ -211,16 +232,16 @@ impl DependencyGraph {
 
                 if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
                     debug_assert_eq!(
-                        edge_data.activation_delay.len() + 1,
+                        edge_data.inter_activation_delay.len() + 1,
                         edge_data.latencies.len()
                     );
 
                     let activation_delay =
                         event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-                    edge_data.activation_delay.push(activation_delay);
+                    edge_data.inter_activation_delay.push(activation_delay);
                 } else {
                     debug_assert!(edge_data.latencies.is_empty());
-                    debug_assert!(edge_data.activation_delay.is_empty());
+                    debug_assert!(edge_data.inter_activation_delay.is_empty());
                 }
 
                 let receive_time = message
@@ -237,18 +258,21 @@ impl DependencyGraph {
                 let edge = Edge::TimerCallbackInvocation(timer.clone().into(), callback_arc);
                 let edge_data = self.edges.entry(edge).or_default();
 
+                // TODO: This computes the same as
+                // process_timer_invocation. Is it really necessary to
+                // calculate inter_activation_delay twice?
                 if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
                     debug_assert_eq!(
-                        edge_data.activation_delay.len() + 1,
+                        edge_data.inter_activation_delay.len() + 1,
                         edge_data.latencies.len()
                     );
 
                     let activation_delay =
                         event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-                    edge_data.activation_delay.push(activation_delay);
+                    edge_data.inter_activation_delay.push(activation_delay);
                 } else {
                     debug_assert!(edge_data.latencies.is_empty());
-                    debug_assert!(edge_data.activation_delay.is_empty());
+                    debug_assert!(edge_data.inter_activation_delay.is_empty());
                 }
 
                 // Since the timer and the callback invocations are the same, the latency would be 0.
@@ -262,9 +286,12 @@ impl DependencyGraph {
                 let latency = self
                     .last_spin_wake_up_time_for_node
                     .get(&node_arc.into())
-                    .map_or(LATENCY_INVALID, |wake_up_time| {
-                        event_time.timestamp_nanos() - wake_up_time.timestamp_nanos()
-                    });
+                    .map_or(
+                        0, // Latency cannot be calculated for non-R2R nodes
+                        |wake_up_time| {
+                            event_time.timestamp_nanos() - wake_up_time.timestamp_nanos()
+                        },
+                    );
 
                 edge_data.latencies.push(latency);
             }
@@ -275,16 +302,16 @@ impl DependencyGraph {
 
                 if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
                     debug_assert_eq!(
-                        edge_data.activation_delay.len() + 1,
+                        edge_data.inter_activation_delay.len() + 1,
                         edge_data.latencies.len()
                     );
 
                     let activation_delay =
                         event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-                    edge_data.activation_delay.push(activation_delay);
+                    edge_data.inter_activation_delay.push(activation_delay);
                 } else {
                     debug_assert!(edge_data.latencies.is_empty());
-                    debug_assert!(edge_data.activation_delay.is_empty());
+                    debug_assert!(edge_data.inter_activation_delay.is_empty());
                 }
 
                 let service = service_arc.lock().unwrap();
@@ -331,9 +358,11 @@ impl DependencyGraph {
         let previous_activation = callback_node.last_activation.replace(event_time);
         if let Some(previous_activation) = previous_activation {
             debug_assert_eq!(event_time, callback_instance.get_start_time());
-            let activation_delay =
+            let inter_activation_delay =
                 event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-            callback_node.activation_delay.push(activation_delay);
+            callback_node
+                .inter_activation_delay
+                .push(inter_activation_delay);
         }
 
         self.process_edge_to_callback(callback.into(), callback_instance.get_trigger(), event_time);
@@ -417,16 +446,16 @@ impl DependencyGraph {
 
         if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
             debug_assert_eq!(
-                edge_data.activation_delay.len() + 1,
+                edge_data.inter_activation_delay.len() + 1,
                 edge_data.latencies.len()
             );
 
             let activation_delay =
                 event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-            edge_data.activation_delay.push(activation_delay);
+            edge_data.inter_activation_delay.push(activation_delay);
         } else {
             debug_assert!(edge_data.latencies.is_empty());
-            debug_assert!(edge_data.activation_delay.is_empty());
+            debug_assert!(edge_data.inter_activation_delay.is_empty());
         }
 
         let receive_time = event_time;
@@ -469,22 +498,308 @@ impl DependencyGraph {
 
             if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
                 debug_assert_eq!(
-                    edge_data.activation_delay.len() + 1,
+                    edge_data.inter_activation_delay.len() + 1,
                     edge_data.latencies.len()
                 );
 
                 let activation_delay =
                     event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-                edge_data.activation_delay.push(activation_delay);
+                edge_data.inter_activation_delay.push(activation_delay);
             } else {
                 debug_assert!(edge_data.latencies.is_empty());
-                debug_assert!(edge_data.activation_delay.is_empty());
+                debug_assert!(edge_data.inter_activation_delay.is_empty());
             }
 
             let latency =
                 event_time.timestamp_nanos() - callback_instance.get_start_time().timestamp_nanos();
             edge_data.latencies.push(latency);
         }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct NodeOverviewExport {
+    pub id: usize,
+    pub element_type: ElementType,
+    pub analyses: Vec<AnalysisProperty>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct InterActivationDelayExport {
+    pub id: usize,
+    pub name: RosInterfaceCompleteName,
+    pub inter_activation_delays: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct PublicationDelayExport {
+    pub id: usize,
+    pub name: RosInterfaceCompleteName,
+    pub publication_delays: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct MessagesDelayExport {
+    pub id: usize,
+    pub name: RosInterfaceCompleteName,
+    pub messages_delays: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct CallbackDurationExport {
+    pub id: usize,
+    pub name: RosInterfaceCompleteName,
+    pub callback_durations: Vec<i64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct MessageLatencyExport {
+    pub id: usize,
+    pub name: RosChannelCompleteName,
+    pub messages_latencies: Vec<i64>,
+}
+
+impl DependencyGraph {
+    pub fn inter_activation_delays(
+        &self,
+        node_ids: &HashMap<Node, usize>,
+    ) -> Vec<InterActivationDelayExport> {
+        let timers = self.timer_nodes.iter().map(|(k, v)| {
+            let id = node_ids[&Node::Timer(k.clone())];
+            let n = k.0.lock().unwrap();
+            InterActivationDelayExport {
+                id,
+                name: RosInterfaceCompleteName {
+                    interface: format!("Timer({})", n.get_period().unwrap_or(0)),
+                    node: n
+                        .get_node()
+                        .map_or(WeakKnown::Unknown, |node_weak| {
+                            get_node_name_from_weak(&node_weak.get_weak())
+                        })
+                        .unwrap_or(String::new()),
+                },
+                inter_activation_delays: v.inter_activation_delay.clone(),
+            }
+        });
+
+        let callbacks = self.callback_nodes.iter().map(|(k, v)| {
+            let id = node_ids[&Node::Callback(k.clone())];
+            let n = k.0.lock().unwrap();
+            InterActivationDelayExport {
+                id,
+                name: RosInterfaceCompleteName {
+                    interface: format!(
+                        "Callback({})",
+                        match n.get_caller() {
+                            Some(c) => match c {
+                                CallbackCaller::Subscription(arc_weak) => format!(
+                                    "Subscriber(\"{}\")",
+                                    arc_weak.get_arc().unwrap().lock().unwrap().get_topic()
+                                ),
+                                v => v.to_string(),
+                            },
+                            None => String::new(),
+                        }
+                    ),
+                    node: n
+                        .get_node()
+                        .map_or(WeakKnown::Unknown, |node_weak| {
+                            get_node_name_from_weak(&node_weak.get_weak())
+                        })
+                        .unwrap_or(String::new()),
+                },
+                inter_activation_delays: v.inter_activation_delay.clone(),
+            }
+        });
+
+        timers.chain(callbacks).collect()
+    }
+
+    pub fn publication_delays(
+        &self,
+        node_ids: &HashMap<Node, usize>,
+    ) -> Vec<PublicationDelayExport> {
+        self.publisher_nodes
+            .iter()
+            .map(|(k, v)| {
+                let id = node_ids[&Node::Publisher(k.clone())];
+                let n = k.0.lock().unwrap();
+
+                PublicationDelayExport {
+                    id,
+                    name: RosInterfaceCompleteName {
+                        interface: format!("Publisher({})", n.get_topic()),
+                        node: n
+                            .get_node()
+                            .map_or(WeakKnown::Unknown, |node_weak| {
+                                get_node_name_from_weak(&node_weak.get_weak())
+                            })
+                            .unwrap_or(String::new()),
+                    },
+                    publication_delays: v.publication_delay.clone(),
+                }
+            })
+            .collect()
+    }
+
+    pub fn message_delays(&self, node_ids: &HashMap<Node, usize>) -> Vec<MessagesDelayExport> {
+        self.subscriber_nodes
+            .iter()
+            .map(|(k, v)| {
+                let id = node_ids[&Node::Subscriber(k.clone())];
+                let n = k.0.lock().unwrap();
+
+                MessagesDelayExport {
+                    id,
+                    name: RosInterfaceCompleteName {
+                        interface: format!("Subscriber({})", n.get_topic()),
+                        node: n
+                            .get_node()
+                            .map_or(WeakKnown::Unknown, |node_weak| {
+                                get_node_name_from_weak(&node_weak.get_weak())
+                            })
+                            .unwrap_or(String::new()),
+                    },
+                    messages_delays: v.take_delay.clone(),
+                }
+            })
+            .collect()
+    }
+
+    pub fn callback_durations(
+        &self,
+        node_ids: &HashMap<Node, usize>,
+    ) -> Vec<CallbackDurationExport> {
+        self.callback_nodes
+            .iter()
+            .map(|(k, v)| {
+                let id = node_ids[&Node::Callback(k.clone())];
+                let c = k.0.lock().unwrap();
+
+                CallbackDurationExport {
+                    id,
+                    name: RosInterfaceCompleteName {
+                        interface: format!(
+                            "Callback({})",
+                            c.get_caller().map(ToString::to_string).unwrap_or_default()
+                        ),
+                        node: c
+                            .get_node()
+                            .map_or(WeakKnown::Unknown, |node_weak| {
+                                get_node_name_from_weak(&node_weak.get_weak())
+                            })
+                            .unwrap_or(String::new()),
+                    },
+                    callback_durations: v.durations.clone(),
+                }
+            })
+            .collect()
+    }
+
+    pub fn message_latencies(
+        &self,
+        node_ids: &HashMap<Node, usize>,
+        edge_ids: &HashMap<(usize, usize), usize>,
+    ) -> Vec<MessageLatencyExport> {
+        self.edges
+            .iter()
+            .map(|(k, v)| {
+                let source = get_node_name_from_graph_node(&k.source());
+                let dest = get_node_name_from_graph_node(&k.target());
+
+                let topic = match k.source() {
+                    Node::Publisher(arc_mut_wrapper) => {
+                        arc_mut_wrapper.0.lock().unwrap().get_topic().to_string()
+                    }
+                    Node::Subscriber(arc_mut_wrapper) => {
+                        arc_mut_wrapper.0.lock().unwrap().get_topic().to_string()
+                    }
+                    Node::Service(arc_mut_wrapper) => {
+                        arc_mut_wrapper.0.lock().unwrap().get_name().to_string()
+                    }
+                    Node::Timer(arc_mut_wrapper) => {
+                        arc_mut_wrapper.0.lock().unwrap().get_period().to_string()
+                    }
+                    _ => match k.target() {
+                        Node::Publisher(arc_mut_wrapper) => {
+                            arc_mut_wrapper.0.lock().unwrap().get_topic().to_string()
+                        }
+                        Node::Subscriber(arc_mut_wrapper) => {
+                            arc_mut_wrapper.0.lock().unwrap().get_topic().to_string()
+                        }
+                        Node::Service(arc_mut_wrapper) => {
+                            arc_mut_wrapper.0.lock().unwrap().get_name().to_string()
+                        }
+                        Node::Timer(arc_mut_wrapper) => {
+                            arc_mut_wrapper.0.lock().unwrap().get_period().to_string()
+                        }
+                        _ => String::new(),
+                    },
+                };
+
+                let from = node_ids[&k.source()];
+                let to = node_ids[&k.target()];
+
+                MessageLatencyExport {
+                    id: edge_ids[&(from, to)],
+                    name: RosChannelCompleteName {
+                        source_node: source,
+                        destination_node: dest,
+                        topic,
+                    },
+                    messages_latencies: v.latencies.clone(),
+                }
+            })
+            .collect()
+    }
+
+    pub fn node_overview(&self, node_ids: &HashMap<Node, usize>) -> Vec<NodeOverviewExport> {
+        let mut overview = vec![];
+
+        for publisher in self.publisher_nodes.keys() {
+            let id = node_ids[&Node::Publisher(publisher.clone())];
+
+            overview.push(NodeOverviewExport {
+                id,
+                element_type: ElementType::Publisher,
+                analyses: vec![AnalysisProperty::PublicationDelay],
+            });
+        }
+
+        for subscriber in self.subscriber_nodes.keys() {
+            let id = node_ids[&Node::Subscriber(subscriber.clone())];
+
+            overview.push(NodeOverviewExport {
+                id,
+                element_type: ElementType::Subscriber,
+                analyses: vec![AnalysisProperty::MessageDelay],
+            });
+        }
+
+        for callback in self.callback_nodes.keys() {
+            let id = node_ids[&Node::Callback(callback.clone())];
+
+            overview.push(NodeOverviewExport {
+                id,
+                element_type: ElementType::Callback,
+                analyses: vec![
+                    AnalysisProperty::InterActivationDelay,
+                    AnalysisProperty::CallbackDuration,
+                ],
+            });
+        }
+
+        for timer in self.timer_nodes.keys() {
+            let id = node_ids[&Node::Timer(timer.clone())];
+
+            overview.push(NodeOverviewExport {
+                id,
+                element_type: ElementType::Timer,
+                analyses: vec![AnalysisProperty::InterActivationDelay],
+            });
+        }
+
+        overview
     }
 }
 
@@ -604,17 +919,17 @@ struct DisplayAsDotEdge {
     edge_type: EdgeType,
 }
 
-pub struct DisplayAsDot<'a> {
+pub struct DotGraph {
     graph_node_to_ros_node: HashMap<Node, ArcMutWrapper<model::Node>>,
     node_to_id: HashMap<Node, usize>,
     ros_nodes: Vec<ArcMutWrapper<model::Node>>,
     ros_node_to_id: HashMap<ArcMutWrapper<model::Node>, usize>,
     ros_nodes_min_max_latency_stats: HashMap<ArcMutWrapper<model::Node>, EdgeWeightStats>,
 
+    edge_ids: HashMap<(usize, usize), usize>,
+
     edges: Vec<DisplayAsDotEdge>,
     pub_sub_latency_range: Option<(i64, i64)>,
-
-    analysis: &'a DependencyGraph,
 
     // Cli Arguments
     color: bool,
@@ -622,19 +937,31 @@ pub struct DisplayAsDot<'a> {
     min_multiplier: f64,
 }
 
-impl<'a> DisplayAsDot<'a> {
-    pub fn new(
-        graph: &'a DependencyGraph,
-        color: bool,
-        thickness: bool,
-        min_multiplier: f64,
-    ) -> Self {
+impl DotGraph {
+    pub fn new(graph: &DependencyGraph, color: bool, thickness: bool, min_multiplier: f64) -> Self {
+        fn element_name(node: Option<ArcWeak<Mutex<model::Node>>>, topic: impl Debug) -> String {
+            let node_name = node
+                .map(|n| {
+                    n.get_arc()
+                        .unwrap()
+                        .lock()
+                        .unwrap()
+                        .get_full_name()
+                        .to_string()
+                })
+                .unwrap_or(String::new());
+            format!("{node_name}{topic:?}")
+        }
+
         let mut graph_node_to_ros_node: HashMap<Node, ArcMutWrapper<model::Node>> = HashMap::new();
         let mut node_to_id = HashMap::new();
 
         let mut graph_node_id = 1;
 
-        for publisher in graph.publisher_nodes.keys() {
+        for publisher in graph.publisher_nodes.keys().sorted_by_cached_key(|k| {
+            let publ = k.0.lock().unwrap();
+            element_name(publ.get_node().into(), publ.get_topic())
+        }) {
             let node = Node::Publisher(publisher.clone());
             node_to_id.insert(node.clone(), graph_node_id);
             graph_node_id += 1;
@@ -646,7 +973,10 @@ impl<'a> DisplayAsDot<'a> {
             }
         }
 
-        for subscriber in graph.subscriber_nodes.keys() {
+        for subscriber in graph.subscriber_nodes.keys().sorted_by_cached_key(|k| {
+            let subs = k.0.lock().unwrap();
+            element_name(subs.get_node().into(), subs.get_topic())
+        }) {
             let node = Node::Subscriber(subscriber.clone());
             node_to_id.insert(node.clone(), graph_node_id);
             graph_node_id += 1;
@@ -658,7 +988,10 @@ impl<'a> DisplayAsDot<'a> {
             }
         }
 
-        for timer in graph.timer_nodes.keys() {
+        for timer in graph.timer_nodes.keys().sorted_by_cached_key(|k| {
+            let timer = k.0.lock().unwrap();
+            element_name(timer.get_node().into(), timer.get_period())
+        }) {
             let node = Node::Timer(timer.clone());
             node_to_id.insert(node.clone(), graph_node_id);
             graph_node_id += 1;
@@ -668,7 +1001,10 @@ impl<'a> DisplayAsDot<'a> {
             graph_node_to_ros_node.insert(node, ros_node.clone().into());
         }
 
-        for callback in graph.callback_nodes.keys() {
+        for callback in graph.callback_nodes.keys().sorted_by_cached_key(|k| {
+            let cb = k.0.lock().unwrap();
+            element_name(cb.get_node(), cb.get_name())
+        }) {
             let node = Node::Callback(callback.clone());
             node_to_id.insert(node.clone(), graph_node_id);
             graph_node_id += 1;
@@ -712,12 +1048,13 @@ impl<'a> DisplayAsDot<'a> {
             .map(|(id, ros_node)| (ros_node.clone(), id))
             .collect::<HashMap<_, _>>();
 
-        let (edges, ros_nodes_min_max_latency_stats, pub_sub_latency_range) = process_edges(
-            &graph.edges,
-            &graph_node_to_ros_node,
-            &ros_node_to_id,
-            &node_to_id,
-        );
+        let (edges, ros_nodes_min_max_latency_stats, pub_sub_latency_range, edge_ids) =
+            process_edges(
+                &graph.edges,
+                &graph_node_to_ros_node,
+                &ros_node_to_id,
+                &node_to_id,
+            );
 
         Self {
             graph_node_to_ros_node,
@@ -726,12 +1063,20 @@ impl<'a> DisplayAsDot<'a> {
             node_to_id,
             ros_nodes_min_max_latency_stats,
             edges,
-            analysis: graph,
+            edge_ids,
             pub_sub_latency_range,
             color,
             thickness,
             min_multiplier,
         }
+    }
+
+    pub fn node_ids(&self) -> &HashMap<Node, usize> {
+        &self.node_to_id
+    }
+
+    pub fn edge_ids(&self) -> &HashMap<(usize, usize), usize> {
+        &self.edge_ids
     }
 }
 
@@ -744,13 +1089,19 @@ fn process_edges(
     Vec<DisplayAsDotEdge>,
     HashMap<ArcMutWrapper<model::Node>, EdgeWeightStats>,
     Option<(i64, i64)>,
+    HashMap<(usize, usize), usize>,
 ) {
     let (mut pub_sub_min_latency, mut pub_sub_max_latency) = (i64::MAX, i64::MIN);
     let mut edges = Vec::new();
     let mut ros_nodes_min_max_latency_stats: HashMap<ArcMutWrapper<model::Node>, EdgeWeightStats> =
         HashMap::new();
+    let mut edge_ids = HashMap::new();
 
-    for (edge, edge_data) in graph_edges {
+    let mut edge_id = 1;
+
+    for (edge, edge_data) in graph_edges.iter().sorted_by_cached_key(|(edge, _)| {
+        (node_to_id[&edge.source()] as u64) << 32 | node_to_id[&edge.target()] as u64
+    }) {
         let latencies = Sorted::from_unsorted(&edge_data.latencies);
         let Some(median) = latencies.median().copied() else {
             log::warn!("Skipping edge without latency samples: {edge:?}");
@@ -768,6 +1119,8 @@ fn process_edges(
             log::warn!("Skipping edge {edge_type:?}: target node missing from id map: {target:?}");
             continue;
         };
+        edge_ids.insert((source_id, target_id), edge_id);
+        edge_id += 1;
 
         let Some(source_ros_node) = graph_node_to_ros_node.get(&source) else {
             log::warn!(
@@ -838,50 +1191,32 @@ fn process_edges(
         edges,
         ros_nodes_min_max_latency_stats,
         pub_sub_latency_range,
+        edge_ids,
     )
 }
 
-fn get_node_name_and_tooltip(
-    node: &Node,
-    analysis: &DependencyGraph,
-    ros_node_name: Known<&str>,
-) -> (String, String) {
+fn get_node_name(node: &Node) -> String {
     match node {
         Node::Publisher(publisher_arc) => {
             let publisher = publisher_arc.0.lock().unwrap();
             let topic = publisher.get_topic().to_string();
             let name = format!("Publisher\n{topic}");
-            let tooltip = format!(
-                "Node: {ros_node_name}\nDelay between publications:\n{}",
-                DisplayDurationStats::with_newline(
-                    &analysis.publisher_nodes[publisher_arc].publication_delay
-                )
-            );
-            (name, tooltip)
+
+            name
         }
         Node::Subscriber(subscriber_arc) => {
             let subscriber = subscriber_arc.0.lock().unwrap();
             let topic = subscriber.get_topic().to_string();
             let name = format!("Subscriber\n{topic}");
-            let tooltip = format!(
-                "Node: {ros_node_name}\nDelay between messages:\n{}",
-                DisplayDurationStats::with_newline(
-                    &analysis.subscriber_nodes[subscriber_arc].take_delay
-                )
-            );
-            (name, tooltip)
+
+            name
         }
         Node::Timer(timer_arc) => {
             let timer = timer_arc.0.lock().unwrap();
             let period = timer.get_period().unwrap();
             let name = format!("Timer\n{}", DisplayDuration(period));
-            let tooltip = format!(
-                "Node: {ros_node_name}\nDelay between activations:\n{}",
-                DisplayDurationStats::with_newline(
-                    &analysis.timer_nodes[timer_arc].activation_delay
-                )
-            );
-            (name, tooltip)
+
+            name
         }
         Node::Callback(callback_arc) => {
             let callback = callback_arc.0.lock().unwrap();
@@ -889,27 +1224,56 @@ fn get_node_name_and_tooltip(
                 "Callback\n{}",
                 Known::<&CallbackCaller>::from(callback.get_caller())
             );
-            let tooltip = format!(
-                "Node: {ros_node_name}\nDelay between activations:\n{}\nExecution duration:\n{}",
-                DisplayDurationStats::with_newline(
-                    &analysis.callback_nodes[callback_arc].activation_delay
-                ),
-                DisplayDurationStats::with_newline(
-                    &analysis.callback_nodes[callback_arc].durations
-                )
-            );
-            (name, tooltip)
+
+            name
         }
         Node::Service(service_arc) => {
             let service = service_arc.0.lock().unwrap();
             let name = format!("Service\n{}", service.get_name());
-            let tooltip = format!("Node: {ros_node_name}\nSee callback for details",);
-            (name, tooltip)
+
+            name
         }
     }
 }
 
-impl std::fmt::Display for DisplayAsDot<'_> {
+fn get_node_name_from_graph_node(node: &Node) -> String {
+    let x = match node {
+        Node::Publisher(arc_mut_wrapper) => arc_mut_wrapper.0.lock().unwrap().get_node(),
+        Node::Subscriber(arc_mut_wrapper) => arc_mut_wrapper.0.lock().unwrap().get_node(),
+        Node::Service(arc_mut_wrapper) => arc_mut_wrapper.0.lock().unwrap().get_node(),
+        Node::Timer(arc_mut_wrapper) => arc_mut_wrapper.0.lock().unwrap().get_node(),
+        Node::Callback(arc_mut_wrapper) => arc_mut_wrapper.0.lock().unwrap().get_node().into(),
+    };
+
+    match x {
+        Known::Known(c) => get_node_name_from_weak(&c.get_weak()),
+        Known::Unknown => WeakKnown::Unknown,
+    }
+    .to_string()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
+pub enum NodeType {
+    Publisher,
+    Subscriber,
+    Service,
+    Timer,
+    Callback,
+}
+
+impl From<&Node> for NodeType {
+    fn from(value: &Node) -> Self {
+        match value {
+            Node::Publisher(..) => NodeType::Publisher,
+            Node::Subscriber(..) => NodeType::Subscriber,
+            Node::Service(..) => NodeType::Service,
+            Node::Timer(..) => NodeType::Timer,
+            Node::Callback(..) => NodeType::Callback,
+        }
+    }
+}
+
+impl std::fmt::Display for DotGraph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let cluster_names = self
             .ros_nodes
@@ -918,7 +1282,11 @@ impl std::fmt::Display for DisplayAsDot<'_> {
             .collect::<Vec<_>>();
 
         let mut clusters = vec![Vec::new(); self.ros_node_to_id.len()];
-        for (node, ros_node) in &self.graph_node_to_ros_node {
+        for (node, ros_node) in self
+            .graph_node_to_ros_node
+            .iter()
+            .sorted_by_cached_key(|(_, node)| node.0.lock().unwrap().get_full_name().to_string())
+        {
             let Some(id) = self.ros_node_to_id.get(ros_node).copied() else {
                 log::warn!(
                     "Skipping cluster placement due to missing ROS-node id for node {node:?}"
@@ -936,35 +1304,25 @@ impl std::fmt::Display for DisplayAsDot<'_> {
 
         let mut graph = graphviz_export::Graph::new();
         graph.set_attribute("rankdir", "LR");
-        for (node, id) in &self.node_to_id {
-            let ros_node_name =
-                self.graph_node_to_ros_node
-                    .get(node)
-                    .map_or(Known::Unknown, |node_arc| {
-                        node_arc
-                            .0
-                            .lock()
-                            .unwrap()
-                            .get_full_name()
-                            .map(ToString::to_string)
-                    });
-            let (node_name, tooltip) =
-                get_node_name_and_tooltip(node, self.analysis, ros_node_name.as_deref());
+        for (node, id) in self.node_to_id.iter().sorted_by_key(|&(_, v)| v) {
+            let node_name = get_node_name(node);
 
             let graph_node = graph.add_node(&node_name, *id);
             graph_node.set_shape(NodeShape::Ellipse);
-            graph_node.set_attribute("tooltip", &tooltip);
+
+            let node_type = NodeType::from(node);
+            let reference = format!("r2ta-node://{}|{}", id, node_type);
+
+            graph_node.set_attribute("tooltip", &reference);
+            graph_node.set_attribute("URL", &reference);
         }
 
         for edge in &self.edges {
             let graph_edge = graph.add_edge(edge.source, edge.target, "");
-            graph_edge.set_attribute(
-                "tooltip",
-                &format!(
-                    "Latency:\n{}",
-                    DisplayDurationStats::with_newline(&edge.latencies),
-                ),
-            );
+            let reference = format!("r2ta-edge://{}", self.edge_ids[&(edge.source, edge.target)]);
+
+            graph_edge.set_attribute("tooltip", &reference);
+            graph_edge.set_attribute("URL", &reference);
 
             if let Some((min_latency, max_latency)) = match edge.edge_type {
                 EdgeType::PublisherSubscriberCommunication => self.pub_sub_latency_range,
@@ -1009,7 +1367,11 @@ impl std::fmt::Display for DisplayAsDot<'_> {
             }
         }
 
-        for (cluster_nodes, cluster_name) in clusters.into_iter().zip(cluster_names) {
+        for (cluster_nodes, cluster_name) in clusters
+            .into_iter()
+            .zip(cluster_names)
+            .sorted_by_cached_key(|(_node, name)| name.to_owned())
+        {
             graph.add_cluster(&cluster_name, cluster_nodes);
         }
 

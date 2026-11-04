@@ -62,11 +62,6 @@ impl<'a> ProcessedEventsIter<'a> {
         }
     }
 
-    pub(crate) fn add_analysis(&mut self, analysis: &'a mut dyn analysis::EventAnalysis) {
-        analysis.initialize();
-        self.analyses.push(analysis);
-    }
-
     pub(crate) fn add_add_analysis(
         &mut self,
         analyses: impl IntoIterator<Item = &'a mut dyn analysis::EventAnalysis>,
@@ -95,22 +90,6 @@ impl<'a> ProcessedEventsIter<'a> {
         - unsupported: {}\n\
         Other events: {}\n\
         Other messages: {}",
-            self.ros_processed_events,
-            self.ros_processing_failures,
-            self.ros_unsupported_events,
-            self.other_events,
-            self.other_messages
-        );
-    }
-
-    pub(crate) fn print_counters(&self) {
-        println!(
-            "Ros events:\n\
-            - processed: {}\n\
-            - failed to process: {}\n\
-            - unsupported: {}\n\
-            Other events: {}\n\
-            Other messages: {}",
             self.ros_processed_events,
             self.ros_processing_failures,
             self.ros_unsupported_events,
@@ -169,7 +148,6 @@ impl Iterator for ProcessedEventsIter<'_> {
                 Ok(processor::MaybeProcessed::Raw(raw)) => {
                     self.ros_unsupported_events += 1;
                     (self.on_unprocessed_event)(raw);
-                    continue;
                 }
                 Err(err) => {
                     self.ros_processing_failures += 1;

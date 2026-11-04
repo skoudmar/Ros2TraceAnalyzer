@@ -212,13 +212,13 @@ impl AlreadyExists {
         event: &E,
         time: Time,
         context: &Context,
-    ) -> ProcessingEvent {
-        ProcessingEvent {
+    ) -> Box<ProcessingEvent> {
+        Box::new(ProcessingEvent {
             raw_event: raw_events::Event::from(event.clone().into()),
             timestamp: time,
             context: context.clone(),
             cause: self.into(),
-        }
+        })
     }
 }
 

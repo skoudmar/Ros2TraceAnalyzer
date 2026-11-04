@@ -109,7 +109,7 @@ impl<'a> Utilization<'a> {
         thread_utilization
     }
 
-    pub fn calculate_utilization_per_callback_real(
+    pub(super) fn calculate_utilization_per_callback_real(
         &self,
     ) -> HashMap<ArcMutWrapper<Callback>, HashMap<u32, f64>> {
         self.calculate_utilization_per_callback_internal(
@@ -126,7 +126,7 @@ impl<'a> Utilization<'a> {
         )
     }
 
-    pub fn calculate_utilization_per_callback(
+    pub(super) fn calculate_utilization_per_callback(
         &self,
         execution_duration_quantile: Quantile,
     ) -> HashMap<ArcMutWrapper<Callback>, HashMap<u32, f64>> {
@@ -164,7 +164,7 @@ impl<'a> Utilization<'a> {
         )
     }
 
-    pub fn calculate_total_utilization(
+    pub(super) fn calculate_total_utilization(
         thread_utilization_per_callback: &HashMap<ArcMutWrapper<Callback>, HashMap<u32, f64>>,
     ) -> HashMap<(String, u32), f64> {
         let mut utilization_per_thread_map = HashMap::new();
