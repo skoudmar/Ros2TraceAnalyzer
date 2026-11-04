@@ -31,9 +31,6 @@ jobs:
     name: ${{ matrix.label }} (${{ matrix.toolchain }})
     runs-on: ubuntu-latest
 
-    # Require approval only for PR runs.
-    environment: ${{ github.event_name == 'pull_request' && 'ci-approval' || '' }}
-
     strategy:
       fail-fast: false
       matrix:
