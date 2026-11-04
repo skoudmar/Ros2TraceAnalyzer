@@ -101,7 +101,7 @@ pub struct SubscriberNode {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct TimerNode {
     /// Time between two consecutive timer activations
-    activation_delay: Vec<i64>,
+    inter_activation_delay: Vec<i64>,
 
     /// Last activation time
     last_activation: Option<Time>,
@@ -181,7 +181,7 @@ impl Edge {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct EdgeData {
-    activation_delay: Vec<i64>,
+    inter_activation_delay: Vec<i64>,
     latencies: Vec<i64>,
     last_activation: Option<Time>,
 }
@@ -206,11 +206,13 @@ impl DependencyGraph {
     fn process_timer_invocation(&mut self, timer: &Arc<Mutex<Timer>>, event_time: Time) {
         let timer_node = self.timer_nodes.entry(timer.clone().into()).or_default();
         if let Some(previous_activation) = timer_node.last_activation.replace(event_time) {
-            let activation_delay =
+            let inter_activation_delay =
                 event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-            timer_node.activation_delay.push(activation_delay);
+            timer_node
+                .inter_activation_delay
+                .push(inter_activation_delay);
         } else {
-            debug_assert!(timer_node.activation_delay.is_empty());
+            debug_assert!(timer_node.inter_activation_delay.is_empty());
         }
     }
 
@@ -229,16 +231,16 @@ impl DependencyGraph {
 
                 if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
                     debug_assert_eq!(
-                        edge_data.activation_delay.len() + 1,
+                        edge_data.inter_activation_delay.len() + 1,
                         edge_data.latencies.len()
                     );
 
                     let activation_delay =
                         event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-                    edge_data.activation_delay.push(activation_delay);
+                    edge_data.inter_activation_delay.push(activation_delay);
                 } else {
                     debug_assert!(edge_data.latencies.is_empty());
-                    debug_assert!(edge_data.activation_delay.is_empty());
+                    debug_assert!(edge_data.inter_activation_delay.is_empty());
                 }
 
                 let receive_time = message
@@ -255,18 +257,21 @@ impl DependencyGraph {
                 let edge = Edge::TimerCallbackInvocation(timer.clone().into(), callback_arc);
                 let edge_data = self.edges.entry(edge).or_default();
 
+                // TODO: This computes the same as
+                // process_timer_invocation. Is it really necessary to
+                // calculate inter_activation_delay twice?
                 if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
                     debug_assert_eq!(
-                        edge_data.activation_delay.len() + 1,
+                        edge_data.inter_activation_delay.len() + 1,
                         edge_data.latencies.len()
                     );
 
                     let activation_delay =
                         event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-                    edge_data.activation_delay.push(activation_delay);
+                    edge_data.inter_activation_delay.push(activation_delay);
                 } else {
                     debug_assert!(edge_data.latencies.is_empty());
-                    debug_assert!(edge_data.activation_delay.is_empty());
+                    debug_assert!(edge_data.inter_activation_delay.is_empty());
                 }
 
                 // Since the timer and the callback invocations are the same, the latency would be 0.
@@ -293,16 +298,16 @@ impl DependencyGraph {
 
                 if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
                     debug_assert_eq!(
-                        edge_data.activation_delay.len() + 1,
+                        edge_data.inter_activation_delay.len() + 1,
                         edge_data.latencies.len()
                     );
 
                     let activation_delay =
                         event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-                    edge_data.activation_delay.push(activation_delay);
+                    edge_data.inter_activation_delay.push(activation_delay);
                 } else {
                     debug_assert!(edge_data.latencies.is_empty());
-                    debug_assert!(edge_data.activation_delay.is_empty());
+                    debug_assert!(edge_data.inter_activation_delay.is_empty());
                 }
 
                 let service = service_arc.lock().unwrap();
@@ -437,16 +442,16 @@ impl DependencyGraph {
 
         if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
             debug_assert_eq!(
-                edge_data.activation_delay.len() + 1,
+                edge_data.inter_activation_delay.len() + 1,
                 edge_data.latencies.len()
             );
 
             let activation_delay =
                 event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-            edge_data.activation_delay.push(activation_delay);
+            edge_data.inter_activation_delay.push(activation_delay);
         } else {
             debug_assert!(edge_data.latencies.is_empty());
-            debug_assert!(edge_data.activation_delay.is_empty());
+            debug_assert!(edge_data.inter_activation_delay.is_empty());
         }
 
         let receive_time = event_time;
@@ -489,16 +494,16 @@ impl DependencyGraph {
 
             if let Some(previous_activation) = edge_data.last_activation.replace(event_time) {
                 debug_assert_eq!(
-                    edge_data.activation_delay.len() + 1,
+                    edge_data.inter_activation_delay.len() + 1,
                     edge_data.latencies.len()
                 );
 
                 let activation_delay =
                     event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-                edge_data.activation_delay.push(activation_delay);
+                edge_data.inter_activation_delay.push(activation_delay);
             } else {
                 debug_assert!(edge_data.latencies.is_empty());
-                debug_assert!(edge_data.activation_delay.is_empty());
+                debug_assert!(edge_data.inter_activation_delay.is_empty());
             }
 
             let latency =
@@ -569,7 +574,7 @@ impl DependencyGraph {
                         })
                         .unwrap_or(String::new()),
                 },
-                inter_activation_delays: v.activation_delay.clone(),
+                inter_activation_delays: v.inter_activation_delay.clone(),
             }
         });
 
