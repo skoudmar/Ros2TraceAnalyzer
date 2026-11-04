@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::analyses::analysis::dependency_graph::{
-    ActivationDelayExport, CallbackDurationExport, MessageLatencyExport, MessagesDelayExport,
+    CallbackDurationExport, InterActivationDelayExport, MessageLatencyExport, MessagesDelayExport,
     NodeOverviewExport, PublicationDelayExport,
 };
 use crate::argsv2::extract_args::AnalysisProperty;
@@ -112,11 +112,11 @@ pub fn extract_property(
                 .map_err(DataExtractionError::SourceDataParseError)?;
             PlottableData::new(property, d.name.to_string(), d.callback_durations)
         }
-        AnalysisProperty::ActivationDelay => {
+        AnalysisProperty::InterActivationDelay => {
             let d = store
-                .get_by_id::<ActivationDelayExport>(element_id)
+                .get_by_id::<InterActivationDelayExport>(element_id)
                 .map_err(DataExtractionError::SourceDataParseError)?;
-            PlottableData::new(property, d.name.to_string(), d.activation_delays)
+            PlottableData::new(property, d.name.to_string(), d.inter_activation_delays)
         }
         AnalysisProperty::PublicationDelay => {
             let d = store

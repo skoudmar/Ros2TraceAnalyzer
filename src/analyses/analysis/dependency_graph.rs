@@ -110,7 +110,7 @@ pub struct TimerNode {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct CallbackNode {
     /// Time between two consecutive callback activations. (c1.start) -> (c2.start)
-    activation_delay: Vec<i64>,
+    inter_activation_delay: Vec<i64>,
 
     /// Duration of the callback execution. (c1.start) -> (c1.end)
     durations: Vec<i64>,
@@ -349,9 +349,11 @@ impl DependencyGraph {
         let previous_activation = callback_node.last_activation.replace(event_time);
         if let Some(previous_activation) = previous_activation {
             debug_assert_eq!(event_time, callback_instance.get_start_time());
-            let activation_delay =
+            let inter_activation_delay =
                 event_time.timestamp_nanos() - previous_activation.timestamp_nanos();
-            callback_node.activation_delay.push(activation_delay);
+            callback_node
+                .inter_activation_delay
+                .push(inter_activation_delay);
         }
 
         self.process_edge_to_callback(callback.into(), callback_instance.get_trigger(), event_time);
@@ -514,10 +516,10 @@ pub struct NodeOverviewExport {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct ActivationDelayExport {
+pub struct InterActivationDelayExport {
     pub id: usize,
     pub name: RosInterfaceCompleteName,
-    pub activation_delays: Vec<i64>,
+    pub inter_activation_delays: Vec<i64>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -549,11 +551,14 @@ pub struct MessageLatencyExport {
 }
 
 impl DependencyGraph {
-    pub fn activation_delays(&self, node_ids: &HashMap<Node, usize>) -> Vec<ActivationDelayExport> {
+    pub fn inter_activation_delays(
+        &self,
+        node_ids: &HashMap<Node, usize>,
+    ) -> Vec<InterActivationDelayExport> {
         let timers = self.timer_nodes.iter().map(|(k, v)| {
             let id = node_ids[&Node::Timer(k.clone())];
             let n = k.0.lock().unwrap();
-            ActivationDelayExport {
+            InterActivationDelayExport {
                 id,
                 name: RosInterfaceCompleteName {
                     interface: format!("Timer({})", n.get_period().unwrap_or(0)),
@@ -564,14 +569,14 @@ impl DependencyGraph {
                         })
                         .unwrap_or(String::new()),
                 },
-                activation_delays: v.activation_delay.clone(),
+                inter_activation_delays: v.activation_delay.clone(),
             }
         });
 
         let callbacks = self.callback_nodes.iter().map(|(k, v)| {
             let id = node_ids[&Node::Callback(k.clone())];
             let n = k.0.lock().unwrap();
-            ActivationDelayExport {
+            InterActivationDelayExport {
                 id,
                 name: RosInterfaceCompleteName {
                     interface: format!(
@@ -594,7 +599,7 @@ impl DependencyGraph {
                         })
                         .unwrap_or(String::new()),
                 },
-                activation_delays: v.activation_delay.clone(),
+                inter_activation_delays: v.inter_activation_delay.clone(),
             }
         });
 
@@ -769,7 +774,7 @@ impl DependencyGraph {
                 id,
                 element_type: ElementType::Callback,
                 analyses: vec![
-                    AnalysisProperty::ActivationDelay,
+                    AnalysisProperty::InterActivationDelay,
                     AnalysisProperty::CallbackDuration,
                 ],
             });
@@ -781,7 +786,7 @@ impl DependencyGraph {
             overview.push(NodeOverviewExport {
                 id,
                 element_type: ElementType::Timer,
-                analyses: vec![AnalysisProperty::ActivationDelay],
+                analyses: vec![AnalysisProperty::InterActivationDelay],
             });
         }
 

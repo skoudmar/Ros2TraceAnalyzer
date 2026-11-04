@@ -84,7 +84,7 @@ pub enum AnalysisProperty {
 
     /// Delays between callback or timer activations
     #[display("Delays between activations")]
-    ActivationDelay,
+    InterActivationDelay,
 
     /// Delays between publisher publications
     #[display("Delay between publications")]

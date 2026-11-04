@@ -299,11 +299,11 @@ Arguments:
           The property to plot
 
           Possible values:
-          - callback-duration: Callback execution durations
-          - activation-delay:  Delays between callback or timer activations
-          - publication-delay: Delays between publisher publications
-          - message-delay:     Delays between subscriber messages
-          - message-latency:   Latency of a communication channel
+          - callback-duration:      Callback execution durations
+          - inter-activation-delay: Delays between callback or timer activations
+          - publication-delay:      Delays between publisher publications
+          - message-delay:          Delays between subscriber messages
+          - message-latency:        Latency of a communication channel
 
   <ELEMENT_ID>
           Identifies the element in the dependency graph for which to generate the plot

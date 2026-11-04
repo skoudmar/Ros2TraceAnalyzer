@@ -201,9 +201,8 @@ impl AxisQuantity {
 const fn value_axis(plotted_value: PlottedValue) -> AxisDescriptor {
     let label = match plotted_value {
         PlottedValue::CallbackDuration => "Duration",
-        PlottedValue::ActivationDelay
-        | PlottedValue::PublicationDelay
-        | PlottedValue::MessageDelay => "Delay",
+        PlottedValue::InterActivationDelay => "Inter-activation delay",
+        PlottedValue::PublicationDelay | PlottedValue::MessageDelay => "Delay",
         PlottedValue::MessageLatency => "Latency",
     };
     AxisDescriptor {
@@ -215,7 +214,7 @@ const fn value_axis(plotted_value: PlottedValue) -> AxisDescriptor {
 const fn count_label(plotted_value: PlottedValue) -> &'static str {
     match plotted_value {
         PlottedValue::CallbackDuration => "Callbacks",
-        PlottedValue::ActivationDelay => "Activations",
+        PlottedValue::InterActivationDelay => "Activations",
         PlottedValue::PublicationDelay => "Publications",
         PlottedValue::MessageDelay => "Messages",
         PlottedValue::MessageLatency => "Message",
@@ -225,7 +224,7 @@ const fn count_label(plotted_value: PlottedValue) -> &'static str {
 const fn sequence_label(plotted_value: PlottedValue) -> &'static str {
     match plotted_value {
         PlottedValue::CallbackDuration => "Callback #",
-        PlottedValue::ActivationDelay => "Activation #",
+        PlottedValue::InterActivationDelay => "Activation #",
         PlottedValue::PublicationDelay => "Publication #",
         PlottedValue::MessageDelay | PlottedValue::MessageLatency => "Message #",
     }

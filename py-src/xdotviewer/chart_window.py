@@ -101,11 +101,11 @@ class ChartWindow(Gtk.Window):
                 activation_delay = Gtk.ToolButton(label="Activation delay")
                 activation_delay.connect(
                     "clicked",
-                    lambda w: self.set_and_rerun("value", ChartValue.ACTIVATIONS_DELAY),
+                    lambda w: self.set_and_rerun("value", ChartValue.INTER_ACTIVATIONS_DELAY),
                 )
                 toolbar.insert(activation_delay, -1)
             elif self.element.node_type == NodeType.TIMER:
-                self.value = ChartValue.ACTIVATIONS_DELAY
+                self.value = ChartValue.INTER_ACTIVATIONS_DELAY
             elif self.element.node_type == NodeType.PUBLISHER:
                 self.value = ChartValue.PUBLICATIONS_DELAY
             elif self.element.node_type == NodeType.SUBSCRIBER:

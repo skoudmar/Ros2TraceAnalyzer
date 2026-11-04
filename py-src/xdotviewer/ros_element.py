@@ -5,7 +5,7 @@ from enum import Enum
 class ChartValue(Enum):
     CALLBACK_DURATION = "callback-duration"
     MESSAGE_LATENCY = "message-latency"
-    ACTIVATIONS_DELAY = "activation-delay"
+    INTER_ACTIVATIONS_DELAY = "inter-activation-delay"
     MESSAGES_DELAY = "message-delay"
     PUBLICATIONS_DELAY = "publication-delay"
 
@@ -19,7 +19,7 @@ class ChartValue(Enum):
             case NodeType.CALLBACK:
                 return ChartValue.CALLBACK_DURATION
             case NodeType.TIMER:
-                return ChartValue.ACTIVATIONS_DELAY
+                return ChartValue.INTER_ACTIVATIONS_DELAY
             case NodeType.PUBLISHER:
                 return ChartValue.PUBLICATIONS_DELAY
             case NodeType.SUBSCRIBER:

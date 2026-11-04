@@ -114,7 +114,7 @@ impl Analyses {
                 store.insert(
                     &graph_analysis.message_latencies(dot_graph.node_ids(), dot_graph.edge_ids()),
                 )?;
-                store.insert(&graph_analysis.activation_delays(dot_graph.node_ids()))?;
+                store.insert(&graph_analysis.inter_activation_delays(dot_graph.node_ids()))?;
                 store.insert(&graph_analysis.publication_delays(dot_graph.node_ids()))?;
                 store.insert(&graph_analysis.callback_durations(dot_graph.node_ids()))?;
                 store.insert(&graph_analysis.message_delays(dot_graph.node_ids()))?;

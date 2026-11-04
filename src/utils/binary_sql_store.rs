@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::analyses::analysis::dependency_graph::{
-    ActivationDelayExport, CallbackDurationExport, MessageLatencyExport, MessagesDelayExport,
+    CallbackDurationExport, InterActivationDelayExport, MessageLatencyExport, MessagesDelayExport,
     NodeOverviewExport, PublicationDelayExport,
 };
 use crate::extract::{RosChannelCompleteName, RosInterfaceCompleteName};
@@ -291,23 +291,24 @@ impl Entity for PublicationDelayExport {
     }
 }
 
-impl Entity for ActivationDelayExport {
+impl Entity for InterActivationDelayExport {
     const PARAMS: &'static [TableColumn] = &[
         TableColumn::new("id", "INT PRIMARY KEY"),
         TableColumn::new("node", "TEXT"),
         TableColumn::new("interface", "TEXT"),
         TableColumn::new("delays", "BLOB"),
     ];
-    const TABLE: &'static str = "activation_delay";
+    const TABLE: &'static str = "inter_activation_delay";
 
     fn from_row(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-        Ok(ActivationDelayExport {
+        Ok(InterActivationDelayExport {
             id: row.get::<_, i64>("id")? as usize,
             name: RosInterfaceCompleteName {
                 interface: row.get("interface")?,
                 node: row.get("node")?,
             },
-            activation_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("delays")?).unwrap(),
+            inter_activation_delays: postcard::from_bytes(&row.get::<_, Vec<_>>("delays")?)
+                .unwrap(),
         })
     }
 
@@ -316,7 +317,7 @@ impl Entity for ActivationDelayExport {
             self.id as i64,
             &self.name.node,
             &self.name.interface,
-            postcard::to_allocvec(&self.activation_delays).unwrap(),
+            postcard::to_allocvec(&self.inter_activation_delays).unwrap(),
         )
     }
 }
